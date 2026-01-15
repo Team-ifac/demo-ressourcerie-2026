@@ -184,9 +184,16 @@ export const appRouter = router({
 
 
         // ✅ Blocage : pas de connexion tant que lemail n’est pas vérifié
-        if ((user as any).emailVerified === 0 || (user as any).emailVerified === false) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Email not verified" });
-        }
+        const isEmailVerified = !(
+  (user as any).emailVerified === 0 ||
+  (user as any).emailVerified === false
+);
+
+// MODE DÉMO : on n'empêche pas le login si l'email n'est pas vérifié
+// (à réactiver quand l'envoi d'email SendGrid est OK)
+if (!isEmailVerified) {
+  console.warn("[auth.login] Email not verified -> allowed (demo mode)");
+}
 
         // 1) On s'assure d'avoir un openId
         let openId = (user as any).openId as string | null | undefined;
