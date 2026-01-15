@@ -24,12 +24,8 @@ export const collectionProfiles = mysqlTable("collection_profiles", {
   collectionId: int()
     .notNull()
     .references(() => collections.id, { onDelete: "cascade" }),
-  profileType: mysqlEnum([
-    "animateur",
-    "formateur",
-    "directeur",
-    "stagiaire_bafa",
-  ]).notNull(),
+  profileType: mysqlEnum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+    .notNull(),
   addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
 });
 
@@ -58,10 +54,14 @@ export const collections = mysqlTable("collections", {
 
 export const comments = mysqlTable("comments", {
   id: int().primaryKey().autoincrement().notNull(),
-  resourceId: int().notNull().references(() => resources.id, { onDelete: "cascade" }),
-  userId: int().notNull().references(() => users.id, { onDelete: "cascade" }),
+  resourceId: int()
+    .notNull()
+    .references(() => resources.id, { onDelete: "cascade" }),
+  userId: int()
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   content: text().notNull(),
-  hasTested: mysqlEnum(["true","false"]).default("false").notNull(),
+  hasTested: mysqlEnum(["true", "false"]).default("false").notNull(),
   rating: int(),
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
@@ -80,7 +80,7 @@ export const favorites = mysqlTable("favorites", {
 export const formateurs = mysqlTable(
   "formateurs",
   {
-    id: int().autoincrement().notNull(),
+    id: int().primaryKey().autoincrement().notNull(),
     email: varchar({ length: 320 }).notNull(),
     passwordHash: varchar({ length: 255 }).notNull(),
     firstName: varchar({ length: 255 }),
@@ -94,7 +94,7 @@ export const formateurs = mysqlTable(
 );
 
 export const resourceHistory = mysqlTable("resource_history", {
-  id: int().autoincrement().notNull(),
+  id: int().primaryKey().autoincrement().notNull(),
   resourceId: int()
     .notNull()
     .references(() => resources.id, { onDelete: "cascade" }),
@@ -108,12 +108,8 @@ export const resourceProfiles = mysqlTable("resource_profiles", {
   resourceId: int()
     .notNull()
     .references(() => resources.id, { onDelete: "cascade" }),
-  profileType: mysqlEnum([
-    "animateur",
-    "formateur",
-    "directeur",
-    "stagiaire_bafa",
-  ]).notNull(),
+  profileType: mysqlEnum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+    .notNull(),
   addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
 });
 
@@ -132,7 +128,7 @@ export const resourceThemes = mysqlTable("resource_themes", {
 });
 
 export const resources = mysqlTable("resources", {
-  id: int().autoincrement().notNull(),
+  id: int().primaryKey().autoincrement().notNull(),
   title: varchar({ length: 500 }).notNull(),
   summary: text().notNull(),
   content: text().notNull(),
@@ -159,19 +155,14 @@ export const resources = mysqlTable("resources", {
 export const subscriptions = mysqlTable(
   "subscriptions",
   {
-    id: int().autoincrement().notNull(),
+    id: int().primaryKey().autoincrement().notNull(),
     userId: int()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     stripeCustomerId: varchar({ length: 255 }).notNull(),
     stripeSubscriptionId: varchar({ length: 255 }).notNull(),
-    status: mysqlEnum([
-      "active",
-      "canceled",
-      "past_due",
-      "unpaid",
-      "incomplete",
-    ]).notNull(),
+    status: mysqlEnum(["active", "canceled", "past_due", "unpaid", "incomplete"])
+      .notNull(),
     currentPeriodStart: timestamp({ mode: "string" }).notNull(),
     currentPeriodEnd: timestamp({ mode: "string" }).notNull(),
     canceledAt: timestamp({ mode: "string" }),
@@ -184,7 +175,7 @@ export const subscriptions = mysqlTable(
 export const tags = mysqlTable(
   "tags",
   {
-    id: int().autoincrement().notNull(),
+    id: int().primaryKey().autoincrement().notNull(),
     name: varchar({ length: 100 }).notNull(),
     slug: varchar({ length: 100 }).notNull(),
     createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
@@ -198,7 +189,7 @@ export const tags = mysqlTable(
 export const themes = mysqlTable(
   "themes",
   {
-    id: int().autoincrement().notNull(),
+    id: int().primaryKey().autoincrement().notNull(),
     name: varchar({ length: 255 }).notNull(),
     slug: varchar({ length: 255 }).notNull(),
     createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
@@ -210,18 +201,14 @@ export const userProfiles = mysqlTable("user_profiles", {
   userId: int()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  profileType: mysqlEnum([
-    "animateur",
-    "formateur",
-    "directeur",
-    "stagiaire_bafa",
-  ]).notNull(),
+  profileType: mysqlEnum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+    .notNull(),
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
 });
 
 export const learningPaths = mysqlTable("learning_paths", {
-  id: int().autoincrement().notNull(),
+  id: int().primaryKey().autoincrement().notNull(),
   title: varchar({ length: 255 }).notNull(),
   description: text().notNull(),
   icon: varchar({ length: 50 }).notNull(),
@@ -237,7 +224,7 @@ export const learningPaths = mysqlTable("learning_paths", {
 export const users = mysqlTable(
   "users",
   {
-    id: int().autoincrement().notNull(),
+    id: int().primaryKey().autoincrement().notNull(),
     openId: varchar({ length: 64 }).notNull(),
     name: text(),
     email: varchar({ length: 320 }),
