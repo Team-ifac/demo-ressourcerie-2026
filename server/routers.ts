@@ -175,6 +175,9 @@ export const appRouter = router({
       .input(z.object({ email: z.string().email(), password: z.string() }))
       .mutation(async ({ input, ctx }) => {
         const user = await authService.findUserByEmail(input.email);
+        console.log("[auth.login] email =", input.email);
+console.log("[auth.login] user found =", !!user, "hasPasswordHash =", !!user?.passwordHash);
+
         if (!user || !user.passwordHash)
           throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials" });
 
