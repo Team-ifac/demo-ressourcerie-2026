@@ -44,7 +44,7 @@ export const collectionResources = mysqlTable("collection_resources", {
 });
 
 export const collections = mysqlTable("collections", {
-  id: int().autoincrement().notNull(),
+  id: int().primaryKey().autoincrement().notNull(),
   userId: int()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
