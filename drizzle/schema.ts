@@ -57,15 +57,11 @@ export const collections = mysqlTable("collections", {
 });
 
 export const comments = mysqlTable("comments", {
-  id: int().autoincrement().notNull(),
-  resourceId: int()
-    .notNull()
-    .references(() => resources.id, { onDelete: "cascade" }),
-  userId: int()
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+  id: int().primaryKey().autoincrement().notNull(),
+  resourceId: int().notNull().references(() => resources.id, { onDelete: "cascade" }),
+  userId: int().notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text().notNull(),
-  hasTested: mysqlEnum(["true", "false"]).default("false").notNull(),
+  hasTested: mysqlEnum(["true","false"]).default("false").notNull(),
   rating: int(),
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
