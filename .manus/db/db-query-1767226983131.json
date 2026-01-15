@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, type, category FROM resources WHERE category IS NOT NULL LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT id, type, category FROM resources WHERE category IS NOT NULL LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "type": "Fiche",
+      "category": "[\"Fiches pratiques\"]"
+    },
+    {
+      "id": "2",
+      "type": "Kit clé en main",
+      "category": "[\"Kits complets\"]"
+    },
+    {
+      "id": "3",
+      "type": "Projet",
+      "category": "[\"Projets pédagogiques\"]"
+    },
+    {
+      "id": "4",
+      "type": "Article",
+      "category": "[\"Articles\"]"
+    },
+    {
+      "id": "5",
+      "type": "Kit clé en main",
+      "category": "Formation BAFA/BAFD"
+    },
+    {
+      "id": "6",
+      "type": "Projet",
+      "category": "Projets d'animation"
+    },
+    {
+      "id": "7",
+      "type": "Fiche",
+      "category": "Outils de formation"
+    },
+    {
+      "id": "8",
+      "type": "Article",
+      "category": "Gestion de groupe"
+    },
+    {
+      "id": "9",
+      "type": "Kit clé en main",
+      "category": "Activités manuelles et créatives"
+    },
+    {
+      "id": "10",
+      "type": "Projet",
+      "category": "Jeux et activités sportives"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttype\tcategory\n1\tFiche\t[\"Fiches pratiques\"]\n2\tKit clé en main\t[\"Kits complets\"]\n3\tProjet\t[\"Projets pédagogiques\"]\n4\tArticle\t[\"Articles\"]\n5\tKit clé en main\tFormation BAFA/BAFD\n6\tProjet\tProjets d'animation\n7\tFiche\tOutils de formation\n8\tArticle\tGestion de groupe\n9\tKit clé en main\tActivités manuelles et créatives\n10\tProjet\tJeux et activités sportives\n",
+  "stderr": "",
+  "execution_time_ms": 54
+}

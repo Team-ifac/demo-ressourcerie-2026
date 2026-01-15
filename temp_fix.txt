@@ -1,0 +1,21 @@
+    importFormateurs: adminProcedure
+      .input(z.object({
+        file: z.any(),
+      }))
+      .mutation(async ({ input }) => {
+        const { importFormateurs } = await import("./importFormateurs");
+        let buffer: ArrayBuffer;
+        
+        // Gerer les deux cas : File object ou ArrayBuffer
+        if (input.file instanceof ArrayBuffer) {
+          buffer = input.file;
+        } else if (input.file && typeof input.file === 'object' && 'arrayBuffer' in input.file) {
+          buffer = await input.file.arrayBuffer();
+        } else {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Fichier invalide',
+          });
+        }
+        
+        const tempPath = `/tmp/formateurs_${Date.now()}.xlsx`;

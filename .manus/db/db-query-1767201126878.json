@@ -1,0 +1,26 @@
+{
+  "query": "SELECT id, title FROM resources WHERE title LIKE '%test%' OR title LIKE '%mise à jour%' OR title LIKE '%commentaire%' LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT id, title FROM resources WHERE title LIKE '%test%' OR title LIKE '%mise à jour%' OR title LIKE '%commentaire%' LIMIT 20;",
+  "rows": [
+    {
+      "id": "90001",
+      "title": "Test"
+    },
+    {
+      "id": "90003",
+      "title": "Ressource pour test collections"
+    },
+    {
+      "id": "90004",
+      "title": "Ressource pour test commentaires"
+    },
+    {
+      "id": "90007",
+      "title": "Ressource pour test tags 1767167726227"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\n90001\tTest\n90003\tRessource pour test collections\n90004\tRessource pour test commentaires\n90007\tRessource pour test tags 1767167726227\n",
+  "stderr": "",
+  "execution_time_ms": 1538
+}

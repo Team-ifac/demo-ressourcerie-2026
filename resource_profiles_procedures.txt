@@ -1,0 +1,35 @@
+  resourceProfiles: router({
+    add: adminProcedure
+      .input(z.object({
+        resourceId: z.number(),
+        profileType: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"]),
+      }))
+      .mutation(async ({ input }) => {
+        await db.associateResourceToProfile(input.resourceId, input.profileType);
+        return { success: true };
+      }),
+
+    remove: adminProcedure
+      .input(z.object({
+        resourceId: z.number(),
+        profileType: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"]),
+      }))
+      .mutation(async ({ input }) => {
+        await db.removeResourceFromProfile(input.resourceId, input.profileType);
+        return { success: true };
+      }),
+
+    getByProfile: publicProcedure
+      .input(z.object({
+        profileType: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"]),
+      }))
+      .query(async ({ input }) => {
+        return await db.getResourcesByProfile(input.profileType);
+      }),
+
+    getByResource: publicProcedure
+      .input(z.object({ resourceId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getResourceProfiles(input.resourceId);
+      }),
+  }),

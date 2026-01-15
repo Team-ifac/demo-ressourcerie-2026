@@ -1,0 +1,31 @@
+{
+  "query": "-- Vérifier les tables existantes\nSHOW TABLES LIKE '%profile%';\n-- Vérifier les ressources\nSELECT COUNT(*) as total_resources FROM resources;\n-- Vérifier les collections\nSELECT COUNT(*) as total_collections FROM collections;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute -- Vérifier les tables existantes\nSHOW TABLES LIKE '%profile%';\n-- Vérifier les ressources\nSELECT COUNT(*) as total_resources FROM resources;\n-- Vérifier les collections\nSELECT COUNT(*) as total_collections FROM collections;",
+  "rows": [
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)": "collection_profiles"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)": "resource_profiles"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)": "user_profiles"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)": "total_resources"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)": "120"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)": "total_collections"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)": "10"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_gQewigmMrgup669TjBuvK5 (%profile%)\ncollection_profiles\nresource_profiles\nuser_profiles\ntotal_resources\n120\ntotal_collections\n10\n",
+  "stderr": "",
+  "execution_time_ms": 73
+}

@@ -1,0 +1,292 @@
+client/src/App.tsx:19:import ProfileCategories from "./pages/ProfileCategories";
+client/src/App.tsx:26:import UserProfile from "@/pages/UserProfile";
+client/src/App.tsx:38:import AdminProfiles from "./pages/AdminProfiles";
+client/src/App.tsx:40:import { ProfileSelection } from "./pages/ProfileSelection";
+client/src/App.tsx:42:import UserProfileManagement from "./pages/UserProfileManagement";
+client/src/App.tsx:104:      {/* Navigation par profil et besoin */}
+client/src/App.tsx:105:      <Route path="/selection-profil" component={ProfileSelection} />
+client/src/App.tsx:106:      <Route path="/profil/:profile" component={ProfileCategories} />
+client/src/App.tsx:116:      <Route path="/profil" component={UserProfile} />
+client/src/App.tsx:117:      <Route path="/gestion-profil" component={UserProfileManagement} />
+client/src/App.tsx:128:      <Route path="/admin/profils" component={AdminProfiles} />
+client/src/components/GDPRExport.tsx:9:  profile: boolean;
+client/src/components/GDPRExport.tsx:21:    profile: true,
+client/src/components/GDPRExport.tsx:46:          profile: exportOptions.profile ? { /* données du profil */ } : null,
+client/src/components/GDPRExport.tsx:80:      profile: true,
+client/src/components/GDPRExport.tsx:91:      profile: false,
+client/src/components/GDPRExport.tsx:135:            {/* Profil */}
+client/src/components/GDPRExport.tsx:138:                id="profile"
+client/src/components/GDPRExport.tsx:139:                checked={exportOptions.profile}
+client/src/components/GDPRExport.tsx:140:                onCheckedChange={() => handleOptionChange("profile")}
+client/src/components/GDPRExport.tsx:142:              <label htmlFor="profile" className="text-sm font-medium cursor-pointer">
+client/src/components/GDPRExport.tsx:143:                Profil utilisateur
+client/src/components/DashboardLayoutSkeleton.tsx:21:        {/* User profile area at bottom */}
+client/src/components/Footer.tsx:60:                  <Link href="/profil/animateur" className="text-slate-400 hover:text-primary transition-colors text-sm block">
+client/src/components/Footer.tsx:65:                  <Link href="/profil/formateur" className="text-slate-400 hover:text-primary transition-colors text-sm block">
+client/src/components/Footer.tsx:70:                  <Link href="/profil/directeur" className="text-slate-400 hover:text-primary transition-colors text-sm block">
+client/src/components/Footer.tsx:75:                  <Link href="/profil/stagiaire" className="text-slate-400 hover:text-primary transition-colors text-sm block">
+client/src/pages/Settings.tsx:45:            Gérez votre profil, vos préférences et vos données
+client/src/pages/Settings.tsx:52:        <Tabs defaultValue="profile" className="space-y-6">
+client/src/pages/Settings.tsx:54:            <TabsTrigger value="profile" className="gap-2">
+client/src/pages/Settings.tsx:56:              <span className="hidden sm:inline">Profil</span>
+client/src/pages/Settings.tsx:72:          {/* Profile Tab */}
+client/src/pages/Settings.tsx:73:          <TabsContent value="profile" className="space-y-4">
+client/src/pages/Settings.tsx:76:                <CardTitle>Informations du profil</CardTitle>
+client/src/pages/AuthSignup.tsx:23:const PROFILE_OPTIONS = [
+client/src/pages/AuthSignup.tsx:60:    profileType: "",
+client/src/pages/AuthSignup.tsx:102:    setFormData((prev) => ({ ...prev, profileType: value }));
+client/src/pages/AuthSignup.tsx:103:    if (errors.profileType) setErrors((prev) => ({ ...prev, profileType: "" }));
+client/src/pages/AuthSignup.tsx:119:    if (!formData.profileType) newErrors.profileType = "Veuillez sélectionner un profil";
+client/src/pages/AuthSignup.tsx:139:        profileType: formData.profileType as "animateur" | "formateur" | "directeur" | "stagiaire_bafa",
+client/src/pages/AuthSignup.tsx:181:              <Label htmlFor="profileType">Qui êtes-vous ? *</Label>
+client/src/pages/AuthSignup.tsx:182:              <Select value={formData.profileType} onValueChange={handleSelectChange}>
+client/src/pages/AuthSignup.tsx:183:                <SelectTrigger id="profileType" disabled={isLoading}>
+client/src/pages/AuthSignup.tsx:184:                  <SelectValue placeholder="Sélectionnez votre profil" />
+client/src/pages/AuthSignup.tsx:187:                  {PROFILE_OPTIONS.map((option) => (
+client/src/pages/AuthSignup.tsx:194:              {errors.profileType && <p className="text-sm text-red-500">{errors.profileType}</p>}
+client/src/pages/UserProfile.tsx:10:export default function UserProfile() {
+client/src/pages/UserProfile.tsx:18:            <Breadcrumb items={[{ label: "Mon profil" }]} />
+client/src/pages/UserProfile.tsx:23:                Vous devez être connecté pour accéder à votre profil.
+client/src/pages/UserProfile.tsx:106:          <Breadcrumb items={[{ label: "Mon profil" }]} />
+client/src/pages/UserProfile.tsx:108:          {/* En-tête du profil */}
+client/src/pages/UserProfile.tsx:275:                    Modifier mon profil
+client/src/pages/ResourcesReorganized.tsx:26:  const [selectedProfile, setSelectedProfile] = useState<string>("");
+client/src/pages/ResourcesReorganized.tsx:29:  const { data: userProfile } = trpc.profiles.getUserProfile.useQuery(undefined, {
+client/src/pages/ResourcesReorganized.tsx:57:    profileType: (selectedProfile || userProfile?.profileType) as any,
+client/src/pages/AuthChoice.tsx:64:              Créez un compte en quelques minutes pour accéder à toutes les ressources adaptées à votre profil.
+client/src/pages/AdminResourcesManagement.tsx:69:      // profils parfois absents → on laisse
+client/src/pages/AdminResourcesManagement.tsx:70:      const profils =
+client/src/pages/AdminResourcesManagement.tsx:71:        Array.isArray(r.profiles) ? r.profiles.join(" ").toLowerCase() : "";
+client/src/pages/AdminResourcesManagement.tsx:79:        profils.includes(q)
+client/src/pages/AdminResourcesManagement.tsx:100:        profile: "animateur",
+client/src/pages/AdminResourcesManagement.tsx:141:      "Profils",
+client/src/pages/AdminResourcesManagement.tsx:156:      const profils =
+client/src/pages/AdminResourcesManagement.tsx:157:        Array.isArray(r.profiles) ? r.profiles.join(" | ") : "";
+client/src/pages/AdminResourcesManagement.tsx:166:        profils,
+client/src/pages/AdminResourcesManagement.tsx:249:            placeholder="Rechercher (titre, type, profil, collection...)"
+client/src/pages/AdminResourcesManagement.tsx:270:                <th className="px-3">Profils</th>
+client/src/pages/AdminResourcesManagement.tsx:291:                const profilsLabel =
+client/src/pages/AdminResourcesManagement.tsx:292:                  Array.isArray(r.profiles) && r.profiles.length > 0
+client/src/pages/AdminResourcesManagement.tsx:293:                    ? r.profiles.join(", ")
+client/src/pages/AdminResourcesManagement.tsx:314:                          {profilsLabel}
+client/src/pages/ComponentShowcase.tsx:1065:                        <SheetTitle>Edit profile</SheetTitle>
+client/src/pages/ComponentShowcase.tsx:1067:                          Make changes to your profile here. Click save when
+client/src/pages/ComponentShowcase.tsx:1134:                      <DropdownMenuItem>Profile</DropdownMenuItem>
+client/src/pages/ComponentShowcase.tsx:1146:                      <ContextMenuItem>Profile</ContextMenuItem>
+client/src/pages/Home.tsx:7:type ProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+client/src/pages/Home.tsx:16:  // Profil métier : on ne le demande que si "me" existe réellement
+client/src/pages/Home.tsx:17:  const { data: myProfile, isLoading: profileLoading } =
+client/src/pages/Home.tsx:18:    trpc.profiles.getUserProfile.useQuery(undefined, {
+client/src/pages/Home.tsx:26:  const isGateLoading = meLoading || (isReallyLogged && profileLoading);
+client/src/pages/Home.tsx:32:  const canChangeProfile =
+client/src/pages/Home.tsx:33:    (me as any)?.role === "admin" || myProfile?.profileType === "formateur";
+client/src/pages/Home.tsx:35:  const profiles: Array<{
+client/src/pages/Home.tsx:36:    id: ProfileType;
+client/src/pages/Home.tsx:105:              <Link href="/selection-profil">
+client/src/pages/Home.tsx:107:                  🎯 Choisir votre profil
+client/src/pages/Home.tsx:139:      {/* ✅ OPTION A : quand on est connecté, on cache la section Profils sur la Home */}
+client/src/pages/Home.tsx:142:          {/* Profils */}
+client/src/pages/Home.tsx:152:                  Sélectionnez un profil pour explorer les ressources
+client/src/pages/Home.tsx:155:                {isReallyLogged && !isGateLoading && !canChangeProfile && (
+client/src/pages/Home.tsx:157:                    Votre profil est déjà défini. Seuls les comptes{" "}
+client/src/pages/Home.tsx:159:                    changer de profil.
+client/src/pages/Home.tsx:165:                {profiles.map((profile) => {
+client/src/pages/Home.tsx:170:                      : !canChangeProfile
+client/src/pages/Home.tsx:177:                    : canChangeProfile
+client/src/pages/Home.tsx:178:                    ? "Choisir ce profil"
+client/src/pages/Home.tsx:179:                    : "Profil verrouillé";
+client/src/pages/Home.tsx:191:                          className={`w-full aspect-video bg-gradient-to-r ${profile.color} flex items-center justify-center relative overflow-hidden`}
+client/src/pages/Home.tsx:194:                            {profile.icon}
+client/src/pages/Home.tsx:200:                            {profile.title}
+client/src/pages/Home.tsx:203:                            {profile.description}
+client/src/pages/Home.tsx:220:                      <Link key={profile.id} href="/auth/choice">
+client/src/pages/Home.tsx:226:                  if (disabledBecauseLoading) return <div key={profile.id}>{card}</div>;
+client/src/pages/Home.tsx:228:                  if (canChangeProfile) {
+client/src/pages/Home.tsx:230:                      <Link key={profile.id} href={`/profil/${profile.id}`}>
+client/src/pages/Home.tsx:236:                  return <div key={profile.id}>{card}</div>;
+client/src/pages/AdminProfiles.tsx:10:const PROFILES = ['animateur', 'formateur', 'directeur', 'stagiaire_bafa'] as const;
+client/src/pages/AdminProfiles.tsx:11:type ProfileType = typeof PROFILES[number];
+client/src/pages/AdminProfiles.tsx:13:const PROFILE_LABELS: Record<ProfileType, string> = {
+client/src/pages/AdminProfiles.tsx:20:export default function AdminProfiles() {
+client/src/pages/AdminProfiles.tsx:21:  const [selectedProfile, setSelectedProfile] = useState<ProfileType>('animateur');
+client/src/pages/AdminProfiles.tsx:28:  // Récupérer les ressources du profil sélectionné
+client/src/pages/AdminProfiles.tsx:29:  const { data: profileResources = [], isLoading: loadingProfileResources, refetch: refetchProfileResources } = 
+client/src/pages/AdminProfiles.tsx:30:    trpc.resourceProfiles.getByProfile.useQuery({ profileType: selectedProfile });
+client/src/pages/AdminProfiles.tsx:32:  // Récupérer les collections du profil sélectionné
+client/src/pages/AdminProfiles.tsx:33:  const { data: profileCollections = [], isLoading: loadingProfileCollections, refetch: refetchProfileCollections } = 
+client/src/pages/AdminProfiles.tsx:34:    trpc.collectionProfiles.getByProfile.useQuery({ profileType: selectedProfile });
+client/src/pages/AdminProfiles.tsx:40:  const addResourceMutation = trpc.resourceProfiles.associate.useMutation({
+client/src/pages/AdminProfiles.tsx:43:      refetchProfileResources();
+client/src/pages/AdminProfiles.tsx:50:  const removeResourceMutation = trpc.resourceProfiles.remove.useMutation({
+client/src/pages/AdminProfiles.tsx:52:      refetchProfileResources();
+client/src/pages/AdminProfiles.tsx:56:  const addCollectionMutation = trpc.collectionProfiles.associate.useMutation({
+client/src/pages/AdminProfiles.tsx:58:      refetchProfileCollections();
+client/src/pages/AdminProfiles.tsx:61:  const removeCollectionMutation = trpc.collectionProfiles.remove.useMutation({
+client/src/pages/AdminProfiles.tsx:63:      refetchProfileCollections();
+client/src/pages/AdminProfiles.tsx:73:  // Mémoriser profileResourceIds pour éviter la boucle infinie
+client/src/pages/AdminProfiles.tsx:74:  const profileResourceIds = useMemo(() => {
+client/src/pages/AdminProfiles.tsx:76:      profileResources.map((pr: any) => 
+client/src/pages/AdminProfiles.tsx:80:  }, [profileResources]);
+client/src/pages/AdminProfiles.tsx:84:    filteredResources.filter(r => !profileResourceIds.has(r.id)),
+client/src/pages/AdminProfiles.tsx:85:    [filteredResources, profileResourceIds]
+client/src/pages/AdminProfiles.tsx:88:  // Réinitialiser les ressources sélectionnées quand on change de profil
+client/src/pages/AdminProfiles.tsx:91:  }, [selectedProfile]);
+client/src/pages/AdminProfiles.tsx:97:        profileType: selectedProfile,
+client/src/pages/AdminProfiles.tsx:105:      profileType: selectedProfile,
+client/src/pages/AdminProfiles.tsx:112:      profileType: selectedProfile,
+client/src/pages/AdminProfiles.tsx:119:      profileType: selectedProfile,
+client/src/pages/AdminProfiles.tsx:126:        <h1 className="text-3xl font-bold">Gestion des Profils</h1>
+client/src/pages/AdminProfiles.tsx:128:          Gérez les ressources et collections associées à chaque profil
+client/src/pages/AdminProfiles.tsx:132:      <Tabs value={selectedProfile} onValueChange={(v) => setSelectedProfile(v as ProfileType)}>
+client/src/pages/AdminProfiles.tsx:134:          {PROFILES.map(profile => (
+client/src/pages/AdminProfiles.tsx:135:            <TabsTrigger key={profile} value={profile}>
+client/src/pages/AdminProfiles.tsx:136:              {PROFILE_LABELS[profile]}
+client/src/pages/AdminProfiles.tsx:141:        {PROFILES.map(profile => (
+client/src/pages/AdminProfiles.tsx:142:          <TabsContent key={profile} value={profile} className="space-y-6">
+client/src/pages/AdminProfiles.tsx:146:                <CardTitle>Ressources du profil {PROFILE_LABELS[profile]}</CardTitle>
+client/src/pages/AdminProfiles.tsx:148:                  {profileResourceIds.size} ressource{profileResourceIds.size !== 1 ? 's' : ''} associée{profileResourceIds.size !== 1 ? 's' : ''}
+client/src/pages/AdminProfiles.tsx:153:                {loadingProfileResources ? (
+client/src/pages/AdminProfiles.tsx:157:                ) : profileResourceIds.size === 0 ? (
+client/src/pages/AdminProfiles.tsx:159:                    Aucune ressource associée à ce profil
+client/src/pages/AdminProfiles.tsx:165:                      {profileResources.map((pr: any) => {
+client/src/pages/AdminProfiles.tsx:209:                      Toutes les ressources sont déjà associées à ce profil
+client/src/pages/AdminProfiles.tsx:262:                <CardTitle>Collections du profil {PROFILE_LABELS[profile]}</CardTitle>
+client/src/pages/AdminProfiles.tsx:264:                  {profileCollections.length} collection{profileCollections.length !== 1 ? 's' : ''} associée{profileCollections.length !== 1 ? 's' : ''}
+client/src/pages/AdminProfiles.tsx:269:                {loadingProfileCollections ? (
+client/src/pages/AdminProfiles.tsx:273:                ) : profileCollections.length === 0 ? (
+client/src/pages/AdminProfiles.tsx:275:                    Aucune collection associée à ce profil
+client/src/pages/AdminProfiles.tsx:281:                      {profileCollections.map(pc => {
+client/src/pages/AdminProfiles.tsx:320:                        .filter(c => !profileCollections.some(pc => {
+client/src/pages/CategoryResources.tsx:10:import { PROFILE_CATEGORIES, NEED_CATEGORIES } from "@shared/categories";
+client/src/pages/CategoryResources.tsx:16:  // Parse URL to get type (profil or besoin), key, and category
+client/src/pages/CategoryResources.tsx:20:  const type = params?.type; // "profil" or "besoin"
+client/src/pages/CategoryResources.tsx:27:    if (type === "profil") {
+client/src/pages/CategoryResources.tsx:35:      return titles[key || ""] || "Profil";
+client/src/pages/ProfileCategories.tsx:5:import { PROFILE_CATEGORIES, ProfileType } from "../../../shared/categories";
+client/src/pages/ProfileCategories.tsx:9:const PROFILE_INFO: Record<
+client/src/pages/ProfileCategories.tsx:10:  ProfileType,
+client/src/pages/ProfileCategories.tsx:16:    image: "/profil-animateur.png",
+client/src/pages/ProfileCategories.tsx:21:    image: "/profil-formateur.png",
+client/src/pages/ProfileCategories.tsx:26:    image: "/profil-directeur.png",
+client/src/pages/ProfileCategories.tsx:31:    image: "/profil-stagiaire.png",
+client/src/pages/ProfileCategories.tsx:36:    image: "/profil-decouvrir.png",
+client/src/pages/ProfileCategories.tsx:40:// Map des alias URL -> ProfileType canonique
+client/src/pages/ProfileCategories.tsx:41:const PROFILE_ALIASES: Record<string, ProfileType> = {
+client/src/pages/ProfileCategories.tsx:57:function normalizeProfileSlug(slug: string | undefined): ProfileType | null {
+client/src/pages/ProfileCategories.tsx:62:  if (raw in PROFILE_ALIASES) return PROFILE_ALIASES[raw];
+client/src/pages/ProfileCategories.tsx:65:  if (cleaned in PROFILE_ALIASES) return PROFILE_ALIASES[cleaned];
+client/src/pages/ProfileCategories.tsx:70:export default function ProfileCategories() {
+client/src/pages/ProfileCategories.tsx:90:  const profileId = normalizeProfileSlug(params.profile);
+client/src/pages/ProfileCategories.tsx:92:  if (!profileId || !(profileId in PROFILE_CATEGORIES)) {
+client/src/pages/ProfileCategories.tsx:95:        <p className="text-center text-muted-foreground">Profil non trouvé</p>
+client/src/pages/ProfileCategories.tsx:100:  const profileInfo = PROFILE_INFO[profileId];
+client/src/pages/ProfileCategories.tsx:101:  const categories = PROFILE_CATEGORIES[profileId];
+client/src/pages/ProfileCategories.tsx:108:          { label: profileInfo.title },
+client/src/pages/ProfileCategories.tsx:118:                src={profileInfo.image}
+client/src/pages/ProfileCategories.tsx:119:                alt={profileInfo.title}
+client/src/pages/ProfileCategories.tsx:124:              <h1 className="text-4xl font-bold mb-4">{profileInfo.title}</h1>
+client/src/pages/ProfileCategories.tsx:126:                {profileInfo.description}
+client/src/pages/ProfileCategories.tsx:144:                href={`/categorie/profil/${profileId}/${encodeURIComponent(
+client/src/pages/__tests__/Settings.test.tsx:8:  it("should display profile information", () => {
+client/src/pages/AdminImportPDFs.tsx:16:  profiles: string[];
+client/src/pages/AdminImportPDFs.tsx:106:                <p className="text-xs text-gray-600 mt-1">tous les profils</p>
+client/src/pages/AdminImportPDFs.tsx:140:                        {resource.folder} • {resource.profiles.join(', ')}
+client/src/pages/AdminUsers.tsx:26:type ProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+client/src/pages/AdminUsers.tsx:28:const PROFILE_LABELS: Record<ProfileType, string> = {
+client/src/pages/AdminUsers.tsx:54:  const updateProfileMutation = trpc.admin.users.updateProfile.useMutation({
+client/src/pages/AdminUsers.tsx:57:      toast.success("Profil mis à jour");
+client/src/pages/AdminUsers.tsx:60:      toast.error("Erreur lors de la mise à jour du profil");
+client/src/pages/AdminUsers.tsx:72:  const handleProfileChange = (userId: number, profileType: ProfileType) => {
+client/src/pages/AdminUsers.tsx:73:    updateProfileMutation.mutate({ userId, profileType });
+client/src/pages/AdminUsers.tsx:110:              <CardDescription>Gérez les rôles et le profil métier des utilisateurs·rices</CardDescription>
+client/src/pages/AdminUsers.tsx:131:                        <TableHead>Profil</TableHead>
+client/src/pages/AdminUsers.tsx:138:                        const currentProfile = (u.profileType ?? "") as ProfileType | "";
+client/src/pages/AdminUsers.tsx:173:                                value={currentProfile}
+client/src/pages/AdminUsers.tsx:174:                                onValueChange={(p: ProfileType) => handleProfileChange(u.id, p)}
+client/src/pages/AdminUsers.tsx:175:                                disabled={updateProfileMutation.isPending}
+client/src/pages/AdminUsers.tsx:181:                                  <SelectItem value="animateur">{PROFILE_LABELS.animateur}</SelectItem>
+client/src/pages/AdminUsers.tsx:182:                                  <SelectItem value="formateur">{PROFILE_LABELS.formateur}</SelectItem>
+client/src/pages/AdminUsers.tsx:183:                                  <SelectItem value="directeur">{PROFILE_LABELS.directeur}</SelectItem>
+client/src/pages/AdminUsers.tsx:184:                                  <SelectItem value="stagiaire_bafa">{PROFILE_LABELS.stagiaire_bafa}</SelectItem>
+client/src/pages/AdminUsers.tsx:219:                  <p className="font-medium">Rôles vs Profil</p>
+client/src/pages/AdminUsers.tsx:224:                    <strong>Profil</strong> (animateur/formateur/directeur/stagiaire) = filtrage métier des contenus.
+client/src/pages/Help.tsx:20:      question: "Comment choisir mon profil ?",
+client/src/pages/Help.tsx:21:      answer: "Une fois connecté, cliquez sur 'Choisir votre profil' sur la page d'accueil. Sélectionnez le profil qui correspond à votre rôle (Animateur, Formateur, Directeur ou Stagiaire) pour accéder aux ressources adaptées."
+client/src/pages/Help.tsx:26:      answer: "Les ressources disponibles dépendent de votre profil. Chaque profil a accès à des ressources spécifiquement sélectionnées pour ses besoins. Vous pouvez aussi utiliser la barre de recherche pour trouver des ressources spécifiques."
+client/src/pages/Help.tsx:36:      answer: "Utilisez la barre de recherche sur la page d'accueil ou dans votre profil. Vous pouvez chercher par titre, description, ou mots-clés. Les résultats s'afficheront instantanément."
+client/src/pages/ProfileSelection.tsx:9:type ProfileType = 'animateur' | 'formateur' | 'directeur' | 'stagiaire_bafa';
+client/src/pages/ProfileSelection.tsx:11:const PROFILES: Array<{
+client/src/pages/ProfileSelection.tsx:12:  id: ProfileType;
+client/src/pages/ProfileSelection.tsx:48:export function ProfileSelection() {
+client/src/pages/ProfileSelection.tsx:52:  const [selectedProfile, setSelectedProfile] = useState<ProfileType | null>(null);
+client/src/pages/ProfileSelection.tsx:55:  const setProfileMutation = trpc.profiles.setUserProfile.useMutation();
+client/src/pages/ProfileSelection.tsx:56:  const { data: myProfile } = trpc.profiles.getUserProfile.useQuery(undefined, {
+client/src/pages/ProfileSelection.tsx:60:  // UX : ici, on autorise tout le monde à choisir/changer son profil.
+client/src/pages/ProfileSelection.tsx:62:  const canChangeProfile = true;
+client/src/pages/ProfileSelection.tsx:70:  const handleSelectProfile = async (profileType: ProfileType) => {
+client/src/pages/ProfileSelection.tsx:73:    setSelectedProfile(profileType);
+client/src/pages/ProfileSelection.tsx:77:      await setProfileMutation.mutateAsync({ profileType });
+client/src/pages/ProfileSelection.tsx:78:      navigate(`/profil/${profileType}`);
+client/src/pages/ProfileSelection.tsx:80:      console.error('Error setting profile:', error);
+client/src/pages/ProfileSelection.tsx:82:      setSelectedProfile(null);
+client/src/pages/ProfileSelection.tsx:107:            Sélectionnez votre profil pour accéder aux ressources adaptées à votre rôle
+client/src/pages/ProfileSelection.tsx:110:          {myProfile?.profileType && (
+client/src/pages/ProfileSelection.tsx:112:              Profil actuel : <strong>{myProfile.profileType}</strong>
+client/src/pages/ProfileSelection.tsx:117:        {/* Profiles Grid */}
+client/src/pages/ProfileSelection.tsx:119:          {PROFILES.map((profile) => (
+client/src/pages/ProfileSelection.tsx:121:              key={profile.id}
+client/src/pages/ProfileSelection.tsx:122:              onClick={() => handleSelectProfile(profile.id)}
+client/src/pages/ProfileSelection.tsx:124:                canChangeProfile ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+client/src/pages/ProfileSelection.tsx:129:                  <div className={`h-32 bg-gradient-to-br ${profile.color}`} />
+client/src/pages/ProfileSelection.tsx:132:                    <div className="text-5xl mb-4">{profile.icon}</div>
+client/src/pages/ProfileSelection.tsx:133:                    <h3 className="font-semibold text-lg mb-2 text-left">{profile.title}</h3>
+client/src/pages/ProfileSelection.tsx:135:                      {profile.description}
+client/src/pages/ProfileSelection.tsx:138:                    {selectedProfile === profile.id && isLoading ? (
+client/src/pages/ProfileSelection.tsx:147:                        disabled={isLoading || !canChangeProfile}
+client/src/pages/ProfileSelection.tsx:151:                          handleSelectProfile(profile.id);
+client/src/pages/ProfileSelection.tsx:154:                        Choisir ce profil
+client/src/pages/ProfileSelection.tsx:166:          <h2 className="text-2xl font-bold mb-4">Pourquoi choisir un profil ?</h2>
+client/src/pages/ProfileSelection.tsx:168:            Votre profil vous permet d'accéder à des ressources adaptées à votre besoin du moment.
+client/src/pages/ProfileSelection.tsx:172:            <li>✅ Ressources adaptées selon le profil choisi</li>
+client/src/pages/ProfileSelection.tsx:175:            <li>✅ Profil modifiable à tout moment</li>
+client/src/pages/LearningPaths.tsx:157:              {cmsPage?.description || "Suivez un parcours structuré adapté à votre profil et vos objectifs"}
+client/src/pages/UserProfileManagement.tsx:11:const PROFILE_LABELS: Record<string, string> = {
+client/src/pages/UserProfileManagement.tsx:18:const PROFILE_DESCRIPTIONS: Record<string, string> = {
+client/src/pages/UserProfileManagement.tsx:25:export default function UserProfileManagement() {
+client/src/pages/UserProfileManagement.tsx:28:  const [isChangingProfile, setIsChangingProfile] = useState(false);
+client/src/pages/UserProfileManagement.tsx:30:  // Récupérer le profil actuel
+client/src/pages/UserProfileManagement.tsx:31:  const { data: userProfile, isLoading: isLoadingProfile } = trpc.profiles.getUserProfile.useQuery(
+client/src/pages/UserProfileManagement.tsx:46:  // Mutation pour changer de profil
+client/src/pages/UserProfileManagement.tsx:47:  const changeProfile = trpc.profiles.setUserProfile.useMutation({
+client/src/pages/UserProfileManagement.tsx:49:      setIsChangingProfile(false);
+client/src/pages/UserProfileManagement.tsx:67:            <CardDescription>Veuillez vous connecter pour gérer votre profil</CardDescription>
+client/src/pages/UserProfileManagement.tsx:83:          <h1 className="text-4xl font-bold mb-2">Mon profil</h1>
+client/src/pages/UserProfileManagement.tsx:85:            Gérez votre profil et vos préférences
+client/src/pages/UserProfileManagement.tsx:89:        <Tabs defaultValue="profile" className="space-y-6">
+client/src/pages/UserProfileManagement.tsx:91:            <TabsTrigger value="profile">Profil</TabsTrigger>
+client/src/pages/UserProfileManagement.tsx:96:          {/* Onglet Profil */}
+client/src/pages/UserProfileManagement.tsx:97:          <TabsContent value="profile" className="space-y-6">
+client/src/pages/UserProfileManagement.tsx:100:                <CardTitle>Profil actuel</CardTitle>
+client/src/pages/UserProfileManagement.tsx:101:                <CardDescription>Votre profil détermine les ressources que vous voyez</CardDescription>
+client/src/pages/UserProfileManagement.tsx:104:                {isLoadingProfile ? (
+client/src/pages/UserProfileManagement.tsx:107:                    <span>Chargement du profil...</span>
+client/src/pages/UserProfileManagement.tsx:109:                ) : userProfile ? (
+client/src/pages/UserProfileManagement.tsx:113:                        {PROFILE_LABELS[userProfile.profileType] || userProfile.profileType}
+client/src/pages/UserProfileManagement.tsx:116:                        {PROFILE_DESCRIPTIONS[userProfile.profileType]}
+client/src/pages/UserProfileManagement.tsx:122:                    <p className="text-amber-900">Aucun profil sélectionné</p>
+client/src/pages/UserProfileManagement.tsx:130:                <CardTitle>Changer de profil</CardTitle>
+client/src/pages/UserProfileManagement.tsx:131:                <CardDescription>Sélectionnez un nouveau profil</CardDescription>
+client/src/pages/UserProfileManagement.tsx:135:                  {Object.entries(PROFILE_LABELS).map(([key, label]) => (
+client/src/pages/UserProfileManagement.tsx:138:                      variant={userProfile?.profileType === key ? 'default' : 'outline'}
+client/src/pages/UserProfileManagement.tsx:140:                        setIsChangingProfile(true);
+client/src/pages/UserProfileManagement.tsx:141:                        changeProfile.mutate({ profileType: key as any });
+client/src/pages/UserProfileManagement.tsx:143:                      disabled={isChangingProfile || changeProfile.isPending}
+client/src/pages/UserProfileManagement.tsx:149:                          {PROFILE_DESCRIPTIONS[key]}
+client/src/pages/UserProfileManagement.tsx:252:                  onClick={() => setLocation('/selection-profil')}
+client/src/pages/UserProfileManagement.tsx:255:                  Changer de profil
+client/src/pages/FAQ.tsx:34:      "Vous pouvez utiliser la barre de recherche avancée pour chercher par mots-clés, tags, thématiques ou catégories. Vous pouvez également parcourir les collections ou consulter les ressources recommandées selon votre profil.",
+client/src/pages/FAQ.tsx:67:    question: "Comment modifier mon profil ?",
+client/src/pages/Admin.tsx:280:                    <CardTitle>Gestion des profils</CardTitle>
+client/src/pages/Admin.tsx:282:                      Associer les ressources et collections aux profils utilisateurs
+client/src/pages/Admin.tsx:289:                  <Link href="/admin/profils">Gérer les profils</Link>
+client/src/pages/Legal.tsx:115:              Les données collectées (nom, email, informations de profil) sont utilisées pour :

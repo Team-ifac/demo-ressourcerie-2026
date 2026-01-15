@@ -1,0 +1,40 @@
+
+    deleteResource: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteResource(input.id);
+        return { success: true };
+      }),
+
+    deleteAllResources: adminProcedure
+      .mutation(async () => {
+        const resources = await db.getAllResources();
+        for (const resource of resources) {
+          await db.deleteResource(resource.id);
+        }
+        return { success: true, deleted: resources.length };
+      }),
+
+    createResource: adminProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        category: z.string().min(1),
+        profile: z.enum(['animateur', 'formateur', 'directeur', 'stagiaire_bafa']),
+        url: z.string().optional(),
+        type: z.enum(['document', 'video', 'image', 'lien']).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await db.createResource({
+          title: input.title,
+          description: input.description || null,
+          category: input.category,
+          type: input.type || 'document',
+          url: input.url || null,
+          accessLevel: 'public',
+        });
+        if (input.profile) {
+          await db.associateResourceToProfile(id, input.profile);
+        }
+        return { id };
+      }),

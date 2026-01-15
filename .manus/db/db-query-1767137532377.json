@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) - COUNT(DISTINCT LOWER(title)) as total_duplicates FROM resources;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT COUNT(*) - COUNT(DISTINCT LOWER(title)) as total_duplicates FROM resources;",
+  "rows": [
+    {
+      "total_duplicates": "100"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_duplicates\n100\n",
+  "stderr": "",
+  "execution_time_ms": 1586
+}

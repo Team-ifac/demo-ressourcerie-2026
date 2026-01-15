@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, title, type, category FROM resources WHERE category IS NOT NULL LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT id, title, type, category FROM resources WHERE category IS NOT NULL LIMIT 5;",
+  "rows": [
+    {
+      "id": "1",
+      "title": "Le jeu du parachute",
+      "type": "Fiche",
+      "category": "Jeux et activités sportives"
+    },
+    {
+      "id": "2",
+      "title": "Atelier fabrication de cerf-volant",
+      "type": "Kit clé en main",
+      "category": "Activités manuelles et créatives"
+    },
+    {
+      "id": "3",
+      "title": "Grand jeu : La quête des éléments",
+      "type": "Projet",
+      "category": "Grands jeux et animations"
+    },
+    {
+      "id": "4",
+      "title": "Répertoire de chants pour veillées",
+      "type": "Article",
+      "category": "Chants, musique et veillées"
+    },
+    {
+      "id": "5",
+      "title": "Formation BAFA : Connaissance de l'enfant",
+      "type": "Kit clé en main",
+      "category": "Formation BAFA/BAFD"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\ttype\tcategory\n1\tLe jeu du parachute\tFiche\tJeux et activités sportives\n2\tAtelier fabrication de cerf-volant\tKit clé en main\tActivités manuelles et créatives\n3\tGrand jeu : La quête des éléments\tProjet\tGrands jeux et animations\n4\tRépertoire de chants pour veillées\tArticle\tChants, musique et veillées\n5\tFormation BAFA : Connaissance de l'enfant\tKit clé en main\tFormation BAFA/BAFD\n",
+  "stderr": "",
+  "execution_time_ms": 51
+}

@@ -1,0 +1,9 @@
+{
+  "query": "DROP TABLE IF EXISTS resourceProfiles;\nDROP TABLE IF EXISTS collectionProfiles;\nDROP TABLE IF EXISTS userProfiles;\nDROP TABLE IF EXISTS formateurs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute DROP TABLE IF EXISTS resourceProfiles;\nDROP TABLE IF EXISTS collectionProfiles;\nDROP TABLE IF EXISTS userProfiles;\nDROP TABLE IF EXISTS formateurs;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 345
+}

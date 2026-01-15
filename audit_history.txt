@@ -1,0 +1,1 @@
+server/db.ts:880:export async function addResourceHistory(data: { resourceId: number; userId: number | null; action: string; changes?: string }) {

@@ -1,0 +1,260 @@
+{
+  "query": "SELECT LOWER(title) as title_lower, COUNT(*) as count, GROUP_CONCAT(id) as ids FROM resources GROUP BY LOWER(title) HAVING count > 1 ORDER BY count DESC LIMIT 50;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT LOWER(title) as title_lower, COUNT(*) as count, GROUP_CONCAT(id) as ids FROM resources GROUP BY LOWER(title) HAVING count > 1 ORDER BY count DESC LIMIT 50;",
+  "rows": [
+    {
+      "title_lower": "sapin de noël en bonbons",
+      "count": "2",
+      "ids": "60087,60187"
+    },
+    {
+      "title_lower": "bonhomme de neige en gobelets plastiques",
+      "count": "2",
+      "ids": "60036,60136"
+    },
+    {
+      "title_lower": "cgf3 - relations au sein d'un stage",
+      "count": "2",
+      "ids": "60094,60194"
+    },
+    {
+      "title_lower": "etiquette de noël à gratter",
+      "count": "2",
+      "ids": "60056,60156"
+    },
+    {
+      "title_lower": "definir son contexte - pp2",
+      "count": "2",
+      "ids": "60110,60210"
+    },
+    {
+      "title_lower": "la responsabilité a du bon sens",
+      "count": "2",
+      "ids": "60102,60202"
+    },
+    {
+      "title_lower": "conduite de réunion",
+      "count": "2",
+      "ids": "60117,60217"
+    },
+    {
+      "title_lower": "brochettes de fruits déguisées en bonhomme de neige",
+      "count": "2",
+      "ids": "60043,60143"
+    },
+    {
+      "title_lower": "boule de noël en papier",
+      "count": "2",
+      "ids": "60040,60140"
+    },
+    {
+      "title_lower": "bonhomme de neige avec de la laine",
+      "count": "2",
+      "ids": "60034,60134"
+    },
+    {
+      "title_lower": "bonhomme de neige chaussette",
+      "count": "2",
+      "ids": "60035,60135"
+    },
+    {
+      "title_lower": "orangettes au chocolat noir",
+      "count": "2",
+      "ids": "60076,60176"
+    },
+    {
+      "title_lower": "tableau boîte a camembert",
+      "count": "2",
+      "ids": "60091,60191"
+    },
+    {
+      "title_lower": "exemples d'objectifs pedagogiques",
+      "count": "2",
+      "ids": "60111,60211"
+    },
+    {
+      "title_lower": "guirlandes de pop-corn",
+      "count": "2",
+      "ids": "60061,60161"
+    },
+    {
+      "title_lower": "kit chocolat chaud express",
+      "count": "2",
+      "ids": "60065,60165"
+    },
+    {
+      "title_lower": "\"plastique dingue",
+      "count": "2",
+      "ids": "60083,60183"
+    },
+    {
+      "title_lower": "déco bougie led",
+      "count": "2",
+      "ids": "60054,60154"
+    },
+    {
+      "title_lower": "personnages de noël avec des pince à linges",
+      "count": "2",
+      "ids": "60080,60180"
+    },
+    {
+      "title_lower": "sapin et étoile en laine de noël",
+      "count": "2",
+      "ids": "60089,60189"
+    },
+    {
+      "title_lower": "pantin de noël",
+      "count": "2",
+      "ids": "60077,60177"
+    },
+    {
+      "title_lower": "calendrier de l’avant",
+      "count": "2",
+      "ids": "60045,60145"
+    },
+    {
+      "title_lower": "vacances de toussaint à sarlat en dordogne",
+      "count": "2",
+      "ids": "60116,60216"
+    },
+    {
+      "title_lower": "cgf4 - apports analyses",
+      "count": "2",
+      "ids": "60095,60195"
+    },
+    {
+      "title_lower": "père noël en papier",
+      "count": "2",
+      "ids": "60082,60182"
+    },
+    {
+      "title_lower": "flocon de neige avec des cotons-tiges",
+      "count": "2",
+      "ids": "60059,60159"
+    },
+    {
+      "title_lower": "verbes d'action - objectifs pédagogiques",
+      "count": "2",
+      "ids": "60109,60209"
+    },
+    {
+      "title_lower": "nougatine",
+      "count": "2",
+      "ids": "60075,60175"
+    },
+    {
+      "title_lower": "décoration de sapin en pâte à sel",
+      "count": "2",
+      "ids": "60055,60155"
+    },
+    {
+      "title_lower": "squelette projet péda",
+      "count": "2",
+      "ids": "60112,60212"
+    },
+    {
+      "title_lower": "plan - bilan de formation bafd",
+      "count": "2",
+      "ids": "60115,60215"
+    },
+    {
+      "title_lower": "sablés colorés de noël",
+      "count": "2",
+      "ids": "60085,60185"
+    },
+    {
+      "title_lower": "meringues arc-en-ciel",
+      "count": "2",
+      "ids": "60073,60173"
+    },
+    {
+      "title_lower": "exercice formuler un objectif",
+      "count": "2",
+      "ids": "60108,60208"
+    },
+    {
+      "title_lower": "père noël empreintes des mains",
+      "count": "2",
+      "ids": "60081,60181"
+    },
+    {
+      "title_lower": "cgf2 - mener un temps d'échange",
+      "count": "2",
+      "ids": "60093,60193"
+    },
+    {
+      "title_lower": "bonhomme de neige avec alvéoles de boite d’œufs",
+      "count": "2",
+      "ids": "60033,60133"
+    },
+    {
+      "title_lower": "bonbons cristallisés",
+      "count": "2",
+      "ids": "60032,60132"
+    },
+    {
+      "title_lower": "accueil de loisirs pilote en juillet à cabourg-handicap",
+      "count": "2",
+      "ids": "60123,60223"
+    },
+    {
+      "title_lower": "exercice des moyens",
+      "count": "2",
+      "ids": "60114,60214"
+    },
+    {
+      "title_lower": "renne de noël en rouleau de papier toilette",
+      "count": "2",
+      "ids": "60084,60184"
+    },
+    {
+      "title_lower": "collier avec des rondelles en acier",
+      "count": "2",
+      "ids": "60052,60152"
+    },
+    {
+      "title_lower": "chocolat chaud crémeux",
+      "count": "2",
+      "ids": "60051,60151"
+    },
+    {
+      "title_lower": "labyrinthe à billes",
+      "count": "2",
+      "ids": "60067,60167"
+    },
+    {
+      "title_lower": "boule à neige",
+      "count": "2",
+      "ids": "60039,60139"
+    },
+    {
+      "title_lower": "maisonnette du calendrier de l’avent",
+      "count": "2",
+      "ids": "60069,60169"
+    },
+    {
+      "title_lower": "comptabilité",
+      "count": "2",
+      "ids": "60105,60205"
+    },
+    {
+      "title_lower": "temps pour soi",
+      "count": "2",
+      "ids": "60098,60198"
+    },
+    {
+      "title_lower": "plan alimentaire",
+      "count": "2",
+      "ids": "60100,60200"
+    },
+    {
+      "title_lower": "mendiants au chocolat",
+      "count": "2",
+      "ids": "60072,60172"
+    }
+  ],
+  "messages": [],
+  "stdout": "title_lower\tcount\tids\nsapin de noël en bonbons\t2\t60087,60187\nbonhomme de neige en gobelets plastiques\t2\t60036,60136\ncgf3 - relations au sein d'un stage\t2\t60094,60194\netiquette de noël à gratter\t2\t60056,60156\ndefinir son contexte - pp2\t2\t60110,60210\nla responsabilité a du bon sens\t2\t60102,60202\nconduite de réunion\t2\t60117,60217\nbrochettes de fruits déguisées en bonhomme de neige\t2\t60043,60143\nboule de noël en papier\t2\t60040,60140\nbonhomme de neige avec de la laine\t2\t60034,60134\nbonhomme de neige chaussette\t2\t60035,60135\norangettes au chocolat noir\t2\t60076,60176\ntableau boîte a camembert\t2\t60091,60191\nexemples d'objectifs pedagogiques\t2\t60111,60211\nguirlandes de pop-corn\t2\t60061,60161\nkit chocolat chaud express\t2\t60065,60165\n\"plastique dingue\t2\t60083,60183\ndéco bougie led\t2\t60054,60154\npersonnages de noël avec des pince à linges\t2\t60080,60180\nsapin et étoile en laine de noël\t2\t60089,60189\npantin de noël\t2\t60077,60177\ncalendrier de l’avant\t2\t60045,60145\nvacances de toussaint à sarlat en dordogne\t2\t60116,60216\ncgf4 - apports analyses\t2\t60095,60195\npère noël en papier\t2\t60082,60182\nflocon de neige avec des cotons-tiges\t2\t60059,60159\nverbes d'action - objectifs pédagogiques\t2\t60109,60209\nnougatine\t2\t60075,60175\ndécoration de sapin en pâte à sel\t2\t60055,60155\nsquelette projet péda\t2\t60112,60212\nplan - bilan de formation bafd\t2\t60115,60215\nsablés colorés de noël\t2\t60085,60185\nmeringues arc-en-ciel\t2\t60073,60173\nexercice formuler un objectif\t2\t60108,60208\npère noël empreintes des mains\t2\t60081,60181\ncgf2 - mener un temps d'échange\t2\t60093,60193\nbonhomme de neige avec alvéoles de boite d’œufs\t2\t60033,60133\nbonbons cristallisés\t2\t60032,60132\naccueil de loisirs pilote en juillet à cabourg-handicap\t2\t60123,60223\nexercice des moyens\t2\t60114,60214\nrenne de noël en rouleau de papier toilette\t2\t60084,60184\ncollier avec des rondelles en acier\t2\t60052,60152\nchocolat chaud crémeux\t2\t60051,60151\nlabyrinthe à billes\t2\t60067,60167\nboule à neige\t2\t60039,60139\nmaisonnette du calendrier de l’avent\t2\t60069,60169\ncomptabilité\t2\t60105,60205\ntemps pour soi\t2\t60098,60198\nplan alimentaire\t2\t60100,60200\nmendiants au chocolat\t2\t60072,60172\n",
+  "stderr": "",
+  "execution_time_ms": 1574
+}

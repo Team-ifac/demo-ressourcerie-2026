@@ -1,0 +1,26 @@
+{
+  "query": "SELECT DISTINCT type, COUNT(*) as count FROM resources GROUP BY type ORDER BY count DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT DISTINCT type, COUNT(*) as count FROM resources GROUP BY type ORDER BY count DESC;",
+  "rows": [
+    {
+      "type": "Fiche",
+      "count": "107"
+    },
+    {
+      "type": "Projet",
+      "count": "3"
+    },
+    {
+      "type": "Article",
+      "count": "3"
+    },
+    {
+      "type": "Kit clé en main",
+      "count": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "type\tcount\nFiche\t107\nProjet\t3\nArticle\t3\nKit clé en main\t3\n",
+  "stderr": "",
+  "execution_time_ms": 54
+}

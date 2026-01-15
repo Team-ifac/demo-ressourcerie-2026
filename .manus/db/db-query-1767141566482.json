@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE collections SET imageUrl = CASE \n  WHEN id = 30013 THEN '/collections/jeux-collectifs.jpg'\n  WHEN id = 30014 THEN '/collections/activites-manuelles.jpg'\n  WHEN id = 30015 THEN '/collections/environnement-nature.jpg'\n  WHEN id = 30016 THEN '/collections/leadership-citoyennete.jpg'\n  WHEN id = 30011 THEN '/collections/activites-ete.jpg'\n  WHEN id = 30012 THEN '/collections/formation-bafa.jpg'\n  WHEN id = 2 THEN '/collections/collection-proteger.jpg'\nEND WHERE id IN (30013, 30014, 30015, 30016, 30011, 30012, 2);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute UPDATE collections SET imageUrl = CASE \n  WHEN id = 30013 THEN '/collections/jeux-collectifs.jpg'\n  WHEN id = 30014 THEN '/collections/activites-manuelles.jpg'\n  WHEN id = 30015 THEN '/collections/environnement-nature.jpg'\n  WHEN id = 30016 THEN '/collections/leadership-citoyennete.jpg'\n  WHEN id = 30011 THEN '/collections/activites-ete.jpg'\n  WHEN id = 30012 THEN '/collections/formation-bafa.jpg'\n  WHEN id = 2 THEN '/collections/collection-proteger.jpg'\nEND WHERE id IN (30013, 30014, 30015, 30016, 30011, 30012, 2);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1531
+}

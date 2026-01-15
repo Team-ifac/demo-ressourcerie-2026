@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+
+    <title>Ressourcerie IFAC - Plateforme de ressources pédagogiques</title>
+
+    <!-- SEO Meta Tags -->
+    <meta
+      name="description"
+      content="La Ressourcerie IFAC : plateforme de ressources pédagogiques pour animateurs, formateurs, directeurs et stagiaires BAFA/BAFD. Fiches d'activités, projets complets, articles et guides." />
+    <meta
+      name="keywords"
+      content="animation, formation, BAFA, BAFD, ressources pédagogiques, activités, IFAC" />
+    <meta
+      name="author"
+      content="Institut de Formation, d'Animation et de Conseil (IFAC)" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="fr" />
+
+    <!-- Open Graph Meta Tags -->
+    <meta
+      property="og:title"
+      content="Ressourcerie IFAC - Ressources pédagogiques pour l'animation" />
+    <meta
+      property="og:description"
+      content="Découvrez des milliers de ressources pédagogiques pour animer, former et gérer vos projets éducatifs." />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://ressourcerie.ifac.asso.fr" />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:site_name" content="Ressourcerie IFAC" />
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Ressourcerie IFAC" />
+    <meta
+      name="twitter:description"
+      content="Plateforme de ressources pédagogiques pour l'animation et la formation" />
+    <meta name="twitter:image" content="/og-image.png" />
+
+    <!-- Canonical URL -->
+    <link
+      rel="canonical"
+      href="https://ressourcerie.ifac.asso.fr" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="apple-touch-icon"
+      href="/apple-touch-icon.png" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Umami analytics — SAFE loader -->
+    <script>
+      (function () {
+        var endpoint = "%VITE_ANALYTICS_ENDPOINT%";
+        var websiteId = "%VITE_ANALYTICS_WEBSITE_ID%";
+
+        // Si Vite n’a pas remplacé les variables, on ne charge rien
+        if (
+          !endpoint ||
+          !websiteId ||
+          endpoint.indexOf("VITE_ANALYTICS") !== -1 ||
+          websiteId.indexOf("VITE_ANALYTICS") !== -1
+        ) {
+          return;
+        }
+
+        var base = endpoint.replace(/\/$/, "");
+        var script = document.createElement("script");
+        script.defer = true;
+        script.src = base + "/umami";
+        script.setAttribute("data-website-id", websiteId);
+        document.body.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>

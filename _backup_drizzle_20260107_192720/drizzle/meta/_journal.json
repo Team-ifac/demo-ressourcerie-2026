@@ -1,0 +1,97 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1767227078046,
+      "tag": "0000_cold_phalanx",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1767259486506,
+      "tag": "0001_conscious_fabian_cortez",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1767286430481,
+      "tag": "0002_chemical_ben_urich",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1767287716296,
+      "tag": "0003_lyrical_beyonder",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1767343801926,
+      "tag": "0004_nasty_green_goblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1767345135685,
+      "tag": "0005_narrow_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1767373260369,
+      "tag": "0006_light_kingpin",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1767431920466,
+      "tag": "0007_wild_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1767431961686,
+      "tag": "0008_gray_mesmero",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1767431990945,
+      "tag": "0009_military_umar",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1767432016084,
+      "tag": "0010_long_mercury",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1767433090140,
+      "tag": "0011_optimal_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1767434604243,
+      "tag": "0012_kind_talisman",
+      "breakpoints": true
+    }
+  ]
+}

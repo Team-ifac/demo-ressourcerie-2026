@@ -1,0 +1,150 @@
+{
+  "query": "SELECT id, title, summary, type, visibility FROM resources ORDER BY createdAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT id, title, summary, type, visibility FROM resources ORDER BY createdAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "90005",
+      "title": "Valid",
+      "summary": "Test",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "90002",
+      "title": "Titre mis à jour",
+      "summary": "Résumé mis à jour",
+      "type": "Fiche d'activité",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60197",
+      "title": "Conseils pour la rédaction des appréciations",
+      "summary": "Guide pratique pour rédiger des appréciations constructives et bienveillantes sur les stagiaires",
+      "type": "Fiche",
+      "visibility": "INTERNAL_IFAC"
+    },
+    {
+      "id": "60194",
+      "title": "CGF3 - Relations au sein d'un stage",
+      "summary": "Document de formation sur la gestion des relations interpersonnelles pendant un stage BAFA/BAFD",
+      "type": "Fiche",
+      "visibility": "INTERNAL_IFAC"
+    },
+    {
+      "id": "60193",
+      "title": "CGF2 - Mener un temps d'échange",
+      "summary": "Document de formation pour apprendre à mener efficacement un temps d'échange lors d'un stage BAFA/BAFD",
+      "type": "Fiche",
+      "visibility": "INTERNAL_IFAC"
+    },
+    {
+      "id": "60183",
+      "title": "\"Plastique dingue",
+      "summary": "maison\"",
+      "type": "Fiche",
+      "visibility": "INTERNAL_IFAC"
+    },
+    {
+      "id": "60124",
+      "title": "L'antidote",
+      "summary": "Grand jeu extérieur pour 2 équipes. Récupérer l'antidote qui se trouve chez l'équipe adverse sans se faire attraper.",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60123",
+      "title": "Accueil de loisirs pilote en juillet à Cabourg-handicap",
+      "summary": "Ressource pour directeurs : Accueil de loisirs pilote en juillet à Cabourg-handicap",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60122",
+      "title": "Séjours de vacances en juillet à Mimizan dans les Landes",
+      "summary": "Ressource pour directeurs : Séjours de vacances en juillet à Mimizan dans les Landes",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60125",
+      "title": "Craies à trottoir",
+      "summary": "Recette pour fabriquer des craies à trottoir colorées et écologiques avec du plâtre de Paris et des colorants alimentaires.",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60118",
+      "title": "Pistes critères d'évaluation 2",
+      "summary": "Ressource pour directeurs : Pistes critères d'évaluation",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60117",
+      "title": "Conduite de réunion",
+      "summary": "Ressource pour directeurs : Conduite de réunion",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60120",
+      "title": "Séjour de vacances en août en Charente Maritime à Boyardville",
+      "summary": "Ressource pour directeurs : Séjour de vacances en août en Charente Maritime à Boyardville",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60119",
+      "title": "Accueil de loisirs à Cabourg",
+      "summary": "Ressource pour directeurs : Accueil de loisirs  à Cabourg",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60121",
+      "title": "Délégation",
+      "summary": "Ressource pour directeurs : Délégation",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60114",
+      "title": "Exercice des moyens",
+      "summary": "Ressource pour directeurs : Exercice des moyens",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60113",
+      "title": "Projet de Fonctionnement PP4",
+      "summary": "Ressource pour directeurs : Projet de Fonctionnement PP4",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60115",
+      "title": "Plan - Bilan de formation BAFD",
+      "summary": "Ressource pour directeurs : Plan - Bilan de formation BAFD",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60116",
+      "title": "Vacances de Toussaint à Sarlat en Dordogne",
+      "summary": "Ressource pour directeurs : Vacances de Toussaint à Sarlat en Dordogne",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    },
+    {
+      "id": "60111",
+      "title": "Exemples d'objectifs pedagogiques",
+      "summary": "Ressource pour directeurs : Exemples d'objectifs pedagogiques",
+      "type": "Fiche",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\ttitle\tsummary\ttype\tvisibility\n90005\tValid\tTest\tFiche\tPUBLIC\n90002\tTitre mis à jour\tRésumé mis à jour\tFiche d'activité\tPUBLIC\n60197\tConseils pour la rédaction des appréciations\tGuide pratique pour rédiger des appréciations constructives et bienveillantes sur les stagiaires\tFiche\tINTERNAL_IFAC\n60194\tCGF3 - Relations au sein d'un stage\tDocument de formation sur la gestion des relations interpersonnelles pendant un stage BAFA/BAFD\tFiche\tINTERNAL_IFAC\n60193\tCGF2 - Mener un temps d'échange\tDocument de formation pour apprendre à mener efficacement un temps d'échange lors d'un stage BAFA/BAFD\tFiche\tINTERNAL_IFAC\n60183\t\"Plastique dingue\tmaison\"\tFiche\tINTERNAL_IFAC\n60124\tL'antidote\tGrand jeu extérieur pour 2 équipes. Récupérer l'antidote qui se trouve chez l'équipe adverse sans se faire attraper.\tFiche\tPUBLIC\n60123\tAccueil de loisirs pilote en juillet à Cabourg-handicap\tRessource pour directeurs : Accueil de loisirs pilote en juillet à Cabourg-handicap\tFiche\tPUBLIC\n60122\tSéjours de vacances en juillet à Mimizan dans les Landes\tRessource pour directeurs : Séjours de vacances en juillet à Mimizan dans les Landes\tFiche\tPUBLIC\n60125\tCraies à trottoir\tRecette pour fabriquer des craies à trottoir colorées et écologiques avec du plâtre de Paris et des colorants alimentaires.\tFiche\tPUBLIC\n60118\tPistes critères d'évaluation 2\tRessource pour directeurs : Pistes critères d'évaluation\tFiche\tPUBLIC\n60117\tConduite de réunion\tRessource pour directeurs : Conduite de réunion\tFiche\tPUBLIC\n60120\tSéjour de vacances en août en Charente Maritime à Boyardville\tRessource pour directeurs : Séjour de vacances en août en Charente Maritime à Boyardville\tFiche\tPUBLIC\n60119\tAccueil de loisirs à Cabourg\tRessource pour directeurs : Accueil de loisirs  à Cabourg\tFiche\tPUBLIC\n60121\tDélégation\tRessource pour directeurs : Délégation\tFiche\tPUBLIC\n60114\tExercice des moyens\tRessource pour directeurs : Exercice des moyens\tFiche\tPUBLIC\n60113\tProjet de Fonctionnement PP4\tRessource pour directeurs : Projet de Fonctionnement PP4\tFiche\tPUBLIC\n60115\tPlan - Bilan de formation BAFD\tRessource pour directeurs : Plan - Bilan de formation BAFD\tFiche\tPUBLIC\n60116\tVacances de Toussaint à Sarlat en Dordogne\tRessource pour directeurs : Vacances de Toussaint à Sarlat en Dordogne\tFiche\tPUBLIC\n60111\tExemples d'objectifs pedagogiques\tRessource pour directeurs : Exemples d'objectifs pedagogiques\tFiche\tPUBLIC\n",
+  "stderr": "",
+  "execution_time_ms": 1525
+}

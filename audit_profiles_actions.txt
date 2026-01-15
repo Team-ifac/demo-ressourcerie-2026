@@ -1,0 +1,4 @@
+server/routers.ts:638:        await db.associateResourceToProfile(id, input.profile);
+server/routers.ts:1000:              await db.addResourceProfile(resourceId, profile);
+server/db.ts:1111:export async function associateResourceToProfile(resourceId: number, profileType: string) {
+server/db.ts:1162:export async function addResourceProfile(resourceId: number, profileType: string) {

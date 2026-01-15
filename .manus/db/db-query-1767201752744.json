@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE resources SET thumbnailUrl = '/resources/cgf3-relations.jpg' WHERE title LIKE '%CGF3%Relations%';\nUPDATE resources SET thumbnailUrl = '/resources/cgf2-temps-echange.jpg' WHERE title LIKE '%CGF2%Mener%';\nUPDATE resources SET thumbnailUrl = '/resources/appreciations.jpg' WHERE title LIKE '%Conseils%rédaction%appréciations%';\nUPDATE resources SET thumbnailUrl = '/resources/formation.jpg' WHERE title LIKE '%Formation%';\nUPDATE resources SET thumbnailUrl = '/resources/animation.jpg' WHERE title LIKE '%animation%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute UPDATE resources SET thumbnailUrl = '/resources/cgf3-relations.jpg' WHERE title LIKE '%CGF3%Relations%';\nUPDATE resources SET thumbnailUrl = '/resources/cgf2-temps-echange.jpg' WHERE title LIKE '%CGF2%Mener%';\nUPDATE resources SET thumbnailUrl = '/resources/appreciations.jpg' WHERE title LIKE '%Conseils%rédaction%appréciations%';\nUPDATE resources SET thumbnailUrl = '/resources/formation.jpg' WHERE title LIKE '%Formation%';\nUPDATE resources SET thumbnailUrl = '/resources/animation.jpg' WHERE title LIKE '%animation%';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2441
+}

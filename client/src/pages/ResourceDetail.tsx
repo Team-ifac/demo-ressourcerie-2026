@@ -1,0 +1,322 @@
+import { useRoute } from "wouter";
+import { Breadcrumb } from "@/components/Breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { trpc } from "@/lib/trpc";
+import { Download, Heart, Clock, Users, Target, Timer, Globe, Lock, Loader2 } from "lucide-react";
+import { ShareButtons } from "@/components/ShareButtons";
+import { QRCodeGenerator } from "@/components/QRCodeGenerator";
+import { ExportPDF } from "@/components/ExportPDF";
+import { PrintableVersion } from "@/components/PrintableVersion";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { toast } from "sonner";
+import { getLoginUrl } from "@/const";
+
+export default function ResourceDetail() {
+  const [, params] = useRoute("/resources/:id");
+  const resourceId = parseInt(params?.id || "0");
+  const { user, isAuthenticated } = useAuth();
+  const utils = trpc.useUtils();
+
+  const { data: resource, isLoading } = trpc.resources.getById.useQuery(
+    { id: resourceId },
+    { enabled: resourceId > 0 }
+  );
+
+  const { data: favoriteCheck } = trpc.favorites.check.useQuery(
+    { resourceId },
+    { enabled: isAuthenticated && resourceId > 0 }
+  );
+
+  const addFavoriteMutation = trpc.favorites.add.useMutation({
+    onSuccess: () => {
+      utils.favorites.check.invalidate({ resourceId });
+      utils.favorites.list.invalidate();
+      toast.success("Ressource ajoutée aux favoris");
+    },
+  });
+
+  const removeFavoriteMutation = trpc.favorites.remove.useMutation({
+    onSuccess: () => {
+      utils.favorites.check.invalidate({ resourceId });
+      utils.favorites.list.invalidate();
+      toast.success("Ressource retirée des favoris");
+    },
+  });
+
+  const handleFavoriteToggle = () => {
+    if (!isAuthenticated) {
+      toast.error("Veuillez vous connecter pour ajouter des favoris");
+      window.location.href = getLoginUrl();
+      return;
+    }
+
+    if (favoriteCheck?.isFavorite) {
+      removeFavoriteMutation.mutate({ resourceId });
+    } else {
+      addFavoriteMutation.mutate({ resourceId });
+    }
+  };
+
+  const handleDownload = () => {
+    if (!resource?.fileUrl) {
+      toast.error("Aucun fichier disponible pour cette ressource");
+      return;
+    }
+
+    if (resource.visibility === "INTERNAL_IFAC" && !isAuthenticated) {
+      toast.error("Veuillez vous connecter pour télécharger cette ressource");
+      window.location.href = getLoginUrl();
+      return;
+    }
+
+    window.open(resource.fileUrl, "_blank");
+    toast.success("Téléchargement en cours...");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 py-8">
+          <div className="container">
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!resource) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 py-8">
+          <div className="container">
+            <Card className="py-12">
+              <CardContent className="text-center space-y-2">
+                <p className="text-lg font-medium">Ressource non trouvée</p>
+                <p className="text-muted-foreground">
+                  Cette ressource n'existe pas ou n'est plus disponible
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      
+      <main className="flex-1 py-8">
+        <div className="container space-y-8">
+          <Breadcrumb 
+            items={[
+              { label: "Ressources", href: "/resources" },
+              { label: resource.title }
+            ]} 
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Contenu principal */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <h1 className="text-4xl font-bold">{resource.title}</h1>
+                  {resource.visibility === "INTERNAL_IFAC" ? (
+                    <Badge variant="secondary" className="gap-1 flex-shrink-0">
+                      <Lock className="h-3 w-3" />
+                      Interne IFAC
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 flex-shrink-0">
+                      <Globe className="h-3 w-3" />
+                      Public
+                    </Badge>
+                  )}
+                </div>
+
+                <p className="text-xl text-muted-foreground">{resource.summary}</p>
+
+                <div className="flex flex-wrap gap-2">
+                  {resource.type && <Badge variant="secondary">{resource.type}</Badge>}
+                  {resource.ageRange && <Badge variant="outline">{resource.ageRange}</Badge>}
+                  {resource.duration && <Badge variant="outline">{resource.duration}</Badge>}
+                  {resource.level && <Badge variant="outline">{resource.level}</Badge>}
+                </div>
+              </div>
+
+              <Separator />
+
+              {resource.thumbnailUrl && (
+                <div className="rounded-lg overflow-hidden shadow-elegant">
+                  <img
+                    src={resource.thumbnailUrl}
+                    alt={resource.title}
+                    className="w-full aspect-video object-cover"
+                  />
+                </div>
+              )}
+
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle>Description détaillée</CardTitle>
+                </CardHeader>
+                <CardContent className="prose prose-sm max-w-none">
+                  <div className="whitespace-pre-wrap">{resource.content}</div>
+                </CardContent>
+              </Card>
+
+              {resource.themes && resource.themes.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Thématiques</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {resource.themes.map((theme) => (
+                        <Badge key={theme.id} variant="secondary">
+                          {theme.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              <Card className="shadow-elegant sticky top-24">
+                <CardHeader>
+                  <CardTitle>Actions</CardTitle>
+                  <CardDescription>
+                    Téléchargez ou ajoutez cette ressource à vos favoris
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button 
+                    onClick={handleDownload} 
+                    className="w-full gap-2"
+                    disabled={!resource.fileUrl}
+                  >
+                    <Download className="h-4 w-4" />
+                    Télécharger la ressource
+                  </Button>
+                  <Button 
+                    onClick={handleFavoriteToggle}
+                    variant={favoriteCheck?.isFavorite ? "default" : "outline"}
+                    className="w-full gap-2"
+                    disabled={addFavoriteMutation.isPending || removeFavoriteMutation.isPending}
+                  >
+                    <Heart 
+                      className={`h-4 w-4 ${favoriteCheck?.isFavorite ? 'fill-current' : ''}`} 
+                    />
+                    {favoriteCheck?.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+                  </Button>
+                  
+                  <Separator className="my-2" />
+                  
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">PARTAGER & EXPORTER</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <ShareButtons
+                        title={resource.title}
+                        description={resource.summary}
+                        url={`/resources/${resource.id}`}
+                        resourceId={resource.id}
+                      />
+                      <QRCodeGenerator
+                        resourceId={resource.id}
+                        resourceTitle={resource.title}
+                        url={`/resources/${resource.id}`}
+                      />
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <ExportPDF
+                        resourceId={resource.id}
+                        resourceTitle={resource.title}
+                        resourceContent={{
+                          title: resource.title,
+                          description: resource.summary,
+                          content: resource.content,
+                          category: resource.type,
+                          createdAt: new Date(resource.createdAt),
+                        }}
+                      />
+                      <PrintableVersion
+                        resourceId={resource.id}
+                        resourceTitle={resource.title}
+                        resourceContent={{
+                          title: resource.title,
+                          description: resource.summary || undefined,
+                          content: resource.content || undefined,
+                          category: resource.type || undefined,
+                          difficulty: resource.level || undefined,
+                          duration: resource.duration || undefined,
+                          ageGroup: resource.ageRange || undefined,
+                          createdAt: new Date(resource.createdAt),
+                        }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Informations</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {resource.ageRange && (
+                    <div className="flex items-start gap-3">
+                      <Users className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-sm">Public cible</p>
+                        <p className="text-sm text-muted-foreground">{resource.ageRange}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {resource.duration && (
+                    <div className="flex items-start gap-3">
+                      <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-sm">Durée</p>
+                        <p className="text-sm text-muted-foreground">{resource.duration}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {resource.prepTime && (
+                    <div className="flex items-start gap-3">
+                      <Timer className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-sm">Temps de préparation</p>
+                        <p className="text-sm text-muted-foreground">{resource.prepTime}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {resource.level && (
+                    <div className="flex items-start gap-3">
+                      <Target className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-sm">Niveau</p>
+                        <p className="text-sm text-muted-foreground">{resource.level}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

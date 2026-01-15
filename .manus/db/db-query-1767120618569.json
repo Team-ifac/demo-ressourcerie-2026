@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, name, userId FROM collections ORDER BY name;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT id, name, userId FROM collections ORDER BY name;",
+  "rows": [
+    {
+      "id": "30011",
+      "name": "Activités d'été",
+      "userId": "1"
+    },
+    {
+      "id": "30014",
+      "name": "Activités manuelles",
+      "userId": "1"
+    },
+    {
+      "id": "2",
+      "name": "Collection à protéger",
+      "userId": "1"
+    },
+    {
+      "id": "30015",
+      "name": "Environnement et nature",
+      "userId": "1"
+    },
+    {
+      "id": "30012",
+      "name": "Formation BAFA",
+      "userId": "1"
+    },
+    {
+      "id": "30013",
+      "name": "Jeux collectifs",
+      "userId": "1"
+    },
+    {
+      "id": "30016",
+      "name": "Leadership et citoyenneté",
+      "userId": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tuserId\n30011\tActivités d'été\t1\n30014\tActivités manuelles\t1\n2\tCollection à protéger\t1\n30015\tEnvironnement et nature\t1\n30012\tFormation BAFA\t1\n30013\tJeux collectifs\t1\n30016\tLeadership et citoyenneté\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1550
+}

@@ -1,0 +1,8 @@
+{
+  "query": "SELECT \n  'resourceProfiles' as table_name,\n  COUNT(*) as total_rows,\n  COUNT(DISTINCT profileType) as distinct_profiles\nFROM resourceProfiles\nUNION ALL\nSELECT \n  'collectionProfiles' as table_name,\n  COUNT(*) as total_rows,\n  COUNT(DISTINCT profileType) as distinct_profiles\nFROM collectionProfiles\nUNION ALL\nSELECT \n  'Détail resourceProfiles' as table_name,\n  profileType as total_rows,\n  COUNT(*) as distinct_profiles\nFROM resourceProfiles\nGROUP BY profileType;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT \n  'resourceProfiles' as table_name,\n  COUNT(*) as total_rows,\n  COUNT(DISTINCT profileType) as distinct_profiles\nFROM resourceProfiles\nUNION ALL\nSELECT \n  'collectionProfiles' as table_name,\n  COUNT(*) as total_rows,\n  COUNT(DISTINCT profileType) as distinct_profiles\nFROM collectionProfiles\nUNION ALL\nSELECT \n  'Détail resourceProfiles' as table_name,\n  profileType as total_rows,\n  COUNT(*) as distinct_profiles\nFROM resourceProfiles\nGROUP BY profileType;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'gqewigmmrgup669tjbuvk5.resourceProfiles' doesn't exist"
+  ]
+}

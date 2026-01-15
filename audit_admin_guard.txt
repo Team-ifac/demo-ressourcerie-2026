@@ -1,0 +1,81 @@
+client/src/App.tsx:14:import Admin from "./pages/Admin";
+client/src/App.tsx:15:import AdminResources from "./pages/AdminResources";
+client/src/App.tsx:16:import AdminResourceForm from "./pages/AdminResourceForm";
+client/src/App.tsx:17:import AdminThemes from "./pages/AdminThemes";
+client/src/App.tsx:18:import AdminUsers from "./pages/AdminUsers";
+client/src/App.tsx:27:import AdminAnalytics from "@/pages/AdminAnalytics";
+client/src/App.tsx:29:import AdminModeration from "./pages/AdminModeration";
+client/src/App.tsx:30:import AdminIntegrations from "./pages/AdminIntegrations";
+client/src/App.tsx:31:import AdminImport from "./pages/AdminImport";
+client/src/App.tsx:32:import AdminThumbnails from "./pages/AdminThumbnails";
+client/src/App.tsx:33:import { AdminCollections } from "./pages/AdminCollections";
+client/src/App.tsx:34:import AdminCollectionAssociation from "@/pages/AdminCollectionAssociation";
+client/src/App.tsx:35:import AdminDeduplication from "@/pages/AdminDeduplication";
+client/src/App.tsx:36:import AdminAutoClassify from "@/pages/AdminAutoClassify";
+client/src/App.tsx:37:import AdminCollectionsManagement from "./pages/AdminCollectionsManagement";
+client/src/App.tsx:38:import AdminProfiles from "./pages/AdminProfiles";
+client/src/App.tsx:39:import { AdminAccessLevels } from "./pages/AdminAccessLevels";
+client/src/App.tsx:51:import AdminCMS from "./pages/AdminCMS";
+client/src/App.tsx:54:import AdminImportFormateurs from "./pages/AdminImportFormateurs";
+client/src/App.tsx:55:import AdminSendFormateursEmails from "./pages/AdminSendFormateursEmails";
+client/src/App.tsx:56:import AdminResourcesManagement from "./pages/AdminResourcesManagement";
+client/src/App.tsx:57:import { AdminImportPDFs } from "./pages/AdminImportPDFs";
+client/src/App.tsx:60:import AdminLearningPaths from "./pages/AdminLearningPaths";
+client/src/App.tsx:86:      <Route path="/admin/import" component={AdminImport} />
+client/src/App.tsx:87:      <Route path="/admin/import-formateurs" component={AdminImportFormateurs} />
+client/src/App.tsx:88:      <Route path="/admin/send-formateurs-emails" component={AdminSendFormateursEmails} />
+client/src/App.tsx:89:      <Route path="/admin/import-pdfs" component={AdminImportPDFs} />
+client/src/App.tsx:90:      <Route path="/admin/cms" component={AdminCMS} />
+client/src/App.tsx:91:      <Route path="/admin/thumbnails" component={AdminThumbnails} />
+client/src/App.tsx:92:      <Route path="/admin/collections" component={AdminCollections} />
+client/src/App.tsx:93:      <Route path="/admin/collection-association" component={AdminCollectionAssociation} />
+client/src/App.tsx:94:      <Route path="/admin/deduplication" component={AdminDeduplication} />
+client/src/App.tsx:95:      <Route path="/admin/auto-classify" component={AdminAutoClassify} />
+client/src/App.tsx:96:      <Route path="/admin/collections-management" component={AdminCollectionsManagement} />
+client/src/App.tsx:97:      <Route path="/admin/integrations" component={AdminIntegrations} />
+client/src/App.tsx:123:      <Route path="/admin" component={Admin} />
+client/src/App.tsx:124:      <Route path="/admin/ressources" component={AdminResources} />
+client/src/App.tsx:125:      <Route path="/admin/ressources/:id" component={AdminResourceForm} />
+client/src/App.tsx:126:      <Route path="/admin/resources-management" component={AdminResourcesManagement} />
+client/src/App.tsx:127:      <Route path="/admin/thematiques" component={AdminThemes} />
+client/src/App.tsx:128:      <Route path="/admin/profils" component={AdminProfiles} />
+client/src/App.tsx:129:      <Route path="/admin/access-levels" component={AdminAccessLevels} />
+client/src/App.tsx:130:      <Route path="/admin/utilisateurs" component={AdminUsers} />
+client/src/App.tsx:131:      <Route path="/admin/moderation" component={AdminModeration} />
+client/src/App.tsx:132:      <Route path="/admin/analytics" component={AdminAnalytics} />
+client/src/App.tsx:133:      <Route path="/admin/parcours" component={AdminLearningPaths} />
+client/src/components/Header.tsx:148:                    {user.role === "admin" && (
+client/src/components/Header.tsx:152:                          <Link href="/admin">
+client/src/pages/Settings.tsx:93:                    {user?.role === "admin" ? "Administrateur" : "Utilisateur"}
+client/src/pages/UserProfile.tsx:127:                    {user.role === "admin" && (
+client/src/pages/AdminThemes.tsx:121:              { label: "Administration", href: "/admin" },
+client/src/pages/AdminResourceForm.tsx:18:  const [, params] = useRoute("/admin/ressources/:id");
+client/src/pages/AdminResourceForm.tsx:49:      navigate("/admin/ressources");
+client/src/pages/AdminResourceForm.tsx:59:      navigate("/admin/ressources");
+client/src/pages/AdminResourceForm.tsx:180:              { label: "Administration", href: "/admin" },
+client/src/pages/AdminResourceForm.tsx:181:              { label: "Gestion des ressources", href: "/admin/ressources" },
+client/src/pages/AdminResourceForm.tsx:452:                onClick={() => navigate("/admin/ressources")}
+client/src/pages/AdminResources.tsx:77:              { label: "Administration", href: "/admin" },
+client/src/pages/AdminResources.tsx:90:              <Link href="/admin/ressources/nouvelle">
+client/src/pages/AdminResources.tsx:177:                                <Link href={`/admin/ressources/${resource.id}`}>
+client/src/pages/AdminSendFormateursEmails.tsx:21:    enabled: user?.role === "admin",
+client/src/pages/AdminUsers.tsx:41:    enabled: user?.role === "admin",
+client/src/pages/AdminUsers.tsx:94:              { label: "Administration", href: "/admin" },
+client/src/pages/AdminUsers.tsx:156:                              <Badge variant={u.role === "admin" ? "default" : "secondary"} className="gap-1">
+client/src/pages/AdminUsers.tsx:157:                                {u.role === "admin" ? (
+client/src/pages/AdminUsers.tsx:221:                    <strong>Rôle</strong> (user/admin) = permissions techniques.
+client/src/pages/UserProfileManagement.tsx:238:                    {user.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
+client/src/pages/Admin.tsx:50:    enabled: user?.role === "admin",
+client/src/pages/Admin.tsx:140:                    <Link href="/admin/ressources">Gérer les ressources</Link>
+client/src/pages/Admin.tsx:143:                    <Link href="/admin/ressources/nouvelle">Nouvelle ressource</Link>
+client/src/pages/Admin.tsx:165:                  <Link href="/admin/resources-management">Gerer les ressources</Link>
+client/src/pages/Admin.tsx:186:                  <Link href="/admin/thematiques">Gérer les thématiques</Link>
+client/src/pages/Admin.tsx:207:                  <Link href="/admin/utilisateurs">Gérer les utilisateurs·rices</Link>
+client/src/pages/Admin.tsx:228:                  <Link href="/admin/collections">Gérer les collections</Link>
+client/src/pages/Admin.tsx:249:                  <Link href="/admin/collection-association">Associer les ressources</Link>
+client/src/pages/Admin.tsx:289:                  <Link href="/admin/profils">Gérer les profils</Link>
+client/src/pages/Admin.tsx:310:                  <Link href="/admin/access-levels">Gérer les niveaux d'accès</Link>
+client/src/pages/Admin.tsx:331:                  <Link href="/admin/subscription-dashboard">Voir les statistiques</Link>
+client/src/pages/Admin.tsx:352:                  <Link href="/admin/import-formateurs">Importer les formateurs</Link>
+client/src/pages/Admin.tsx:373:                  <Link href="/admin/send-formateurs-emails">Envoyer les emails</Link>
+client/src/pages/Admin.tsx:394:                  <Link href="/admin/cms">Gérer le CMS</Link>

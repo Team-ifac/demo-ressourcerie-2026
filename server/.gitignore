@@ -1,0 +1,29 @@
+# === Dépendances / build ===
+node_modules
+dist
+client/dist
+server/dist
+
+# === Logs / OS ===
+.DS_Store
+*.log
+
+# === ENV / secrets ===
+.env
+server/.env
+client/.env
+.env.*
+
+# === Gros fichiers de démo / imports (NE PAS versionner) ===
+client/public/imported/
+client/public/imported_thumbs/
+client/public/thumbnails/profile-*
+*.pdf
+*.zip
+*.mp4
+*.mov
+
+# === Exports / temporaires ===
+ressources_images.csv
+temp_*.txt
+resultat_*.txt

@@ -1,0 +1,3 @@
+client/src/pages/AdminResourcesManagement.tsx:39:  const resourcesQuery = trpc.collections.getAllResourcesForAdmin.useQuery(undefined, {
+client/src/pages/AdminResourcesManagement.tsx:85:    await utils.collections.getAllResourcesForAdmin.invalidate();
+client/src/pages/AdminCollectionsManagement.tsx:22:    trpc.collections.getAllResourcesForAdmin.useQuery();

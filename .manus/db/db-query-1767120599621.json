@@ -1,0 +1,37 @@
+{
+  "query": "SELECT COUNT(*) as total FROM collections; SELECT name, COUNT(*) as count FROM collections GROUP BY name HAVING COUNT(*) > 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT COUNT(*) as total FROM collections; SELECT name, COUNT(*) as count FROM collections GROUP BY name HAVING COUNT(*) > 1;",
+  "rows": [
+    {
+      "total": "26"
+    },
+    {
+      "total": "name\tcount"
+    },
+    {
+      "total": "Activités d'été\t2"
+    },
+    {
+      "total": "Jeux collectifs\t2"
+    },
+    {
+      "total": "Activités manuelles\t2"
+    },
+    {
+      "total": "Formation BAFA\t2"
+    },
+    {
+      "total": "Collection à protéger\t14"
+    },
+    {
+      "total": "Environnement et nature\t2"
+    },
+    {
+      "total": "Leadership et citoyenneté\t2"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n26\nname\tcount\nActivités d'été\t2\nJeux collectifs\t2\nActivités manuelles\t2\nFormation BAFA\t2\nCollection à protéger\t14\nEnvironnement et nature\t2\nLeadership et citoyenneté\t2\n",
+  "stderr": "",
+  "execution_time_ms": 1813
+}

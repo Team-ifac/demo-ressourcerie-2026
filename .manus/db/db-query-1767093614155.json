@@ -1,0 +1,46 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "collection_resources"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "collections"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "comments"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "favorites"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "resource_history"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "resource_tags"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "resource_themes"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "resources"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "tags"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "themes"
+    },
+    {
+      "Tables_in_gQewigmMrgup669TjBuvK5": "users"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_gQewigmMrgup669TjBuvK5\n__drizzle_migrations\ncollection_resources\ncollections\ncomments\nfavorites\nresource_history\nresource_tags\nresource_themes\nresources\ntags\nthemes\nusers\n",
+  "stderr": "",
+  "execution_time_ms": 1632
+}

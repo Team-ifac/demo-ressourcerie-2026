@@ -1,0 +1,14 @@
+{
+  "query": "SELECT COUNT(*) as total, COUNT(CASE WHEN category IS NOT NULL THEN 1 END) as with_category FROM resources;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT COUNT(*) as total, COUNT(CASE WHEN category IS NOT NULL THEN 1 END) as with_category FROM resources;",
+  "rows": [
+    {
+      "total": "116",
+      "with_category": "116"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\twith_category\n116\t116\n",
+  "stderr": "",
+  "execution_time_ms": 63
+}

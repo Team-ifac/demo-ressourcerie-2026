@@ -1,0 +1,46 @@
+{
+  "query": "SELECT COUNT(*) as total FROM resources; SELECT id, title FROM resources LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute SELECT COUNT(*) as total FROM resources; SELECT id, title FROM resources LIMIT 10;",
+  "rows": [
+    {
+      "total": "212"
+    },
+    {
+      "total": "id\ttitle"
+    },
+    {
+      "total": "1\tLe jeu du parachute"
+    },
+    {
+      "total": "2\tAtelier fabrication de cerf-volant"
+    },
+    {
+      "total": "3\tGrand jeu : La quête des éléments"
+    },
+    {
+      "total": "4\tRépertoire de chants pour veillées"
+    },
+    {
+      "total": "5\tFormation BAFA : Connaissance de l'enfant"
+    },
+    {
+      "total": "6\tProjet pédagogique : Séjour nature et découverte"
+    },
+    {
+      "total": "7\tAtelier théâtre d'improvisation"
+    },
+    {
+      "total": "8\tGestion des conflits entre enfants"
+    },
+    {
+      "total": "9\tActivités autour du recyclage créatif"
+    },
+    {
+      "total": "10\tOrganisation d'une journée olympiades"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n212\nid\ttitle\n1\tLe jeu du parachute\n2\tAtelier fabrication de cerf-volant\n3\tGrand jeu : La quête des éléments\n4\tRépertoire de chants pour veillées\n5\tFormation BAFA : Connaissance de l'enfant\n6\tProjet pédagogique : Séjour nature et découverte\n7\tAtelier théâtre d'improvisation\n8\tGestion des conflits entre enfants\n9\tActivités autour du recyclage créatif\n10\tOrganisation d'une journée olympiades\n",
+  "stderr": "",
+  "execution_time_ms": 1713
+}

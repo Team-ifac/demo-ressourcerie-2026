@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS subscriptions (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  userId INT NOT NULL,\n  stripeCustomerId VARCHAR(255) NOT NULL,\n  stripeSubscriptionId VARCHAR(255) NOT NULL UNIQUE,\n  status ENUM('active', 'canceled', 'past_due', 'unpaid', 'incomplete') NOT NULL,\n  currentPeriodStart TIMESTAMP NOT NULL,\n  currentPeriodEnd TIMESTAMP NOT NULL,\n  canceledAt TIMESTAMP NULL,\n  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VYNiayrc8cGQtc.142e8b12c916 --database gQewigmMrgup669TjBuvK5 --execute CREATE TABLE IF NOT EXISTS subscriptions (\n  id INT AUTO_INCREMENT PRIMARY KEY,\n  userId INT NOT NULL,\n  stripeCustomerId VARCHAR(255) NOT NULL,\n  stripeSubscriptionId VARCHAR(255) NOT NULL UNIQUE,\n  status ENUM('active', 'canceled', 'past_due', 'unpaid', 'incomplete') NOT NULL,\n  currentPeriodStart TIMESTAMP NOT NULL,\n  currentPeriodEnd TIMESTAMP NOT NULL,\n  canceledAt TIMESTAMP NULL,\n  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n  updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,\n  FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 301
+}
