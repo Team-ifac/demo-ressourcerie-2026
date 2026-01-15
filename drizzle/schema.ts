@@ -2,11 +2,11 @@ import { mysqlTable, mysqlSchema, AnyMySqlColumn, int, varchar, timestamp, forei
 import { sql } from "drizzle-orm"
 
 export const analytics = mysqlTable("analytics", {
-	id: int().autoincrement().notNull(),
-	userId: int(),
-	action: varchar({ length: 50 }).notNull(),
-	resourceId: int(),
-	createdAt: timestamp({ mode: 'string' }).default('CURRENT_TIMESTAMP').notNull(),
+  id: int().primaryKey().autoincrement().notNull(),
+  userId: int(),
+  action: varchar({ length: 50 }).notNull(),
+  resourceId: int(),
+  createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
 });
 
 export const collectionProfiles = mysqlTable("collection_profiles", {
