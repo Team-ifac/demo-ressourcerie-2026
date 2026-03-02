@@ -1048,27 +1048,31 @@ if (!isEmailVerified) {
   .query(async ({ input, ctx }) => {
     const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
 
+    const isStaff = entitlements.isStaff;
+
     const rows = (await db.getHomePopularResources({
       includeInternal: isAdmin || entitlements.isAuthenticated,
-      includePremium: isAdmin || !!entitlements.isPremium,
+      // ✅ staff = accès PREMIUM (outil national)
+      includePremium: isAdmin || isStaff || !!entitlements.isPremium,
       isAdmin,
       autoLimit: input?.autoLimit ?? 6,
       editorialLimit: input?.editorialLimit ?? 2,
     })) as any[];
 
     // ✅ DOUBLE VERROU ANTI-FUITE (accessLevel)
-    const allowed = allowedAccessLevels(
-      entitlements.isAuthenticated,
-      !!entitlements.isPremium
-    );
+    // - admin : tout
+    // - staff : tout (y compris PREMIUM)
+    // - sinon : logique premium standard
+    const allowed = isStaff
+      ? (["PUBLIC", "INTERNAL_IFAC", "PREMIUM"] as AccessLevel[])
+      : allowedAccessLevels(entitlements.isAuthenticated, !!entitlements.isPremium);
 
-    let rowsSafe = rows;
+    let rowsSafe = rows || [];
 
-    if (!isAdmin) {
+    // ✅ IMPORTANT : on ne coupe PAS le PREMIUM pour staff (sinon bypass inutile)
+    if (!isAdmin && !isStaff) {
       rowsSafe = filterByAccessLevel(rowsSafe, allowed);
     }
-
-    const isStaff = entitlements.isStaff;
 
     const filtered = isAdmin
       ? rowsSafe
@@ -1082,7 +1086,7 @@ if (!isEmailVerified) {
         });
 
     return filtered;
-  }),     
+  }),   
 
   // ⚠️ DEPRECATED : utiliser resources.getHomePopularResources (endpoint Home canonique)
 // (gardé temporairement pour éviter toute casse si un ancien écran l'appelle encore)
