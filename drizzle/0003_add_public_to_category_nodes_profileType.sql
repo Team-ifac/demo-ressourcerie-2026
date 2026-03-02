@@ -1,0 +1,1 @@
+ALTER TABLE `category_nodes` MODIFY COLUMN `profileType` enum('public','animateur','formateur','directeur','stagiaire_bafa') NOT NULL;

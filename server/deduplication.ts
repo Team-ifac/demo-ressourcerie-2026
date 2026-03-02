@@ -35,7 +35,14 @@ export interface DeduplicationReport {
  */
 export async function analyzeDuplicates(): Promise<DeduplicationReport> {
   try {
-    const allResources = await db.getAllResources();
+    // 🔒 Sécurité "outil national" :
+    // Ce service est uniquement destiné à l'admin/maintenance.
+    // On force un mode "adminView" explicite pour éviter toute réutilisation accidentelle.
+    const allResources = await db.getAllResources({
+      adminView: db.ADMIN_VIEW_TOKEN,
+      includeInternal: true,
+      includePremium: true,
+    });
     
     // Grouper par titre (case-insensitive)
     const grouped = new Map<string, typeof allResources>();

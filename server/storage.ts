@@ -1,21 +1,24 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uses the Biz-provided storage proxy (Authorization: Bearer <token>)
+// Storage helpers
+// - Prod: uses Forge/Biz storage proxy (Authorization: Bearer <token>)
+// - Local dev: fallback -> return a directly usable URL (no proxy needed)
 
-import { ENV } from './_core/env';
+import { ENV } from "./_core/env";
 
-type StorageConfig = { baseUrl: string; apiKey: string };
+type StorageConfig =
+  | { mode: "forge"; baseUrl: string; apiKey: string }
+  | { mode: "local" };
 
 function getStorageConfig(): StorageConfig {
   const baseUrl = ENV.forgeApiUrl;
   const apiKey = ENV.forgeApiKey;
 
-  if (!baseUrl || !apiKey) {
-    throw new Error(
-      "Storage proxy credentials missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY"
-    );
+  // ✅ Prod / remote mode (Forge proxy configured)
+  if (baseUrl && apiKey) {
+    return { mode: "forge", baseUrl: baseUrl.replace(/\/+$/, ""), apiKey };
   }
 
-  return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey };
+  // ✅ Local dev mode: do NOT throw — we will return direct URLs
+  return { mode: "local" };
 }
 
 function buildUploadUrl(baseUrl: string, relKey: string): URL {
@@ -34,15 +37,33 @@ async function buildDownloadUrl(
     ensureTrailingSlash(baseUrl)
   );
   downloadApiUrl.searchParams.set("path", normalizeKey(relKey));
+
   const response = await fetch(downloadApiUrl, {
     method: "GET",
     headers: buildAuthHeaders(apiKey),
   });
-  return (await response.json()).url;
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(
+      `Storage downloadUrl failed (${response.status} ${response.statusText}): ${message}`
+    );
+  }
+
+  const json = (await response.json()) as any;
+  const url = json?.url;
+  if (!url || typeof url !== "string") {
+    throw new Error(`Storage downloadUrl invalid response: missing "url"`);
+  }
+  return url;
 }
 
 function ensureTrailingSlash(value: string): string {
   return value.endsWith("/") ? value : `${value}/`;
+}
+
+function ensureLeadingSlash(value: string): string {
+  return value.startsWith("/") ? value : `/${value}`;
 }
 
 function normalizeKey(relKey: string): string {
@@ -72,13 +93,22 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream"
 ): Promise<{ key: string; url: string }> {
-  const { baseUrl, apiKey } = getStorageConfig();
+  const cfg = getStorageConfig();
   const key = normalizeKey(relKey);
-  const uploadUrl = buildUploadUrl(baseUrl, key);
+
+  // Local dev: we don't upload anywhere (no proxy). Keep it explicit.
+  if (cfg.mode === "local") {
+    throw new Error(
+      `storagePut disabled in local dev (missing BUILT_IN_FORGE_API_URL/KEY). Tried to store key="${key}".`
+    );
+  }
+
+  const uploadUrl = buildUploadUrl(cfg.baseUrl, key);
   const formData = toFormData(data, contentType, key.split("/").pop() ?? key);
+
   const response = await fetch(uploadUrl, {
     method: "POST",
-    headers: buildAuthHeaders(apiKey),
+    headers: buildAuthHeaders(cfg.apiKey),
     body: formData,
   });
 
@@ -88,15 +118,30 @@ export async function storagePut(
       `Storage upload failed (${response.status} ${response.statusText}): ${message}`
     );
   }
-  const url = (await response.json()).url;
+
+  const json = (await response.json()) as any;
+  const url = json?.url;
+  if (!url || typeof url !== "string") {
+    throw new Error(`Storage upload invalid response: missing "url"`);
+  }
+
   return { key, url };
 }
 
-export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
-  const { baseUrl, apiKey } = getStorageConfig();
+export async function storageGet(
+  relKey: string
+): Promise<{ key: string; url: string }> {
+  const cfg = getStorageConfig();
   const key = normalizeKey(relKey);
+
+  // ✅ Local dev: return a directly usable URL.
+  // Works for keys like "imported_thumbs/..." or "thumbnails/..."
+  if (cfg.mode === "local") {
+    return { key, url: ensureLeadingSlash(key) };
+  }
+
   return {
     key,
-    url: await buildDownloadUrl(baseUrl, key, apiKey),
+    url: await buildDownloadUrl(cfg.baseUrl, key, cfg.apiKey),
   };
 }

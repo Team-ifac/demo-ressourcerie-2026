@@ -9,6 +9,8 @@ import {
   mysqlEnum,
   text,
   index,
+  uniqueIndex,
+  primaryKey,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
@@ -20,14 +22,24 @@ export const analytics = mysqlTable("analytics", {
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
 });
 
-export const collectionProfiles = mysqlTable("collection_profiles", {
-  collectionId: int()
-    .notNull()
-    .references(() => collections.id, { onDelete: "cascade" }),
-  profileType: mysqlEnum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
-    .notNull(),
-  addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-});
+export const collectionProfiles = mysqlTable(
+  "collection_profiles",
+  {
+    collectionId: int()
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+
+    profileTypeId: int()
+      .notNull()
+      .references(() => profileTypes.id, { onDelete: "restrict" }),
+
+    addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.collectionId, table.profileTypeId] }),
+    index("idx_collection_profiles_profileTypeId").on(table.profileTypeId),
+  ]
+);
 
 export const collectionResources = mysqlTable("collection_resources", {
   collectionId: int()
@@ -41,15 +53,30 @@ export const collectionResources = mysqlTable("collection_resources", {
 
 export const collections = mysqlTable("collections", {
   id: int().primaryKey().autoincrement().notNull(),
+
   userId: int()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+
   name: varchar({ length: 255 }).notNull(),
+  slug: varchar({ length: 255 }).notNull(),
+
   description: text(),
-  isPublic: mysqlEnum(["true", "false"]).default("false").notNull(),
+
+  status: mysqlEnum(["draft", "pending", "approved", "rejected"])
+    .default("draft")
+    .notNull(),
+
+  accessLevel: mysqlEnum(["PUBLIC", "PREMIUM", "INTERNAL_IFAC"])
+    .default("PUBLIC")
+    .notNull(),
+
+  sortOrder: int().default(0).notNull(),
+
+  imageUrl: text(),
+
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
-  imageUrl: text(),
 });
 
 export const comments = mysqlTable("comments", {
@@ -104,14 +131,24 @@ export const resourceHistory = mysqlTable("resource_history", {
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
 });
 
-export const resourceProfiles = mysqlTable("resource_profiles", {
-  resourceId: int()
-    .notNull()
-    .references(() => resources.id, { onDelete: "cascade" }),
-  profileType: mysqlEnum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
-    .notNull(),
-  addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-});
+export const resourceProfiles = mysqlTable(
+  "resource_profiles",
+  {
+    resourceId: int()
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+
+    profileTypeId: int()
+      .notNull()
+      .references(() => profileTypes.id, { onDelete: "restrict" }),
+
+    addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.resourceId, table.profileTypeId] }),
+    index("idx_resource_profiles_profileTypeId").on(table.profileTypeId),
+  ]
+);
 
 export const resourceTags = mysqlTable("resource_tags", {
   resourceId: int().notNull(),
@@ -138,16 +175,21 @@ export const resources = mysqlTable("resources", {
   level: varchar({ length: 100 }),
   prepTime: varchar({ length: 100 }),
   visibility: mysqlEnum(["PUBLIC", "INTERNAL_IFAC"]).default("PUBLIC").notNull(),
+
   thumbnailUrl: text(),
+  thumbnailKey: varchar({ length: 512 }),
+
   fileUrl: text(),
+  storageKey: varchar({ length: 512 }),
+
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
   category: text(),
   status: mysqlEnum(["draft", "pending", "approved", "rejected"])
-    .default("approved")
-    .notNull(),
+  .default("draft")
+  .notNull(),
   viewCount: int().default(0).notNull(),
-  accessLevel: mysqlEnum(["PUBLIC", "AUTHENTICATED", "PREMIUM"])
+  accessLevel: mysqlEnum(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"])
     .default("PUBLIC")
     .notNull(),
 });
@@ -170,6 +212,43 @@ export const subscriptions = mysqlTable(
     updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
   },
   (table) => [index("stripeSubscriptionId").on(table.stripeSubscriptionId)]
+);
+
+// =====================================================
+// Entitlements (droits contractuels d’accès)
+// =====================================================
+
+export const entitlements = mysqlTable(
+  "entitlements",
+  {
+    id: int().primaryKey().autoincrement().notNull(),
+
+    userId: int()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    type: mysqlEnum([
+      "PREMIUM",
+      "INTERNAL_ACCESS",
+      "EVENT_ACCESS",
+    ]).notNull(),
+
+    source: varchar({ length: 100 }).notNull(),
+
+    isActive: int().default(1).notNull(),
+
+    startsAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    endsAt: timestamp({ mode: "string" }),
+
+    metadata: text(),
+
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    index("idx_entitlements_user").on(table.userId),
+    index("idx_entitlements_type").on(table.type),
+  ]
 );
 
 export const tags = mysqlTable(
@@ -197,15 +276,25 @@ export const themes = mysqlTable(
   (table) => [index("themes_slug_unique").on(table.slug)]
 );
 
-export const userProfiles = mysqlTable("user_profiles", {
-  userId: int()
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  profileType: mysqlEnum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
-    .notNull(),
-  createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-  updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
-});
+export const userProfiles = mysqlTable(
+  "user_profiles",
+  {
+    userId: int()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    profileTypeId: int()
+      .notNull()
+      .references(() => profileTypes.id, { onDelete: "restrict" }),
+
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.profileTypeId] }),
+    index("idx_user_profiles_profileTypeId").on(table.profileTypeId),
+  ]
+);
 
 export const learningPaths = mysqlTable("learning_paths", {
   id: int().primaryKey().autoincrement().notNull(),
@@ -243,4 +332,85 @@ export const users = mysqlTable(
     phone: varchar({ length: 20 }),
   },
   (table) => [index("users_openId_unique").on(table.openId)]
+);
+
+// =====================================================
+// Profile types (référence canonique) — extensible
+// Objectif : ne plus coder en dur les profils partout.
+// =====================================================
+
+export const profileTypes = mysqlTable(
+  "profile_types",
+  {
+    id: int().primaryKey().autoincrement().notNull(),
+
+    // clé technique stable (ex: "animateur", "formateur", ...)
+    key: varchar({ length: 64 }).notNull(),
+
+    // libellé UI (ex: "Animateur", "Formateur", ...)
+    label: varchar({ length: 255 }).notNull(),
+
+    // permet de "désactiver" un profil sans supprimer l'historique
+    isActive: int().default(1).notNull(),
+
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("uniq_profile_types_key").on(table.key),
+    index("idx_profile_types_is_active").on(table.isActive),
+  ]
+);
+
+// =====================================================
+// Editorial categories (taxonomie UI)
+// =====================================================
+
+export const categoryNodes = mysqlTable(
+  "category_nodes",
+  {
+    id: int().primaryKey().autoincrement().notNull(),
+
+    profileType: mysqlEnum([
+  "public",
+  "animateur",
+  "formateur",
+  "directeur",
+  "stagiaire_bafa",
+]).notNull(),
+
+    parentId: int(), // peut être NULL
+    parentIdKey: varchar({ length: 255 }).notNull(),
+
+    slug: varchar({ length: 255 }).notNull(),
+    title: varchar({ length: 255 }).notNull(),
+    description: text(),
+
+    sortOrder: int().default(0).notNull(),
+    isActive: int().default(1).notNull(),
+
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_category_profile").on(table.profileType),
+    index("idx_category_parent").on(table.parentId),
+    index("idx_category_parent_key").on(table.parentIdKey),
+    uniqueIndex("uniq_category_slug_per_parent_key").on(
+      table.profileType,
+      table.parentIdKey,
+      table.slug
+    ),
+  ]
+);
+
+export const resourceCategoryNodes = mysqlTable(
+  "resource_category_nodes",
+  {
+    resourceId: int().notNull(),
+    categoryNodeId: int().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.resourceId, table.categoryNodeId] }),
+    index("idx_rcn_category").on(table.categoryNodeId),
+  ]
 );

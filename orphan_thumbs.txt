@@ -1,0 +1,138 @@
+/imported_thumbs/stagiaire_bafa/PUBLIC/Techniques d'animation/Grands jeux/grand-jeu-la-machine-a-remonter-dans-le-tems.png
+/imported_thumbs/stagiaire_bafa/PUBLIC/Techniques d'animation/Chansons et activites musicales/repertoire-de-chants-a-finir.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/bases-cache-ues.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/couples-de-ce-ule-ubrite-us.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/jeu-a-c-10-balles.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/le-terrier-du-lapin.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/marchand-de-sable.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/strike-2.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/totem-2.png
+/imported_thumbs/stagiaire_bafa/INTERNAL_IFAC/techniques-d-animation/jeux-de-plein-air/tremblement-de-terre.png
+/imported_thumbs/formateur/PUBLIC/cadre-generale-de-lifac/bilan-et-evaluation/bilan-de-mi-stage.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/crite-cres-bafd.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/droit-du-travail.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-10.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-11.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-12.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-13.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-14.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-2.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-3.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-4.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-5.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-6.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-7.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-8.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm-9.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/exemples-de-de-ucisions-de-justice-en-acm.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/fonction-fg-bafd.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/les-activite-us-spe-ucifiques.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/les-responsabilite-us.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/locaux-2.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/sante-u-hygie-cne.png
+/imported_thumbs/formateur/PUBLIC/_A_CLASSER/taux-d-coencadrement.png
+/imported_thumbs/formateur/PUBLIC/Temps d'apports et de reflexion/Menee de jeux/topo-erj-explication-de-regles-de-jeux.png
+/imported_thumbs/formateur/PUBLIC/Temps d'apports et de reflexion/Les differentes relations/jeu-de-la-riviere.png
+/imported_thumbs/formateur/PUBLIC/Temps d'apports et de reflexion/Connaissance des publics/methode-du-bonhomme.png
+/imported_thumbs/formateur/PUBLIC/Temps d'apports et de reflexion/Connaissance des publics/methode-etude-de-cas.png
+/imported_thumbs/formateur/PUBLIC/Temps d'apports et de reflexion/Connaissance des publics/methode-quiz.png
+/imported_thumbs/formateur/PUBLIC/Livrets and Co/livret-formateurs-bafa-animer-des-activites-scientifiques.png
+/imported_thumbs/formateur/PUBLIC/Livrets and Co/livret-stagiares-bafa-animer-des-activites-scientifiques.png
+/imported_thumbs/formateur/PUBLIC/Livrets and Co/memento-qualification-sb.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Regie materielle/accessoires-de-costumation.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Regie materielle/amenagement-de-la-regie.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Regie materielle/jeu-sur-le-tri.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Regie materielle/lieux-pour-faire-de-la-recup.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Regie materielle/liste-de-materiaux-a-denicher.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Regie materielle/petites-astuces-de-recuperation.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Bilan et evaluation/bilan-de-mi-stage.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Bilan et evaluation/conseils-pour-la-redaction-des-appreciations.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Bilan et evaluation/evaluation-des-temps-danimation.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Bilan et evaluation/evaluation-des-temps-de-reflexion.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Bilan et evaluation/modele-de-rapport-ns.png
+/imported_thumbs/formateur/PUBLIC/Cadre generale de l'ifac/Bilan et evaluation/rapport-de-session-non-satisfaisante.png
+/imported_thumbs/formateur/PREMIUM/temps-d-apports-et-de-reflexion/connaissance-des-publics/me-uthode-du-bonhomme.png
+/imported_thumbs/formateur/PREMIUM/temps-d-apports-et-de-reflexion/connaissance-des-publics/me-uthode-e-utude-de-cas.png
+/imported_thumbs/formateur/PREMIUM/temps-d-apports-et-de-reflexion/connaissance-des-publics/me-uthode-quiz.png
+/imported_thumbs/formateur/PREMIUM/techniques-d-animation/expressiono-oral-et-gestuelle/se-uance-oral-et-gestuel.png
+/imported_thumbs/formateur/PREMIUM/petite-enfance/connaissance-des-publics/me-uthode-du-bonhomme.png
+/imported_thumbs/formateur/PREMIUM/petite-enfance/connaissance-des-publics/me-uthode-e-utude-de-cas.png
+/imported_thumbs/formateur/PREMIUM/petite-enfance/connaissance-des-publics/me-uthode-quiz.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/redaction-des-appreciations-et-des-rapports-ns/pistes-danalyses-animations.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/connexion-et-de-deconnexion/temps-pour-soi-pour-acm.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Reucup, mateuriel and Co/inventaire-re-ugie.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Livrets et classeurs/classeur-formateurs.trices.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Livrets et classeurs/livret-bafa-2022.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Livrets et classeurs/livret-bafd.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Cadre geuneural ifac/cgf2-mener-un-temps-de-uchange.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Cadre geuneural ifac/cgf3-relations-au-sein-dun-stage.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Cadre geuneural ifac/cgf4-apports-analyses.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Cadre geuneural ifac/fa1-favoriser-lapprentissage.png
+/imported_thumbs/formateur/PREMIUM/bilans-et-evaluation/Cadre geuneural ifac/fa2-objectifs-et-me-uthodes-de-formation.png
+/imported_thumbs/formateur/PREMIUM/Temps d'apports et de reflexion/Projet d'animation/suivi-projet-danimation.png
+/imported_thumbs/directeur/PUBLIC/role-et-fonction-directeur-trice-un-acm/sanitaire/as-2.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Reunion d'equipe/conduite-de-reunion.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Redaction du bilan de formation/plan-bilan-de-formation-bafd.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Management/delegation.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Management/management.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Evaluation/pistes-criteres-devaluation.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/accueil-des-enfants-en-situation-de-handicap-en-accueil-collectif-des-mineurs-acm.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/definir-son-contexte-pp2.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/exemples-dobjectifs-pedagogiques.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/exercice-des-moyens.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/exercice-formuler-un-objectif-.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/les-objectifs-pedagogiques-et-les-moyens.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/levaluation-pp5-mourad.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/projet-de-fonctionnement-pp4.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/squelette-projet-peda.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Elaboration et redaction du projet pedagogique/verbes-daction-objectifs-pedagogiques.png
+/imported_thumbs/directeur/PUBLIC/Roles et fonctions des directeurs.trices en acm/Budget/comptabilite.png
+/imported_thumbs/animateur/PUBLIC/techniques-danimation/recette-de-cuisine/meringues-arc-en-ciel.png
+/imported_thumbs/animateur/PUBLIC/techniques-danimation/jeux-de-plein-air/couples-de-celebrites.png
+/imported_thumbs/animateur/PUBLIC/techniques-danimation/activites-manuelles/maracas-rouleau-de-papier.png
+/imported_thumbs/animateur/PUBLIC/techniques-d-animation/jeux-d-eveil/linstrument-myste-cre.png
+/imported_thumbs/animateur/PUBLIC/techniques-d-animation/grands-jeux/la-machine-a-c-voyager-dans-le-temps.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/kit-vin-chaud-express.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/macaron-de-noel.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/mandarines-enrobees-de-chocolat.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/mendiants-au-chocolat.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/meringues-arc-en-ciel.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/nougat-tendre-aux-amandes.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/nougatine.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/orangettes-au-chocolat-noir.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Recette de cuisine/sables-colores-de-noel.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Jeux de societe/voyage-temporel-laventure-des-explorateurs.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Jeux de plein air/bases-cachees.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Jeux de plein air/couples-de-celebrites.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Formation d’equipe/methodes-de-formations-dequipes.png
+/imported_thumbs/animateur/PUBLIC/Techniques d'animation/Activites manuelles/maracas-rouleau-de-papier.png
+/imported_thumbs/animateur/PREMIUM/techniques-danimation/jeux-de-plein-air/strike.png
+/imported_thumbs/animateur/PREMIUM/techniques-danimation/jeux-de-plein-air/totem.png
+/imported_thumbs/animateur/PREMIUM/techniques-danimation/activites-manuelles/bonnet-de-laine-a-suspendre.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Recette de cuisine/kit-a-cookies-express.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Recette de cuisine/kit-chocolat-chaud-express.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Recette de cuisine/kit-riz-au-lait-au-carambar-express.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Jeux de societe/les-gardiens-de-la-nature.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Jeux de plein air/strike.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Jeux de plein air/totem.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Jeux de plein air/tremblement-de-terre.png
+/imported_thumbs/animateur/PREMIUM/Techniques d'animation/Activites manuelles/bonnet-de-laine-a-suspendre.png
+/imported_thumbs/animateur/INTERNAL_IFAC/techniques-danimation/activites-manuelles/collier-avec-des-rondelles-en-acier.png
+/imported_thumbs/animateur/INTERNAL_IFAC/techniques-d-animation/grands-jeux/mission-spatiale-a-c-la-conque-ete-des-plane-ctes.png
+/imported_thumbs/animateur/INTERNAL_IFAC/techniques-d-animation/activite-manuelle/kale-uidoscope-scientifique.png
+/imported_thumbs/animateur/INTERNAL_IFAC/techniques-d-animation/Recette de cuisine/brochettes-de-fruits-de-uguise-ues-en-bonhomme-de-neige.png
+/imported_thumbs/animateur/INTERNAL_IFAC/techniques-d-animation/Recette de cuisine/chocolat-chaud-cre-umeux.png
+/imported_thumbs/animateur/INTERNAL_IFAC/techniques-d-animation/Jeux de socieuteu/e-ulementarium.png
+/imported_thumbs/animateur/INTERNAL_IFAC/Techniques d'animation/Jeux de societe/elementarium.png
+/imported_thumbs/animateur/INTERNAL_IFAC/Techniques d'animation/Jeux de plein air/jeu-a-10-balles.png
+/imported_thumbs/animateur/INTERNAL_IFAC/Techniques d'animation/Jeux de plein air/le-terrier-du-lapin.png
+/imported_thumbs/animateur/INTERNAL_IFAC/Techniques d'animation/Jeux de plein air/marchand-de-sable.png
+/imported_thumbs/animateur/INTERNAL_IFAC/Techniques d'animation/Activites manuelles/collier-avec-des-rondelles-en-acier.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/jeux-de-plein-air/jeu-a-c-10-balles.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/jeux-de-plein-air/le-terrier-du-lapin.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/jeux-de-plein-air/marchand-de-sable.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/grands-jeux/mission-spatiale-a-c-la-conque-ete-des-plane-ctes.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/activite-manuelle/kale-uidoscope-scientifique.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/Recette de cuisine/brochettes-de-fruits-de-uguise-ues-en-bonhomme-de-neige.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/Recette de cuisine/chocolat-chaud-cre-umeux.png
+/imported_thumbs/animateur/AUTHENTICATED/techniques-d-animation/Jeux de socieuteu/e-ulementarium.png

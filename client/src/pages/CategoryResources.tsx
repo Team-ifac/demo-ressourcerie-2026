@@ -1,209 +1,157 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useParams, Link } from "wouter";
+import { Card, CardContent } from "@/components/ui/card";
 import { Breadcrumb } from "@/components/Breadcrumb";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { Heart, Download, Lock, Globe, ArrowLeft } from "lucide-react";
-import { Link, useLocation, useRoute } from "wouter";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { PROFILE_CATEGORIES, NEED_CATEGORIES } from "@shared/categories";
+
+type CanonProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa" | "decouvrir";
+
+const PROFILE_ALIASES: Record<string, CanonProfileType> = {
+  animateur: "animateur",
+  formateur: "formateur",
+  directeur: "directeur",
+
+  stagiaire: "stagiaire_bafa",
+  stagiaire_bafa: "stagiaire_bafa",
+  "stagiaire-bafa": "stagiaire_bafa",
+  stagiairebafa: "stagiaire_bafa",
+  stagiaire_bafd: "stagiaire_bafa",
+  "stagiaire-bafd": "stagiaire_bafa",
+
+  decouvrir: "decouvrir",
+};
+
+function normalizeProfileSlug(slug: string | undefined): CanonProfileType | null {
+  if (!slug) return null;
+  const raw = String(slug).trim().toLowerCase();
+  if (raw in PROFILE_ALIASES) return PROFILE_ALIASES[raw];
+
+  const cleaned = raw.replace(/\s+/g, "_");
+  if (cleaned in PROFILE_ALIASES) return PROFILE_ALIASES[cleaned];
+
+  return null;
+}
+
+function humanizeCategoryLabel(slug: string): string {
+  return slug
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+}
 
 export default function CategoryResources() {
-  const [location, navigate] = useLocation();
-  const { user } = useAuth();
+  const params = useParams();
 
-  // Parse URL to get type (profil or besoin), key, and category
-  // URL format: /categorie/:type/:key/:category
-  const [match, params] = useRoute("/categorie/:type/:key/:category");
-  
-  const type = params?.type; // "profil" or "besoin"
-  const key = params?.key; // e.g., "animateur", "formateur", etc.
-  const categoryEncoded = params?.category;
-  const category = categoryEncoded ? decodeURIComponent(categoryEncoded) : "";
+  const profileId = normalizeProfileSlug(params.profile as any);
+  const groupKey = params.key ? String(params.key) : "";
 
-  // Get the title based on type and key
-  const getTitle = () => {
-    if (type === "profil") {
-      const titles: Record<string, string> = {
-        animateur: "Animateur·rice",
-        formateur: "Formateur·rice",
-        directeur: "Directeur·rice",
-        stagiaire: "Stagiaire BAFA/BAFD",
-        decouvrir: "Découvrir",
-      };
-      return titles[key || ""] || "Profil";
-    } else if (type === "besoin") {
-      const titles: Record<string, string> = {
-        preparer: "Préparer rapidement",
-        projet: "Monter un projet",
-        gerer: "Gérer une situation",
-        competences: "Monter en compétences",
-      };
-      return titles[key || ""] || "Besoin";
-    }
-    return "";
-  };
+  if (!profileId || !groupKey) {
+    return (
+      <div className="container py-12">
+        <p className="text-center text-muted-foreground">Catégorie introuvable</p>
+      </div>
+    );
+  }
 
-  const title = getTitle();
+  const dbProfileType = profileId === "decouvrir" ? undefined : (profileId as any);
 
-  // Fetch resources filtered by category
-  const { data: resources = [], isLoading } = trpc.resources.list.useQuery({
-    category: category || undefined,
-  });
+  const { data: categoryKeys = [], isLoading } = trpc.resources.listCategories.useQuery(
+    dbProfileType ? { profileType: dbProfileType } : undefined,
+    { staleTime: 60_000 }
+  );
 
-  const { data: favorites = [] } = trpc.favorites.list.useQuery(undefined, {
-    enabled: !!user,
-  });
+  const subCategories = useMemo(() => {
+    // On ne garde que les keys qui commencent par "<groupKey>/..."
+    const prefix = `${groupKey}/`;
 
-  const addFavoriteMutation = trpc.favorites.add.useMutation({
-    onSuccess: () => {
-      trpc.useUtils().favorites.list.invalidate();
-    },
-  });
+    const subs = new Set<string>();
 
-  const removeFavoriteMutation = trpc.favorites.remove.useMutation({
-    onSuccess: () => {
-      trpc.useUtils().favorites.list.invalidate();
-    },
-  });
+    for (const key of categoryKeys) {
+      if (!key || typeof key !== "string") continue;
 
-  const isFavorite = (resourceId: number) => {
-    return favorites.some((fav: any) => fav.resourceId === resourceId);
-  };
+      if (key === groupKey) {
+        // cas rare: catégorie sans sous-catégorie
+        continue;
+      }
 
-  const toggleFavorite = (resourceId: number) => {
-    if (!user) {
-      alert("Vous devez être connecté·e pour ajouter des favoris");
-      return;
+      if (key.startsWith(prefix)) {
+        const rest = key.slice(prefix.length);
+        // rest = "bilan-et-evaluation" ou "a/b/c" -> on ne prend que le 1er niveau
+        const first = rest.split("/")[0];
+        if (first) subs.add(first);
+      }
     }
 
-    if (isFavorite(resourceId)) {
-      removeFavoriteMutation.mutate({ resourceId });
-    } else {
-      addFavoriteMutation.mutate({ resourceId });
-    }
-  };
-
-  const breadcrumbItems = [
-    { label: "Accueil", href: "/" },
-    { label: title, href: `/${type}/${key}` },
-    { label: category },
-  ];
+    return Array.from(subs).sort((a, b) => a.localeCompare(b));
+  }, [categoryKeys, groupKey]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-      
-      <main className="flex-1 container py-8">
-        <Breadcrumb items={breadcrumbItems} />
+    <div className="min-h-screen">
+      <Breadcrumb
+        items={[
+          { label: "Accueil", href: "/" },
+          { label: "Profils", href: "/profils" },
+          { label: humanizeCategoryLabel(groupKey) },
+        ]}
+      />
 
-        <div className="mt-8 mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">{category}</h1>
-            <p className="text-muted-foreground">
-              Ressources pour {title.toLowerCase()}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/${type}/${key}`)}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour aux catégories
-          </Button>
-        </div>
+      <section className="py-12 px-4">
+        <div className="container max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold mb-8 text-center">
+            {humanizeCategoryLabel(groupKey)}
+          </h1>
 
-        {isLoading ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Chargement des ressources...</p>
-          </div>
-        ) : resources.length === 0 ? (
-          <div className="text-center py-12 bg-card rounded-lg border">
-            <p className="text-muted-foreground text-lg">
-              Aucune ressource disponible dans cette catégorie pour le moment.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              De nouvelles ressources seront ajoutées prochainement.
-            </p>
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground mb-6">
-              {resources.length} ressource{resources.length > 1 ? "s" : ""} trouvée{resources.length > 1 ? "s" : ""}
-            </p>
+          {isLoading ? (
+            <p className="text-center text-muted-foreground">Chargement…</p>
+          ) : subCategories.length === 0 ? (
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">
+                Pas de sous-catégories trouvées. Vous pouvez accéder directement au catalogue filtré.
+              </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {resources.map((resource) => (
-                <Card key={resource.id} className="hover:shadow-lg transition-shadow">
-                  {resource.imageUrl && (
-                    <div className="aspect-video w-full overflow-hidden rounded-t-lg">
-                      <img
-                        src={resource.imageUrl}
-                        alt={resource.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <CardHeader>
-                    <CardTitle className="line-clamp-2">{resource.title}</CardTitle>
-                    <CardDescription className="line-clamp-3">
-                      {resource.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">{resource.type}</Badge>
-                      {resource.ageRange && <Badge variant="outline">{resource.ageRange}</Badge>}
-                      {resource.duration && <Badge variant="outline">{resource.duration}</Badge>}
-                    </div>
-                    <div className="mt-3 flex items-center gap-2 text-sm">
-                      {resource.visibility === "PUBLIC" ? (
-                        <>
-                          <Globe className="w-4 h-4 text-green-600" />
-                          <span className="text-green-600">Public</span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="w-4 h-4 text-orange-600" />
-                          <span className="text-orange-600">Interne IFAC</span>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Link href={`/resources/${resource.id}`}>
-                      <Button variant="default" size="sm">
-                        Voir détails
-                      </Button>
-                    </Link>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleFavorite(resource.id)}
-                        className={isFavorite(resource.id) ? "text-red-500" : ""}
-                      >
-                        <Heart
-                          className="w-5 h-5"
-                          fill={isFavorite(resource.id) ? "currentColor" : "none"}
-                        />
-                      </Button>
-                      {resource.fileUrl && (
-                        <a href={resource.fileUrl} download target="_blank" rel="noopener noreferrer">
-                          <Button variant="ghost" size="icon">
-                            <Download className="w-5 h-5" />
-                          </Button>
-                        </a>
-                      )}
-                    </div>
-                  </CardFooter>
-                </Card>
-              ))}
+              {/* fallback: filtre direct sur la catégorie "groupKey" si jamais tu en as en base */}
+              <Link href={`/ressources?categorie=${encodeURIComponent(groupKey)}`}>
+                <button className="text-primary hover:underline">
+                  Ouvrir le catalogue filtré →
+                </button>
+              </Link>
             </div>
-          </>
-        )}
-      </main>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold mb-6 text-center">Choisissez une sous-catégorie</h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {subCategories.map((sub) => {
+                  const fullKey = `${groupKey}/${sub}`;
+                  return (
+                    <Link
+                      key={sub}
+                      href={`/ressources?categorie=${encodeURIComponent(fullKey)}`}
+                    >
+                      <Card className="h-full hover:shadow-elegant transition-all duration-300 hover:-translate-y-1 cursor-pointer group">
+                        <CardContent className="p-6 flex items-center justify-between gap-4">
+                          <h3 className="font-semibold text-lg flex-1">
+                            {humanizeCategoryLabel(sub)}
+                          </h3>
+                          <ArrowRight className="h-5 w-5 text-primary group-hover:translate-x-1 transition-transform" />
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <div className="mt-12 text-center">
+            <Link href="/ressources">
+              <button className="text-primary hover:underline">
+                Voir toutes les ressources sans filtre →
+              </button>
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

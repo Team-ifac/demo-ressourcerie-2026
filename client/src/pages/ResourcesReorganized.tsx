@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,55 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { useFilterPreferences } from "@/hooks/useFilterPreferences";
+import { readingLabel } from "@/lib/resourcePolicy";
+
+type ProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+type ProfileFilter = "" | ProfileType;
+
+type CategoryGroup = {
+  groupLabel: string;
+  items: { value: string; label: string }[];
+};
+
+function humanizeCategoryLabel(slug: string): string {
+  return slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+function buildCategoryGroups(categories: string[]): CategoryGroup[] {
+  const map = new Map<string, CategoryGroup>();
+
+  categories.forEach((fullKey) => {
+    const [group, sub] = fullKey.split("/");
+
+    if (!group || !sub) return;
+
+    if (!map.has(group)) {
+      map.set(group, {
+        groupLabel: humanizeCategoryLabel(group),
+        items: [],
+      });
+    }
+
+    map.get(group)!.items.push({
+      value: fullKey,
+      label: humanizeCategoryLabel(sub),
+    });
+  });
+
+  return Array.from(map.values())
+    .map((g) => ({
+      ...g,
+      items: g.items.sort((a, b) => a.label.localeCompare(b.label)),
+    }))
+    .sort((a, b) => a.groupLabel.localeCompare(b.groupLabel));
+}
+
+const PROFILE_LABELS: Record<ProfileType, string> = {
+  animateur: "Animateur·rice",
+  formateur: "Formateur·rice",
+  directeur: "Directeur·rice",
+  stagiaire_bafa: "Stagiaire BAFA",
+};
 
 export default function ResourcesReorganized() {
   const [search, setSearch] = useState("");
@@ -27,11 +76,25 @@ export default function ResourcesReorganized() {
   const [selectedDuration, setSelectedDuration] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
 
+  // Nouveau: filtre Profil (pour voir Stagiaire BAFA, etc.)
+  const [selectedProfile, setSelectedProfile] = useState<ProfileFilter>("");
+
   const { user } = useAuth();
-  const { data: userProfile } = trpc.profiles.getUserProfile.useQuery(
-    undefined,
-    { enabled: !!user }
-  );
+  const { data: userProfile } = trpc.profiles.getUserProfile.useQuery(undefined, {
+    enabled: !!user,
+  });
+
+  // Initialisation pro: si l’utilisateur a un profil, on le sélectionne par défaut,
+  // mais l’utilisateur peut ensuite changer manuellement.
+  const didInitProfile = useRef(false);
+  useEffect(() => {
+    if (didInitProfile.current) return;
+    const p = (userProfile?.profileType ?? "") as ProfileFilter;
+    if (p) {
+      setSelectedProfile(p);
+      didInitProfile.current = true;
+    }
+  }, [userProfile]);
 
   const [location] = useLocation();
   const utils = trpc.useUtils();
@@ -47,6 +110,10 @@ export default function ResourcesReorganized() {
     utils.resources.list.invalidate();
   }, [categoryFromUrl, utils]);
 
+  const { data: categories = [] } = trpc.resources.listCategories.useQuery(undefined, {
+    staleTime: 60_000,
+  });
+
   const { data: resources = [], isLoading } = trpc.resources.list.useQuery({
     search: search || undefined,
     themeIds: selectedThemes.length > 0 ? selectedThemes : undefined,
@@ -54,10 +121,13 @@ export default function ResourcesReorganized() {
     ageRange: selectedAgeRange || undefined,
     duration: selectedDuration || undefined,
     category: selectedCategory || undefined,
-    profileType: userProfile?.profileType as any,
+    // IMPORTANT: on utilise le filtre choisi (si vide => pas de filtre profil)
+    profileType: selectedProfile || undefined,
   });
 
   const { savePreferences, resetPreferences } = useFilterPreferences();
+
+  const defaultProfile: ProfileFilter = (userProfile?.profileType ?? "") as ProfileFilter;
 
   const clearFilters = () => {
     setSearch("");
@@ -66,6 +136,7 @@ export default function ResourcesReorganized() {
     setSelectedAgeRange("");
     setSelectedDuration("");
     setSelectedCategory("");
+    setSelectedProfile(defaultProfile);
     resetPreferences();
   };
 
@@ -75,35 +146,31 @@ export default function ResourcesReorganized() {
     !!selectedType ||
     !!selectedAgeRange ||
     !!selectedDuration ||
-    !!selectedCategory;
+    !!selectedCategory ||
+    selectedProfile !== defaultProfile;
 
   /* =====================================================
      VIGNETTES – VERSION SIMPLE ET ROBUSTE
      ===================================================== */
 
   function getResourceThumbnail(resource: any): string {
-    // 1) Image définie explicitement (si un jour tu en remets)
-    if (
-      resource?.thumbnailUrl &&
-      typeof resource.thumbnailUrl === "string" &&
-      !resource.thumbnailUrl.includes("/thumbnails/profile-")
-    ) {
-      return resource.thumbnailUrl;
+    const accessLevel = (resource?.accessLevel ?? "PUBLIC") as
+      | "PUBLIC"
+      | "INTERNAL_IFAC"
+      | "PREMIUM";
+
+    // 🔒 Anti-fuite visuelle : pas de vignette pour PREMIUM
+    if (accessLevel === "PREMIUM") {
+      return "/thumbnails/default-document.png";
     }
 
-    // 2) Vignette générée automatiquement depuis le PDF
-    if (
-      resource?.fileUrl &&
-      typeof resource.fileUrl === "string" &&
-      resource.fileUrl.startsWith("/imported/") &&
-      resource.fileUrl.toLowerCase().endsWith(".pdf")
-    ) {
-      return resource.fileUrl
-        .replace("/imported/", "/imported_thumbs/")
-        .replace(/\.pdf$/i, ".png");
+    const thumbnailUrl = resource?.thumbnailUrl;
+
+    // ✅ On n’utilise JAMAIS fileUrl pour fabriquer une vignette
+    if (typeof thumbnailUrl === "string" && thumbnailUrl.trim() !== "") {
+      return thumbnailUrl;
     }
 
-    // 3) Fallback neutre
     return "/thumbnails/default-document.png";
   }
 
@@ -130,9 +197,7 @@ export default function ResourcesReorganized() {
 
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-lg line-clamp-2">
-                {resource.title}
-              </CardTitle>
+              <CardTitle className="text-lg line-clamp-2">{resource.title}</CardTitle>
 
               {resource.visibility === "INTERNAL_IFAC" ? (
                 <Lock className="h-4 w-4 text-muted-foreground" />
@@ -141,42 +206,38 @@ export default function ResourcesReorganized() {
               )}
             </div>
 
-            <CardDescription className="line-clamp-2">
-              {resource.summary}
-            </CardDescription>
+            <CardDescription className="line-clamp-2">{resource.summary}</CardDescription>
           </CardHeader>
 
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {resource.type && (
-                <Badge variant="secondary">{resource.type}</Badge>
-              )}
-              {resource.ageRange && (
-                <Badge variant="outline">{resource.ageRange}</Badge>
-              )}
-              {resource.duration && (
-                <Badge variant="outline">{resource.duration}</Badge>
-              )}
+              {resource.type && <Badge variant="secondary">{resource.type}</Badge>}
+              {resource.ageRange && <Badge variant="outline">{resource.ageRange}</Badge>}
+              {resource.duration && <Badge variant="outline">{resource.duration}</Badge>}
             </div>
           </CardContent>
 
           <CardFooter className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
-              {resource.visibility === "PUBLIC" ? "Public" : "Interne IFAC"}
+              {readingLabel({
+                visibility: resource.visibility,
+                accessLevel: resource.accessLevel,
+              })}
             </span>
 
             <div className="flex gap-2">
               <FavoriteButton resourceId={resource.id} size="sm" />
 
-              {resource.fileUrl && (
+              {(resource as any).hasFile && (resource as any).canOpen && (
                 <Button
                   size="sm"
                   variant="ghost"
                   className="h-8 w-8 p-0"
                   onClick={(e) => {
                     e.preventDefault();
-                    window.open(resource.fileUrl, "_blank");
+                    window.open(`/api/resources/download/${resource.id}`, "_blank");
                   }}
+                  title="Télécharger"
                 >
                   <Download className="h-4 w-4" />
                 </Button>
@@ -202,11 +263,55 @@ export default function ResourcesReorganized() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <Input
-                placeholder="Rechercher…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <Input placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} />
+
+              {/* Nouveau: Profil */}
+              <div className="grid gap-2">
+                <label className="text-sm text-muted-foreground">Profil</label>
+
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={selectedProfile}
+                  onChange={(e) => setSelectedProfile(e.target.value as ProfileFilter)}
+                >
+                  <option value="">Tous les profils</option>
+                  <option value="animateur">{PROFILE_LABELS.animateur}</option>
+                  <option value="directeur">{PROFILE_LABELS.directeur}</option>
+                  <option value="formateur">{PROFILE_LABELS.formateur}</option>
+                  <option value="stagiaire_bafa">{PROFILE_LABELS.stagiaire_bafa}</option>
+                </select>
+
+                <p className="text-xs text-muted-foreground">
+                  Astuce : pour vérifier l’import “Stagiaire BAFA”, sélectionne ce profil ici.
+                </p>
+              </div>
+
+              {/* Catégorie */}
+              <div className="grid gap-2">
+                <label className="text-sm text-muted-foreground">Catégorie</label>
+
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  <option value="">Toutes les catégories</option>
+
+                  {buildCategoryGroups(categories).map((g) => (
+                    <optgroup key={g.groupLabel} label={g.groupLabel}>
+                      {g.items.map((it) => (
+                        <option key={it.value} value={it.value}>
+                          {it.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+
+                <p className="text-xs text-muted-foreground">
+                  Astuce : les catégories sont regroupées par grande famille.
+                </p>
+              </div>
 
               <div className="flex gap-2">
                 {hasFilters && (

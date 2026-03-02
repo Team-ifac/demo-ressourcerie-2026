@@ -1,0 +1,21 @@
+{
+  "totals": {
+    "total": 53,
+    "canonicalOnly": 52,
+    "legacyOnly": 0,
+    "bothSet": 0,
+    "noFile": 1,
+    "importedFile": 0,
+    "httpFile": 0,
+    "otherFile": 0,
+    "thumbUrlNoKey": 0,
+    "thumbKeyNoUrl": 0,
+    "thumbImportedMismatch": 0
+  },
+  "lists": {
+    "bothSet": [],
+    "legacyOnly": [],
+    "thumbKeyNoUrl": [],
+    "thumbImportedMismatch": []
+  }
+}

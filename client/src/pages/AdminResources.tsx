@@ -24,9 +24,41 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { trpc } from "@/lib/trpc";
-import { Search, Plus, Edit, Trash2, Loader2, Globe, Lock } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Loader2, Globe, Lock, Users, Crown, FileText } from "lucide-react";
 import { Link, Redirect } from "wouter";
 import { toast } from "sonner";
+
+type VisibilityValue = "PUBLIC" | "INTERNAL_IFAC" | string;
+type AccessLevelValue = "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM" | string;
+type StatusValue = "draft" | "pending" | "approved" | "rejected" | string;
+
+function visibilityLabel(v: any) {
+  const s = String(v ?? "INTERNAL_IFAC").toUpperCase() as VisibilityValue;
+  return s === "PUBLIC" ? "Visible sans connexion" : "Connexion requise";
+}
+
+function accessLabel(v: any) {
+  const s = String(v ?? "PUBLIC").toUpperCase() as AccessLevelValue;
+  if (s === "PREMIUM") return "Premium";
+  if (s === "INTERNAL_IFAC") return "Connexion requise (ifac)";
+  return "Public";
+}
+
+function normalizeStatus(v: any): "draft" | "pending" | "approved" | "rejected" {
+  const s = String(v ?? "draft").toLowerCase();
+  if (s === "pending") return "pending";
+  if (s === "approved") return "approved";
+  if (s === "rejected") return "rejected";
+  return "draft";
+}
+
+function statusLabel(v: any) {
+  const s = normalizeStatus(v);
+  if (s === "approved") return "Publiée";
+  if (s === "pending") return "En attente";
+  if (s === "rejected") return "Rejetée";
+  return "Brouillon";
+}
 
 export default function AdminResources() {
   const { user, loading } = useAuth();
@@ -69,21 +101,20 @@ export default function AdminResources() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      
       <main className="flex-1 py-8">
         <div className="container space-y-8">
-          <Breadcrumb 
+          <Breadcrumb
             items={[
               { label: "Administration", href: "/admin" },
-              { label: "Gestion des ressources" }
-            ]} 
+              { label: "Gestion des ressources" },
+            ]}
           />
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-4xl font-bold">Gestion des ressources</h1>
               <p className="text-muted-foreground mt-2">
-                {resources.length} ressource{resources.length > 1 ? 's' : ''} au total
+                {resources.length} ressource{resources.length > 1 ? "s" : ""} au total
               </p>
             </div>
             <Button asChild className="gap-2">
@@ -97,9 +128,7 @@ export default function AdminResources() {
           <Card className="shadow-elegant">
             <CardHeader>
               <CardTitle>Liste des ressources</CardTitle>
-              <CardDescription>
-                Recherchez, modifiez ou supprimez des ressources existantes
-              </CardDescription>
+              <CardDescription>Recherchez, modifiez ou supprimez des ressources existantes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="relative">
@@ -117,9 +146,7 @@ export default function AdminResources() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : resources.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  Aucune ressource trouvée
-                </div>
+                <div className="text-center py-12 text-muted-foreground">Aucune ressource trouvée</div>
               ) : (
                 <div className="border rounded-lg">
                   <Table>
@@ -127,69 +154,101 @@ export default function AdminResources() {
                       <TableRow>
                         <TableHead>Titre</TableHead>
                         <TableHead>Type</TableHead>
+
+                        {/* ✅ On garde "Visibilité" (sans connexion vs connexion requise) */}
                         <TableHead>Visibilité</TableHead>
+
+                        {/* ✅ AJOUT : Accès / Statut (comme l'admin en masse) */}
+                        <TableHead>Accès</TableHead>
+                        <TableHead>Statut</TableHead>
+
                         <TableHead>Tranche d'âge</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
+
                     <TableBody>
-                      {resources.map((resource) => (
-                        <TableRow key={resource.id}>
-                          <TableCell className="font-medium max-w-xs">
-                            <div className="truncate">{resource.title}</div>
-                          </TableCell>
-                          <TableCell>
-                            {resource.type && (
-                              <Badge variant="secondary">{resource.type}</Badge>
+                      {resources.map((resource: any) => {
+                        const vis = String(resource.visibility ?? "INTERNAL_IFAC").toUpperCase();
+                        const acc = String(resource.accessLevel ?? "PUBLIC").toUpperCase();
+                        const st = String(resource.status ?? "draft").toLowerCase();
+
+                        return (
+                          <TableRow key={resource.id}>
+                            <TableCell className="font-medium max-w-xs">
+                              <div className="truncate">{resource.title}</div>
+                            </TableCell>
+
+                            <TableCell>
+                              {resource.type && <Badge variant="secondary">{resource.type}</Badge>}
+                            </TableCell>
+
+                            <TableCell>
+                              <Badge variant={vis === "PUBLIC" ? "outline" : "secondary"} className="gap-1">
+                                {vis === "PUBLIC" ? (
+                                  <>
+                                    <Globe className="h-3 w-3" />
+                                    {visibilityLabel(vis)}
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="h-3 w-3" />
+                                    {visibilityLabel(vis)}
+                                  </>
+                                )}
+                              </Badge>
+                            </TableCell>
+
+                            <TableCell>
+                              <Badge variant="outline" className="gap-1">
+                            {acc === "PREMIUM" ? (
+                              <>
+                                <Crown className="h-3 w-3" /> {accessLabel(acc)}
+                              </>
+                            ) : acc === "INTERNAL_IFAC" ? (
+                              <>
+                                <Users className="h-3 w-3" /> {accessLabel(acc)}
+                              </>
+                            ) : (
+                              <>
+                                <Globe className="h-3 w-3" /> {accessLabel(acc)}
+                              </>
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={resource.visibility === "PUBLIC" ? "outline" : "secondary"}
-                              className="gap-1"
-                            >
-                              {resource.visibility === "PUBLIC" ? (
-                                <>
-                                  <Globe className="h-3 w-3" />
-                                  Public
-                                </>
-                              ) : (
-                                <>
-                                  <Lock className="h-3 w-3" />
-                                  Interne
-                                </>
-                              )}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {resource.ageRange && (
-                              <Badge variant="outline">{resource.ageRange}</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                asChild
-                                className="h-8 w-8 p-0"
-                              >
-                                <Link href={`/admin/ressources/${resource.id}`}>
-                                  <Edit className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                onClick={() => setDeleteId(resource.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                              </Badge>
+                            </TableCell>
+
+                            <TableCell>
+                              <Badge variant={st === "approved" ? "secondary" : "outline"} className="gap-1">
+                                <FileText className="h-3 w-3" />
+                                {statusLabel(st)}
+                              </Badge>
+                            </TableCell>
+
+                            <TableCell>
+                              {resource.ageRange && <Badge variant="outline">{resource.ageRange}</Badge>}
+                            </TableCell>
+
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0">
+                                  <Link href={`/admin/ressources/${resource.id}`}>
+                                    <Edit className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => setDeleteId(resource.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>

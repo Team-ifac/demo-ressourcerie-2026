@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { Loader, Search } from "lucide-react";
@@ -10,20 +16,24 @@ export default function ThematicCollections() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
 
-  // Récupérer toutes les collections thématiques
-  const { data: collections = [], isLoading: collectionsLoading } = trpc.collections.listPublic.useQuery();
+  // ✅ Collections publiques
+  const { data: collections = [], isLoading: collectionsLoading } =
+    trpc.collections.listPublic.useQuery();
 
-  // Récupérer les ressources d'une collection sélectionnée
-  const { data: selectedCollection, isLoading: resourcesLoading } = trpc.collections.getCollectionWithResources.useQuery(
-    { collectionId: selectedCollectionId! },
-    { enabled: selectedCollectionId !== null }
-  );
+  // ✅ Public (audit-proof) : collection + ressources filtrées côté backend
+  const { data: selectedCollection, isLoading: resourcesLoading } =
+    trpc.collections.getById.useQuery(
+      { id: selectedCollectionId! },
+      { enabled: selectedCollectionId !== null }
+    );
 
   // Filtrer les collections par recherche
-  const filteredCollections = collections.filter(col =>
+  const filteredCollections = collections.filter((col: any) =>
     col.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (col.description && col.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const selectedResources = (selectedCollection as any)?.resources ?? [];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -53,6 +63,7 @@ export default function ThematicCollections() {
             {/* Liste des collections */}
             <div className="lg:col-span-1">
               <h2 className="text-xl font-bold mb-4">Collections</h2>
+
               {collectionsLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -63,7 +74,7 @@ export default function ThematicCollections() {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {filteredCollections.map((collection) => (
+                  {filteredCollections.map((collection: any) => (
                     <Button
                       key={collection.id}
                       variant={selectedCollectionId === collection.id ? "default" : "outline"}
@@ -73,7 +84,7 @@ export default function ThematicCollections() {
                       <div className="flex-1">
                         <div className="font-medium">{collection.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {collection.resourceCount || 0} ressources
+                          {(collection as any).resourceCount || 0} ressources
                         </div>
                       </div>
                     </Button>
@@ -99,18 +110,24 @@ export default function ThematicCollections() {
               ) : selectedCollection ? (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold mb-2">{selectedCollection.collection.name}</h2>
-                    {selectedCollection.collection.description && (
-                      <p className="text-muted-foreground">{selectedCollection.collection.description}</p>
+                    <h2 className="text-2xl font-bold mb-2">
+                      {(selectedCollection as any).name}
+                    </h2>
+
+                    {(selectedCollection as any).description && (
+                      <p className="text-muted-foreground">
+                        {(selectedCollection as any).description}
+                      </p>
                     )}
+
                     <div className="mt-2 text-sm text-muted-foreground">
-                      {selectedCollection.resources?.length || 0} ressources
+                      {selectedResources.length} ressources
                     </div>
                   </div>
 
-                  {selectedCollection.resources && selectedCollection.resources.length > 0 ? (
+                  {selectedResources.length > 0 ? (
                     <div className="grid gap-4">
-                      {selectedCollection.resources.map((resource) => (
+                      {selectedResources.map((resource: any) => (
                         <Card key={resource.id} className="hover:shadow-lg transition-shadow">
                           <CardHeader>
                             <CardTitle className="line-clamp-2">{resource.title}</CardTitle>
@@ -123,7 +140,12 @@ export default function ThematicCollections() {
                               <div className="text-sm text-muted-foreground">
                                 {resource.type}
                               </div>
-                              <Button variant="outline" size="sm">
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => (window.location.href = `/resources/${resource.id}`)}
+                              >
                                 Voir la ressource
                               </Button>
                             </div>

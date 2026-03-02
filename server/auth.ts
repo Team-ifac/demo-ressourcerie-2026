@@ -128,14 +128,17 @@ export async function createUserWithEmail(data: {
     }
 
     // 3) Créer le profil utilisateur (FK)
-    await tx.insert(userProfiles).values({
-      userId,
-      profileType: data.profileType as
-        | "animateur"
-        | "formateur"
-        | "directeur"
-        | "stagiaire_bafa",
-    });
+    const profileTypeMap: Record<string, number> = {
+  animateur: 1,
+  formateur: 2,
+  directeur: 3,
+  stagiaire_bafa: 4,
+};
+
+await tx.insert(userProfiles).values({
+  userId,
+  profileTypeId: profileTypeMap[data.profileType],
+});
 
     return userId;
   });

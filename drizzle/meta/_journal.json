@@ -8,6 +8,48 @@
       "when": 1767810457801,
       "tag": "0000_fair_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1769103719784,
+      "tag": "0001_lowly_blackheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1769448175566,
+      "tag": "0002_sloppy_yellowjacket",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1769537067916,
+      "tag": "0003_add_public_to_category_nodes_profileType",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1771600565895,
+      "tag": "0004_cultured_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1772230287077,
+      "tag": "0005_thankful_inhumans",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1772231474305,
+      "tag": "0006_0006_create_profile_types",
+      "breakpoints": true
     }
   ]
 }

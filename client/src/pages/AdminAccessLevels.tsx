@@ -1,246 +1,882 @@
-import { useState, useMemo } from 'react';
-import { trpc } from '@/lib/trpc';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { useMemo, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Loader2, Check, AlertCircle } from 'lucide-react';
+} from "@/components/ui/select";
+import { Loader2, Check, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
-type AccessLevel = 'PUBLIC' | 'AUTHENTICATED' | 'PREMIUM';
+import {
+
+  RESOURCE_TYPES,
+  PREP_TIMES,
+  DURATIONS,
+  AGE_RANGES,
+  type ResourceType,
+  type PrepTime,
+  type Duration,
+  type AgeRange,
+} from "@shared/resourceMeta";
+
+
+type AccessLevel = "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM";
 
 const ACCESS_LEVEL_COLORS: Record<AccessLevel, string> = {
-  PUBLIC: 'bg-green-100 text-green-800',
-  AUTHENTICATED: 'bg-blue-100 text-blue-800',
-  PREMIUM: 'bg-purple-100 text-purple-800',
+  PUBLIC: "bg-green-100 text-green-800",
+  INTERNAL_IFAC: "bg-blue-100 text-blue-800",
+  PREMIUM: "bg-purple-100 text-purple-800",
 };
 
 const ACCESS_LEVEL_LABELS: Record<AccessLevel, string> = {
-  PUBLIC: '🌍 Public (Tous)',
-  AUTHENTICATED: '👤 Authentifié (Compte)',
-  PREMIUM: '⭐ Premium (Adhésion)',
+  PUBLIC: "🌍 Public",
+  INTERNAL_IFAC: "👤 Connectés",
+  PREMIUM: "⭐ Premium",
 };
 
-export function AdminAccessLevels() {
-  const [search, setSearch] = useState('');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [filterLevel, setFilterLevel] = useState<AccessLevel | 'ALL'>('ALL');
-  const [bulkLevel, setBulkLevel] = useState<AccessLevel>('PUBLIC');
+function safeStr(v: unknown) {
+  return String(v ?? "");
+}
+
+// ✅ Option B : Admin tout-puissant (UI)
+// L’admin peut forcer n’importe quel statut.
+// Le backend garde les règles critiques (ex: PUBLIC interdit si status != approved).
+const ALLOWED_STATUS_TRANSITIONS = {
+  draft: ["draft", "pending", "approved", "rejected"],
+  pending: ["draft", "pending", "approved", "rejected"],
+  approved: ["draft", "pending", "approved", "rejected"],
+  rejected: ["draft", "pending", "approved", "rejected"],
+} as const;
+
+type EditorialStatus = keyof typeof ALLOWED_STATUS_TRANSITIONS;
+
+function normalizeEditorialStatus(v: any): EditorialStatus {
+  const s = String(v ?? "draft").toLowerCase();
+  return (s === "draft" || s === "pending" || s === "approved" || s === "rejected")
+    ? s
+    : "draft";
+}
+
+function allowedNextStatuses(current: EditorialStatus): EditorialStatus[] {
+  return [...ALLOWED_STATUS_TRANSITIONS[current]];
+}
+
+export default function AdminAccessLevels() {
+  const resourcesQuery = trpc.resources.getAllResourcesForAdmin.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 0,
+  });
+
+
+
+  const updateOneMutation = trpc.resources.update.useMutation();
+
+  const [search, setSearch] = useState("");
+  const [filterLevel, setFilterLevel] = useState<AccessLevel | "ALL">("ALL");
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<25 | 50 | 100>(25);
+
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkLevel, setBulkLevel] = useState<AccessLevel | "KEEP">("KEEP");
+  const [bulkStatus, setBulkStatus] = useState<
+    "draft" | "pending" | "approved" | "rejected"
+  >("draft");
+
+  // ✅ Bulk “Tranche d’âge”
+  // - KEEP : ne change rien
+  // - CLEAR : efface la valeur
+  // - sinon : définit la valeur
+  const [bulkAgeRange, setBulkAgeRange] = useState<
+  "KEEP" | "CLEAR" | "3-5 ans" | "6-11 ans" | "12-18 ans" | "Tous âges"
+>("KEEP");
+
+  // ✅ Bulk “Durée”
+  const [bulkDuration, setBulkDuration] = useState<
+  "KEEP" | "CLEAR" | "30 min" | "1-2h" | "Demi-journée" | "Journée"
+>("KEEP");
+
+const [bulkPrepTime, setBulkPrepTime] = useState<
+  "KEEP" | "CLEAR" | PrepTime
+>("KEEP");
+
+const [bulkResourceType, setBulkResourceType] = useState<
+  "KEEP" | "CLEAR" | ResourceType
+>("KEEP");
+
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const { data: resources, isLoading, refetch } = trpc.resources.list.useQuery({});
-  const updateLevelMutation = trpc.accessLevels.updateLevel.useMutation();
-  const updateMultipleMutation = trpc.accessLevels.updateMultiple.useMutation();
-  const statsQuery = trpc.accessLevels.getStats.useQuery();
+  const resources: any[] = resourcesQuery.data ?? [];
 
-  // Filtrer les ressources
-  const filteredResources = useMemo(() => {
-    if (!resources) return [];
-    
-    return resources.filter((resource) => {
-      const matchesSearch = resource.title.toLowerCase().includes(search.toLowerCase()) ||
-        resource.summary.toLowerCase().includes(search.toLowerCase());
-      const matchesFilter = filterLevel === 'ALL' || resource.accessLevel === filterLevel;
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return resources.filter((r) => {
+      const title = safeStr(r?.title).toLowerCase();
+      const summary = safeStr(r?.summary ?? r?.description).toLowerCase();
+      const matchesSearch = !q || title.includes(q) || summary.includes(q);
+
+      const lvl = String(r?.accessLevel ?? "PUBLIC");
+      const matchesFilter = filterLevel === "ALL" || lvl === filterLevel;
+
       return matchesSearch && matchesFilter;
     });
   }, [resources, search, filterLevel]);
 
-  // Gérer la sélection
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const pageItems = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, safePage, pageSize]);
+
+  const rangeLabel =
+    total === 0
+      ? "0"
+      : `${(safePage - 1) * pageSize + 1}–${Math.min(
+          safePage * pageSize,
+          total
+        )} sur ${total}`;
+
+  const pageIds = pageItems.map((r) => Number(r.id));
+  const allSelectedOnPage =
+    pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filteredResources.length) {
-      setSelectedIds([]);
+  const toggleSelectPage = () => {
+    setSelectedIds((prev) =>
+      allSelectedOnPage
+        ? prev.filter((id) => !pageIds.includes(id))
+        : Array.from(new Set([...prev, ...pageIds]))
+    );
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  async function refresh() {
+    await resourcesQuery.refetch();
+  }
+
+  async function handleBulkUpdate() {
+  if (selectedIds.length === 0) return;
+
+  const ageRangePatch =
+    bulkAgeRange === "KEEP"
+      ? undefined
+      : bulkAgeRange === "CLEAR"
+        ? null
+        : bulkAgeRange;
+
+  const durationPatch =
+    bulkDuration === "KEEP"
+      ? undefined
+      : bulkDuration === "CLEAR"
+        ? null
+        : bulkDuration;
+
+  const prepTimePatch =
+    bulkPrepTime === "KEEP"
+      ? undefined
+      : bulkPrepTime === "CLEAR"
+        ? null
+        : bulkPrepTime;
+
+  const resourceTypePatch =
+    bulkResourceType === "KEEP"
+      ? undefined
+      : bulkResourceType === "CLEAR"
+        ? null
+        : bulkResourceType;
+
+  // ✅ Map id -> ressource (pour connaître le statut actuel)
+  const byId = new Map<number, any>(resources.map((r) => [Number(r.id), r]));
+
+  setIsUpdating(true);
+
+  let applied = 0;
+  let skipped = 0;
+  let failed = 0;
+  let autoFixedPublic = 0;
+
+  try {
+    for (const id of selectedIds) {
+      const r = byId.get(id);
+      const current = normalizeEditorialStatus(r?.status);
+
+      // ✅ garde-fou : transitions statut autorisées (même règles que l’UI)
+      const allowed = new Set(allowedNextStatuses(current));
+      const wantsStatus = normalizeEditorialStatus(bulkStatus);
+
+      
+      if (!allowed.has(wantsStatus)) {
+        skipped++;
+        continue;
+      }
+
+      // ✅ Access bulk pro : KEEP = ne pas toucher à l’accès
+const wantsAccessLevel: AccessLevel | undefined =
+  bulkLevel === "KEEP" ? undefined : (bulkLevel as AccessLevel);
+
+// ✅ Lecture de l’accès actuel (si la ressource est déjà PUBLIC)
+const currentAccessLevel = String(r?.accessLevel ?? "PUBLIC").toUpperCase() as AccessLevel;
+
+// ✅ Règle serveur (Pilier 10) : status != approved => interdit PUBLIC
+// Cas 1) l’admin demande explicitement PUBLIC -> on auto-corrige
+// Cas 2) KEEP mais la ressource est déjà PUBLIC -> on auto-corrige aussi (sinon le serveur rejettera)
+let safeAccessLevel: AccessLevel | undefined = wantsAccessLevel;
+
+if (wantsStatus !== "approved") {
+  if (safeAccessLevel === "PUBLIC") {
+    safeAccessLevel = "INTERNAL_IFAC";
+    autoFixedPublic++;
+  } else if (safeAccessLevel === undefined && currentAccessLevel === "PUBLIC") {
+    safeAccessLevel = "INTERNAL_IFAC";
+    autoFixedPublic++;
+  }
+}
+
+try {
+  await updateOneMutation.mutateAsync({
+    id,
+    ...(safeAccessLevel === undefined ? {} : { accessLevel: safeAccessLevel }),
+    status: wantsStatus,
+    ...(ageRangePatch === undefined ? {} : { ageRange: ageRangePatch }),
+    ...(durationPatch === undefined ? {} : { duration: durationPatch }),
+    ...(prepTimePatch === undefined ? {} : { prepTime: prepTimePatch }),
+    ...(resourceTypePatch === undefined ? {} : { type: resourceTypePatch }),
+  } as any);
+
+  applied++;
+} catch (e) {
+
+        console.error("[AdminAccessLevels] bulk update error id=", id, e);
+        failed++;
+        continue;
+      }
+    }
+
+    clearSelection();
+    await refresh();
+
+    // Feedback pro : on explique l’auto-correction
+    if (failed === 0 && skipped === 0) {
+      if (autoFixedPublic > 0) {
+        toast.message(
+          `Modifs appliquées : ${applied} ressource(s). Note : ${autoFixedPublic} ressource(s) non publiée(s) ont été basculées en "Connectés" (PUBLIC interdit hors "Publiée").`
+        );
+      } else {
+        toast.success(`Modifs appliquées : ${applied} ressource(s).`);
+      }
     } else {
-      setSelectedIds(filteredResources.map((r) => r.id));
+      toast.message(
+        `Bulk terminé : ${applied} appliquée(s), ${skipped} ignorée(s) (transition interdite), ${failed} en erreur.`
+      );
     }
-  };
+  } finally {
+    setIsUpdating(false);
+  }
+}
 
-  // Mettre à jour un niveau
-  const handleUpdateLevel = async (resourceId: number, level: AccessLevel) => {
-    setIsUpdating(true);
-    try {
-      await updateLevelMutation.mutateAsync({
-        resourceId,
-        accessLevel: level,
-      });
-      refetch();
-    } finally {
-      setIsUpdating(false);
-    }
-  };
 
-  // Mettre à jour plusieurs niveaux
-  const handleBulkUpdate = async () => {
-    if (selectedIds.length === 0) return;
-    
-    setIsUpdating(true);
-    try {
-      await updateMultipleMutation.mutateAsync({
-        resourceIds: selectedIds,
-        accessLevel: bulkLevel,
-      });
-      setSelectedIds([]);
-      refetch();
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  if (isLoading) {
+  if (resourcesQuery.isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (resourcesQuery.error) {
+    return (
+      <div className="p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+  <div>
+    <h1 className="text-3xl font-bold">
+      Ressources · Modifications en masse
+    </h1>
+    <p className="mt-1 text-gray-600">
+      Ici : modifier plusieurs ressources en même temps (accès, statut, etc.).
+      Pour éditer une ressource individuellement, utilise la vue d’ensemble.
+    </p>
+
+    <div className="mt-2 text-xs text-gray-500 leading-relaxed">
+      <div>🟠 <span className="font-medium">Modifications en masse</span> : changements groupés.</div>
+      <div>🔵 <span className="font-medium">Vue d’ensemble</span> : édition détaillée ressource par ressource.</div>
+    </div>
+  </div>
+
+  <div className="flex flex-wrap gap-2">
+    <Link
+      href="/admin/resources-management"
+      className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+      title="Ouvrir la vue d’ensemble"
+    >
+      🔵 Vue d’ensemble
+    </Link>
+
+    <Link
+      href="/admin"
+      className="inline-flex items-center justify-center rounded-lg border px-4 py-2 hover:bg-gray-50"
+      title="Retour au tableau de bord admin"
+    >
+      Retour admin
+    </Link>
+  </div>
+</div>
+
+        <p className="mt-4 text-red-600">
+          Erreur : {resourcesQuery.error.message}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Gestion des niveaux d'accès</h1>
-        <p className="text-gray-600">
-          Gérez qui peut accéder à chaque ressource
-        </p>
+<div className="rounded-xl border bg-white p-4 shadow-sm">
+  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div className="min-w-0">
+      <div className="inline-flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-1 text-sm font-medium text-orange-800">
+        🟠 Modifications en masse
       </div>
 
-      {/* Statistiques */}
-      {statsQuery.data && (
-        <div className="grid grid-cols-3 gap-4">
-          {Object.entries(ACCESS_LEVEL_LABELS).map(([level, label]) => {
-            const count = statsQuery.data?.find((s) => s.level === level)?.count || 0;
-            return (
-              <Card key={level} className="p-4">
-                <div className="text-sm text-gray-600">{label}</div>
-                <div className="text-2xl font-bold mt-2">{String(count)}</div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      <h1 className="mt-2 text-3xl font-bold">
+        Ressources · Modifications en masse
+      </h1>
 
-      {/* Filtres et recherche */}
-      <div className="space-y-4">
-        <div className="flex gap-4">
-          <Input
-            placeholder="Chercher une ressource..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1"
-          />
-          <Select value={filterLevel} onValueChange={(v) => setFilterLevel(v as AccessLevel | 'ALL')}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filtrer par niveau" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Tous les niveaux</SelectItem>
-              <SelectItem value="PUBLIC">Public</SelectItem>
-              <SelectItem value="AUTHENTICATED">Authentifié</SelectItem>
-              <SelectItem value="PREMIUM">Premium</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <p className="mt-1 text-gray-600">
+        Ici : modifier plusieurs ressources d’un coup (accès, statut, tranche d’âge, durée, prépa, type).
+        Pour éditer une ressource en détail (page complète, URL, profils, etc.), utilise la vue d’ensemble.
+      </p>
 
-        {/* Bulk update */}
-        {selectedIds.length > 0 && (
-          <Card className="p-4 bg-blue-50 border-blue-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <strong>{selectedIds.length}</strong> ressource(s) sélectionnée(s)
-              </div>
-              <div className="flex gap-2">
-                <Select value={bulkLevel} onValueChange={(v) => setBulkLevel(v as AccessLevel)}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Choisir un niveau" />
+      <div className="mt-2 text-xs text-gray-500 leading-relaxed">
+        <div>
+          🟠 <span className="font-medium">Modifications en masse</span> : changements groupés.
+        </div>
+        <div>
+          🔵 <span className="font-medium">Vue d’ensemble</span> : édition détaillée ressource par ressource.
+        </div>
+      </div>
+    </div>
+
+    <div className="flex flex-wrap gap-2">
+      <Link
+        href="/admin/resources-management"
+        className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+        title="Ouvrir la vue d’ensemble (édition détaillée)"
+      >
+        🔵 Vue d’ensemble
+      </Link>
+
+      <Link
+        href="/admin"
+        className="inline-flex items-center justify-center rounded-lg border px-4 py-2 hover:bg-gray-50"
+        title="Retour au tableau de bord admin"
+      >
+        Retour admin
+      </Link>
+    </div>
+  </div>
+</div>
+
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <Input
+              placeholder="Rechercher (titre / résumé)…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+
+            <Select
+              value={filterLevel}
+              onValueChange={(v) => {
+                setFilterLevel(v as any);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-60">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tous</SelectItem>
+                <SelectItem value="PUBLIC">Public</SelectItem>
+                <SelectItem value="INTERNAL_IFAC">Connectés</SelectItem>
+                <SelectItem value="PREMIUM">Premium</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="text-sm text-gray-600">{rangeLabel}</div>
+          </div>
+
+          {/* ✅ Pagination UI (comme la vue d’ensemble) */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>Par page :</span>
+              <select
+                className="rounded-md border px-2 py-1"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value) as 25 | 50 | 100);
+                  setPage(1);
+                }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                className="rounded-md border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                type="button"
+              >
+                ← Précédent
+              </button>
+
+              <span className="text-sm text-gray-600">
+                Page {safePage} / {totalPages}
+              </span>
+
+              <button
+                className="rounded-md border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                type="button"
+              >
+                Suivant →
+              </button>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {selectedIds.length > 0 && (
+        <Card className="p-4 bg-blue-50 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <strong>{selectedIds.length}</strong> sélectionnée(s)
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Select
+  value={bulkLevel}
+  onValueChange={(v) => setBulkLevel(v as AccessLevel | "KEEP")}
+>
+  <SelectTrigger className="w-48">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="KEEP">⏭️ Accès : ne pas changer</SelectItem>
+    <SelectItem value="PUBLIC">🌍 Public</SelectItem>
+    <SelectItem value="INTERNAL_IFAC">👤 Connectés</SelectItem>
+    <SelectItem value="PREMIUM">⭐ Premium</SelectItem>
+  </SelectContent>
+</Select>
+
+
+                <Select
+                  value={bulkStatus}
+                  onValueChange={(v) =>
+                    setBulkStatus(v as "draft" | "pending" | "approved" | "rejected")
+                  }
+                >
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PUBLIC">Public</SelectItem>
-                    <SelectItem value="AUTHENTICATED">Authentifié</SelectItem>
-                    <SelectItem value="PREMIUM">Premium</SelectItem>
+                    <SelectItem value="draft">📝 Brouillon</SelectItem>
+                    <SelectItem value="pending">⏳ En attente</SelectItem>
+                    <SelectItem value="approved">✅ Publiée</SelectItem>
+                    <SelectItem value="rejected">⛔ Rejetée</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button
-                  onClick={handleBulkUpdate}
-                  disabled={isUpdating}
-                  className="bg-blue-600 hover:bg-blue-700"
+
+                                <Select
+                  value={bulkAgeRange}
+                  onValueChange={(v) =>
+                    setBulkAgeRange(
+                      v as
+                        | "KEEP"
+                        | "CLEAR"
+                        | "3-5 ans"
+                        | "6-11 ans"
+                        | "12-18 ans"
+                        | "Tous âges"
+                    )
+                  }
                 >
-                  {isUpdating ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Check className="w-4 h-4 mr-2" />
-                  )}
-                  Appliquer
-                </Button>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="KEEP">⏭️ Tranche d’âge : ne pas changer</SelectItem>
+                    <SelectItem value="CLEAR">🧹 Tranche d’âge : effacer</SelectItem>
+                    <SelectItem value="3-5 ans">3-5 ans</SelectItem>
+                    <SelectItem value="6-11 ans">6-11 ans</SelectItem>
+                    <SelectItem value="12-18 ans">12-18 ans</SelectItem>
+                    <SelectItem value="Tous âges">Tous âges</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={bulkDuration}
+                  onValueChange={(v) =>
+                    setBulkDuration(
+                      v as
+                        | "KEEP"
+                        | "CLEAR"
+                        | "30 min"
+                        | "1-2h"
+                        | "Demi-journée"
+                        | "Journée"
+                    )
+                  }
+                >
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="KEEP">⏭️ Durée : ne pas changer</SelectItem>
+                    <SelectItem value="CLEAR">🧹 Durée : effacer</SelectItem>
+                    <SelectItem value="30 min">30 min</SelectItem>
+                    <SelectItem value="1-2h">1–2h</SelectItem>
+                    <SelectItem value="Demi-journée">Demi-journée</SelectItem>
+                    <SelectItem value="Journée">Journée</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+  value={bulkPrepTime}
+  onValueChange={(v) => setBulkPrepTime(v as "KEEP" | "CLEAR" | PrepTime)}
+>
+  <SelectTrigger className="w-44">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="KEEP">⏭️ Prépa : ne pas changer</SelectItem>
+    <SelectItem value="CLEAR">🧹 Prépa : effacer</SelectItem>
+    {PREP_TIMES.map((t) => (
+      <SelectItem key={t} value={t}>
+        {t}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+
+
+                <Select
+                  value={bulkResourceType}
+                  onValueChange={(v) =>
+                    setBulkResourceType(v as "KEEP" | "CLEAR" | ResourceType)
+                  }
+                >
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="Type de ressource" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="KEEP">⏭️ Type : ne pas changer</SelectItem>
+                    <SelectItem value="CLEAR">🧹 Type : effacer</SelectItem>
+                    {RESOURCE_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <Button onClick={handleBulkUpdate} disabled={isUpdating}>
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Appliquer (Accès + Statut + Tranche d’âge + Durée + Prépa + Type)
+              </Button>
             </div>
-          </Card>
-        )}
-      </div>
+          </div>
+        </Card>
+      )}
 
-      {/* Liste des ressources */}
-      <div className="space-y-2">
-        {/* Header avec checkbox */}
-        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg font-semibold">
-          <Checkbox
-            checked={selectedIds.length === filteredResources.length && filteredResources.length > 0}
-            onChange={toggleSelectAll}
-          />
-          <div className="flex-1">Ressource</div>
-          <div className="w-40">Niveau actuel</div>
-          <div className="w-48">Actions</div>
-        </div>
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="min-w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="px-3 py-2 w-10 text-left">
+                <Checkbox
+                  checked={allSelectedOnPage}
+                  onCheckedChange={toggleSelectPage}
+                />
+              </th>
+              <th className="px-3 py-2 text-left">Ressource</th>
+              <th className="px-3 py-2 w-40 text-left">Accès</th>
+              <th className="px-3 py-2 w-40 text-left">Statut</th>
+<th className="px-3 py-2 w-48 text-left">Tranche d’âge</th>
+<th className="px-3 py-2 w-40 text-left">Durée</th>
+<th className="px-3 py-2 w-44 text-left">Prépa</th>
+<th className="px-3 py-2 w-56 text-left">Type</th>
+<th className="px-3 py-2 w-32 text-left">Actions</th>
 
-        {/* Ressources */}
-        {filteredResources.map((resource) => (
-          <Card key={resource.id} className="p-4">
-            <div className="flex items-center gap-4">
-              <Checkbox
-                checked={selectedIds.includes(resource.id)}
-                onChange={() => toggleSelect(resource.id)}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold truncate">{resource.title}</div>
-                <div className="text-sm text-gray-600 truncate">{resource.summary}</div>
-              </div>
-              <div className="w-40">
-                <Badge className={ACCESS_LEVEL_COLORS[resource.accessLevel as AccessLevel]}>
-                  {ACCESS_LEVEL_LABELS[resource.accessLevel as AccessLevel]}
-                </Badge>
-              </div>
-              <div className="w-48 flex gap-2">
-                {(['PUBLIC', 'AUTHENTICATED', 'PREMIUM'] as const).map((level) => (
-                  <Button
-                    key={level}
-                    size="sm"
-                    variant={resource.accessLevel === level ? 'default' : 'outline'}
-                    onClick={() => handleUpdateLevel(resource.id, level)}
-                    disabled={isUpdating}
-                    className="text-xs"
-                  >
-                    {level === 'PUBLIC' ? '🌍' : level === 'AUTHENTICATED' ? '👤' : '⭐'}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </Card>
-        ))}
+            </tr>
+          </thead>
 
-        {filteredResources.length === 0 && (
-          <Card className="p-8 text-center text-gray-500">
-            <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <tbody>
+            {pageItems.map((r) => {
+              const id = Number(r.id);
+              const lvl = String(r.accessLevel ?? "PUBLIC") as AccessLevel;
+
+              return (
+                <tr key={id} className="border-t">
+                  <td className="px-3 py-2">
+                    <Checkbox
+                      checked={selectedIds.includes(id)}
+                      onCheckedChange={() => toggleSelect(id)}
+                    />
+                  </td>
+
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{r.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {r.summary ?? r.description ?? "—"}
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-2">
+                    <Select
+                      value={lvl}
+                      onValueChange={async (value) => {
+                        await updateOneMutation.mutateAsync({
+                          id,
+                          accessLevel: value as AccessLevel,
+                        } as any);
+                        await refresh();
+                      }}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PUBLIC">🌍 Public</SelectItem>
+                        <SelectItem value="INTERNAL_IFAC">👤 Connectés</SelectItem>
+                        <SelectItem value="PREMIUM">⭐ Premium</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </td>
+
+                  <td className="px-3 py-2">
+  {(() => {
+    const value = normalizeEditorialStatus(r.status);
+    const allowed = new Set(allowedNextStatuses(value));
+
+    return (
+      <Select
+        value={value}
+        onValueChange={async (next) => {
+          await updateOneMutation.mutateAsync({
+            id,
+            status: next,
+          } as any);
+          await refresh();
+        }}
+      >
+        <SelectTrigger className="w-44">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="draft" disabled={!allowed.has("draft")}>
+            📝 Brouillon
+          </SelectItem>
+          <SelectItem value="pending" disabled={!allowed.has("pending")}>
+            ⏳ En attente
+          </SelectItem>
+          <SelectItem value="approved" disabled={!allowed.has("approved")}>
+            ✅ Publiée
+          </SelectItem>
+          <SelectItem value="rejected" disabled={!allowed.has("rejected")}>
+            ⛔ Rejetée
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  })()}
+</td>
+
+
+ <td className="px-3 py-2">
+  {(() => {
+const raw = String(r.ageRange ?? "").trim();
+    const value = AGE_RANGES.includes(raw as any) ? raw : "—";
+
+    return (
+      <Select
+  value={value}
+  onValueChange={async (next) => {
+    await updateOneMutation.mutateAsync({
+      id,
+      ageRange: next === "—" ? null : next,
+    } as any);
+
+    await refresh();
+  }}
+>
+        <SelectTrigger className="w-48">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="—">— (non renseigné)</SelectItem>
+{AGE_RANGES.map((a) => (
+            <SelectItem key={a} value={a}>
+              {a}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  })()}
+</td>
+
+<td className="px-3 py-2">
+  {(() => {
+    const raw = String(r.duration ?? "").trim();
+    const value = DURATIONS.includes(raw as any) ? raw : "—";
+
+    return (
+      <Select
+        value={value}
+        onValueChange={async (next) => {
+          await updateOneMutation.mutateAsync({
+            id,
+            duration: next === "—" ? null : next,
+          } as any);
+          await refresh();
+        }}
+      >
+        <SelectTrigger className="w-40">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="—">— (non renseigné)</SelectItem>
+{DURATIONS.map((d) => (
+            <SelectItem key={d} value={d}>
+              {d === "1-2h" ? "1–2h" : d}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  })()}
+</td>
+<td className="px-3 py-2">
+  {(() => {
+    const raw = String(r.prepTime ?? "").trim();
+    const value = PREP_TIMES.includes(raw as any) ? raw : "—";
+
+    return (
+      <Select
+        value={value}
+        onValueChange={async (next) => {
+          await updateOneMutation.mutateAsync({
+            id,
+            prepTime: next === "—" ? null : next,
+          } as any);
+          await refresh();
+        }}
+      >
+        <SelectTrigger className="w-44">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="—">— (non renseigné)</SelectItem>
+          {PREP_TIMES.map((t) => (
+            <SelectItem key={t} value={t}>
+              {t}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  })()}
+</td>
+
+<td className="px-3 py-2">
+  {(() => {
+    const raw = String(r.type ?? "").trim();
+    const value = RESOURCE_TYPES.includes(raw as any) ? raw : "—";
+
+    return (
+      <Select
+        value={value}
+        onValueChange={async (next) => {
+          await updateOneMutation.mutateAsync({
+            id,
+            type: next === "—" ? null : next,
+          } as any);
+          await refresh();
+        }}
+      >
+        <SelectTrigger className="w-56">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="—">— (non renseigné)</SelectItem>
+          {RESOURCE_TYPES.map((t) => (
+            <SelectItem key={t} value={t}>
+              {t}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  })()}
+</td>
+
+
+                  <td className="px-3 py-2">
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                    >
+                      <a href={`/admin/ressources/${id}`}>
+                        Éditer
+                      </a>
+                    </Button>
+                  </td>
+
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {pageItems.length === 0 && (
+          <div className="p-8 text-center text-gray-500">
+            <AlertCircle className="mx-auto mb-2 h-8 w-8 opacity-50" />
             Aucune ressource trouvée
-          </Card>
+          </div>
         )}
       </div>
     </div>

@@ -172,8 +172,22 @@ export async function autoAssociateResourcesToCollections(options?: {
 
   try {
     // Récupérer toutes les ressources
-    const allResources = await db.getAllResources();
+    // 🔒 Sécurité "outil national" :
+    // Service maintenance uniquement. On force explicitement un mode "adminView"
+    // pour éviter toute réutilisation accidentelle en contexte public.
+    const allResources = await db.getAllResources({
+      adminView: db.ADMIN_VIEW_TOKEN,
+      includeInternal: true,
+      includePremium: true,
+    });
     console.log(`[AutoAssociate] Traitement de ${allResources.length} ressources`);
+
+    // ✅ Perf : on charge les collections une seule fois (pas à chaque ressource)
+    // On utilise un cache local en mémoire (Map) pendant l'exécution du batch.
+    const publicCollections = await db.getPublicCollections();
+    const collectionsByName = new Map<string, any>(
+      (publicCollections || []).map((c: any) => [String(c.name), c])
+    );
 
     for (const resource of allResources) {
       try {
@@ -188,29 +202,40 @@ export async function autoAssociateResourcesToCollections(options?: {
           continue;
         }
 
-        // Trouver ou créer la collection
-        const publicCollections = await db.getPublicCollections();
-        let collection = publicCollections.find((c) => c.name === bestCollection.name);
+        // Trouver ou créer la collection (cache local)
+        let collection = collectionsByName.get(bestCollection.name);
 
         if (!collection) {
           // Créer la collection si elle n'existe pas
-          const collectionId = await db.createCollection({
-            userId: 1, // Admin user
-            name: bestCollection.name,
-            description: bestCollection.description,
-            isPublic: true,
-          });
+const slug = bestCollection.name
+  .toLowerCase()
+  .replace(/\s+/g, "-")
+  .replace(/[^a-z0-9-]/g, "");
 
-          collection = {
-            id: collectionId,
-            userId: 1,
-            name: bestCollection.name,
-            description: bestCollection.description,
-            imageUrl: null,
-            isPublic: "true",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
+const collectionId = await db.createCollection({
+  userId: 1, // Admin user
+  name: bestCollection.name,
+  slug,
+  description: bestCollection.description,
+  accessLevel: "PUBLIC",
+});
+
+collection = {
+  id: collectionId,
+  userId: 1,
+  name: bestCollection.name,
+  slug,
+  description: bestCollection.description,
+  status: "approved",
+  sortOrder: 0,
+  imageUrl: null,
+  accessLevel: "PUBLIC",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+// ✅ Mettre à jour le cache local pour les ressources suivantes
+collectionsByName.set(bestCollection.name, collection);
 
           console.log(`[AutoAssociate] Collection créée: ${bestCollection.name}`);
         }

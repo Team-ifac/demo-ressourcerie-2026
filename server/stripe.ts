@@ -156,7 +156,10 @@ export async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Se
     }
 
     // Récupérer les détails de la subscription
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    if (!stripe) {
+  throw new Error("Stripe not configured (missing STRIPE_SECRET_KEY).");
+}
+const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
     await createSubscription(
       userId,

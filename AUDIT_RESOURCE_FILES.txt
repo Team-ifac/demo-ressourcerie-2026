@@ -1,0 +1,22 @@
+AUDIT_RESOURCE_FILES
+========================================
+Total: 53
+
+✅ Canonique (storageKey only): 52
+🟡 Legacy (fileUrl only):     0
+🚨 Anormal (both set):        0
+ℹ️  Aucun fichier:            1
+
+/imported/:                  0
+http(s):                     0
+autres fileUrl:              0
+
+thumbUrl sans thumbKey:      0
+thumbKey sans thumbUrl:      0
+thumbUrl suspect (imported): 0
+
+Détails (IDs) :
+- bothSet: aucun
+- legacyOnly: aucun
+- thumbKeyNoUrl: aucun
+- thumbImportedMismatch: aucun

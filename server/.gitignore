@@ -27,3 +27,5 @@ client/public/thumbnails/profile-*
 ressources_images.csv
 temp_*.txt
 resultat_*.txt
+# Thumbnails générés par import (Ressourcerie IFAC)
+client/public/imported_thumbs/

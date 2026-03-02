@@ -14,6 +14,19 @@ import { Loader2, Upload, X } from "lucide-react";
 import { Redirect } from "wouter";
 import { toast } from "sonner";
 
+import {
+  RESOURCE_TYPES,
+  AGE_RANGES,
+  DURATIONS,
+  PREP_TIMES,
+  type ResourceType,
+  type AgeRange,
+  type Duration,
+  type PrepTime,
+} from "@shared/resourceMeta";
+
+import { STATUS_LABELS, allowedNextStatuses, normalizeStatus, type StatusValue } from "@shared/editorialStatus";
+
 export default function AdminResourceForm() {
   const [, params] = useRoute("/admin/ressources/:id");
   const [, navigate] = useLocation();
@@ -21,19 +34,44 @@ export default function AdminResourceForm() {
   const isEdit = resourceId !== null && resourceId > 0;
 
   const { user, loading: authLoading } = useAuth();
+  const isInList = <T extends readonly string[]>(
+    list: T,
+    value: string
+  ): value is T[number] => (list as readonly string[]).includes(value);
+
+  const handleTypeChange = (value: string) => {
+    setType(isInList(RESOURCE_TYPES, value) ? value : "");
+  };
+
+  const handleAgeRangeChange = (value: string) => {
+    setAgeRange(isInList(AGE_RANGES, value) ? value : "");
+  };
+
+  const handleDurationChange = (value: string) => {
+    setDuration(isInList(DURATIONS, value) ? value : "");
+  };
+
+  const handlePrepTimeChange = (value: string) => {
+    setPrepTime(isInList(PREP_TIMES, value) ? value : "");
+  };
 
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [content, setContent] = useState("");
-  const [type, setType] = useState("");
-  const [ageRange, setAgeRange] = useState("");
-  const [duration, setDuration] = useState("");
+  const [type, setType] = useState<ResourceType | "">("");
+  const [ageRange, setAgeRange] = useState<AgeRange | "">("");
+  const [duration, setDuration] = useState<Duration | "">("");
   const [level, setLevel] = useState("");
-  const [prepTime, setPrepTime] = useState("");
-  const [visibility, setVisibility] = useState<"PUBLIC" | "INTERNAL_IFAC">("PUBLIC");
+  const [prepTime, setPrepTime] = useState<PrepTime | "">("");
+  const [status, setStatus] = useState<StatusValue>("draft");
+
+  // (Épuré) Visibilité & statut gérés via l'admin en masse (/admin/access-levels)
   const [selectedThemes, setSelectedThemes] = useState<number[]>([]);
   const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [thumbnailKey, setThumbnailKey] = useState("");
   const [fileUrl, setFileUrl] = useState("");
+  const [storageKey, setStorageKey] = useState("");
+
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
@@ -46,7 +84,7 @@ export default function AdminResourceForm() {
   const createMutation = trpc.resources.create.useMutation({
     onSuccess: () => {
       toast.success("Ressource créée avec succès");
-      navigate("/admin/ressources");
+      navigate("/admin/resources-management");
     },
     onError: () => {
       toast.error("Erreur lors de la création");
@@ -56,10 +94,17 @@ export default function AdminResourceForm() {
   const updateMutation = trpc.resources.update.useMutation({
     onSuccess: () => {
       toast.success("Ressource mise à jour avec succès");
-      navigate("/admin/ressources");
+      navigate("/admin/access-levels");
     },
-    onError: () => {
-      toast.error("Erreur lors de la mise à jour");
+    onError: (err: any) => {
+      console.error("[AdminResourceForm] update error =", err);
+
+      const message =
+        err?.data?.zodError
+          ? "Erreur de validation (Zod). Voir console."
+          : err?.message || err?.data?.code || "Erreur inconnue";
+
+      toast.error(`Erreur lors de la mise à jour : ${message}`);
     },
   });
 
@@ -75,10 +120,13 @@ export default function AdminResourceForm() {
       setDuration(resource.duration || "");
       setLevel(resource.level || "");
       setPrepTime(resource.prepTime || "");
-      setVisibility(resource.visibility);
-      setThumbnailUrl(resource.thumbnailUrl || "");
-      setFileUrl(resource.fileUrl || "");
-      setSelectedThemes(resource.themes?.map(t => t.id) || []);
+      // (Épuré) Visibilité & statut gérés via l'admin en masse (/admin/access-levels)
+            setThumbnailUrl(resource.thumbnailUrl || "");
+      setThumbnailKey((resource as any).thumbnailKey || "");
+      setFileUrl((resource as any).fileUrl || "");
+      setStorageKey((resource as any).storageKey || "");
+      setSelectedThemes(resource.themes?.map((t: any) => t.id) || []);
+      setStatus(normalizeStatus((resource as any).status));
     }
   }, [resource]);
 
@@ -89,7 +137,7 @@ export default function AdminResourceForm() {
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const base64 = e.target?.result?.toString().split(',')[1];
+        const base64 = e.target?.result?.toString().split(",")[1];
         if (!base64) throw new Error("Erreur de lecture du fichier");
 
         const result = await uploadFileMutation.mutateAsync({
@@ -100,11 +148,16 @@ export default function AdminResourceForm() {
 
         if (isThumbnail) {
           setThumbnailUrl(result.url);
+          setThumbnailKey((result as any).storageKey || (result as any).fileKey || "");
           toast.success("Vignette uploadée");
         } else {
+
+          // ✅ Pilier 12 bis : url pour affichage, storageKey pour DB
           setFileUrl(result.url);
+          setStorageKey((result as any).storageKey || (result as any).fileKey || "");
           toast.success("Fichier uploadé");
         }
+
       };
       reader.readAsDataURL(file);
     } catch (error) {
@@ -115,7 +168,7 @@ export default function AdminResourceForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title || !summary || !content) {
@@ -123,38 +176,79 @@ export default function AdminResourceForm() {
       return;
     }
 
-    if (!type) {
+    // ✅ Type obligatoire uniquement en création
+    if (!isEdit && !type) {
       toast.error("Veuillez sélectionner un type de ressource");
       return;
     }
 
-    const data = {
-      title,
-      summary,
-      content,
-      type,
-      ageRange: ageRange || undefined,
-      duration: duration || undefined,
-      level: level || undefined,
-      prepTime: prepTime || undefined,
-      visibility,
-      thumbnailUrl: thumbnailUrl || undefined,
-      fileUrl: fileUrl || undefined,
-      themeIds: selectedThemes,
-    };
+    const common = {
+  title,
+  summary,
+  content,
+
+  // ✅ Obligatoire côté API (types). Piloté via /admin/access-levels.
+  // ✅ Gouvernance UI : si pas "approved", interdit d’être PUBLIC → on force INTERNAL_IFAC
+  visibility: isEdit
+    ? status === "approved"
+      ? (resource?.visibility ?? "INTERNAL_IFAC")
+      : "INTERNAL_IFAC"
+    : "INTERNAL_IFAC",
+
+  status: isEdit ? status : "draft",
+
+  thumbnailUrl: thumbnailUrl ? thumbnailUrl : undefined,
+  thumbnailKey: thumbnailKey ? thumbnailKey : undefined,
+
+  // ✅ Pilier 12 bis : canonique = storageKey (et jamais fileUrl)
+  storageKey: storageKey ? storageKey : undefined,
+
+  themeIds: selectedThemes,
+};
+
+// ✅ Blindage PRO : ne JAMAIS envoyer fileUrl (même undefined)
+delete (common as any).fileUrl;
 
     if (isEdit) {
-      updateMutation.mutate({ id: resourceId, ...data });
-    } else {
-      createMutation.mutate(data);
+      // ✅ En édition : on ne touche pas aux caractéristiques via l’UI,
+      // mais on les renvoie quand même pour satisfaire les types et éviter tout "undefined"
+      const safeType =
+  type && RESOURCE_TYPES.includes(type as any)
+    ? type
+    : RESOURCE_TYPES.includes(resource?.type as any)
+    ? (resource?.type as any)
+    : undefined;
+
+const updateData = {
+  ...common,
+  type: safeType,
+  ageRange: ageRange || undefined,
+  duration: duration || undefined,
+  prepTime: prepTime || undefined,
+  level: level || undefined,
+};
+
+
+      updateMutation.mutate({ id: resourceId, ...updateData });
+      return;
     }
+
+    // ✅ En création : caractéristiques pilotées par ce formulaire
+    const createData = {
+      ...common,
+      type, // obligatoire ici (validé par le if)
+      ageRange: ageRange || undefined,
+      duration: duration || undefined,
+      prepTime: prepTime || undefined,
+      level: level || undefined,
+    };
+
+    createMutation.mutate(createData);
   };
 
   const toggleTheme = (themeId: number) => {
-    setSelectedThemes(prev =>
-      prev.includes(themeId)
-        ? prev.filter(id => id !== themeId)
-        : [...prev, themeId]
+    setSelectedThemes((prev) =>
+      prev.includes(themeId) ? prev.filter((id) => id !== themeId) : [...prev, themeId]
     );
   };
 
@@ -172,21 +266,18 @@ export default function AdminResourceForm() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      
       <main className="flex-1 py-8">
         <div className="container max-w-4xl space-y-8">
-          <Breadcrumb 
+          <Breadcrumb
             items={[
               { label: "Administration", href: "/admin" },
               { label: "Gestion des ressources", href: "/admin/ressources" },
-              { label: isEdit ? "Modifier la ressource" : "Nouvelle ressource" }
-            ]} 
+              { label: isEdit ? "Modifier la ressource" : "Nouvelle ressource" },
+            ]}
           />
 
           <div>
-            <h1 className="text-4xl font-bold">
-              {isEdit ? "Modifier la ressource" : "Nouvelle ressource"}
-            </h1>
+            <h1 className="text-4xl font-bold">{isEdit ? "Modifier la ressource" : "Nouvelle ressource"}</h1>
             <p className="text-muted-foreground mt-2">
               {isEdit ? "Modifiez les informations de la ressource" : "Créez une nouvelle ressource pédagogique"}
             </p>
@@ -236,101 +327,133 @@ export default function AdminResourceForm() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-elegant">
-              <CardHeader>
-                <CardTitle>Caractéristiques</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Type de ressource</Label>
-                    <Select value={type} onValueChange={setType}>
-                      <SelectTrigger id="type">
-                        <SelectValue placeholder="Sélectionner un type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Fiche">Fiche</SelectItem>
-                        <SelectItem value="Kit clé en main">Kit clé en main</SelectItem>
-                        <SelectItem value="Projet">Projet</SelectItem>
-                        <SelectItem value="Article">Article</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        {!isEdit && (
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle>Caractéristiques</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Type de ressource</Label>
+                      <Select value={type} onValueChange={handleTypeChange}>
+                        <SelectTrigger id="type">
+                          <SelectValue placeholder="Sélectionner un type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RESOURCE_TYPES.map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="ageRange">Tranche d'âge</Label>
-                    <Select value={ageRange} onValueChange={setAgeRange}>
-                      <SelectTrigger id="ageRange">
-                        <SelectValue placeholder="Sélectionner une tranche" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="3-6 ans">3-6 ans</SelectItem>
-                        <SelectItem value="6-12 ans">6-12 ans</SelectItem>
-                        <SelectItem value="12-18 ans">12-18 ans</SelectItem>
-                        <SelectItem value="Tous âges">Tous âges</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ageRange">Tranche d'âge</Label>
+                      <Select value={ageRange} onValueChange={handleAgeRangeChange}>                        <SelectTrigger id="ageRange">
+                          <SelectValue placeholder="Sélectionner une tranche" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {AGE_RANGES.map((a) => (
+                            <SelectItem key={a} value={a}>
+                              {a}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Durée</Label>
-                    <Select value={duration} onValueChange={setDuration}>
-                      <SelectTrigger id="duration">
-                        <SelectValue placeholder="Sélectionner une durée" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="30 min">30 min</SelectItem>
-                        <SelectItem value="1-2h">1-2h</SelectItem>
-                        <SelectItem value="Demi-journée">Demi-journée</SelectItem>
-                        <SelectItem value="Journée">Journée</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="duration">Durée</Label>
+                      <Select value={duration} onValueChange={handleDurationChange}>
+                        <SelectTrigger id="duration">
+                          <SelectValue placeholder="Sélectionner une durée" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DURATIONS.map((d) => (
+                            <SelectItem key={d} value={d}>
+                              {d}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="prepTime">Temps de préparation</Label>
-                    <Select value={prepTime} onValueChange={setPrepTime}>
-                      <SelectTrigger id="prepTime">
-                        <SelectValue placeholder="Sélectionner un temps" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5 min">5 min</SelectItem>
-                        <SelectItem value="15 min">15 min</SelectItem>
-                        <SelectItem value="30 min">30 min</SelectItem>
-                        <SelectItem value="1h">1h</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="prepTime">Temps de préparation</Label>
+                      <Select value={prepTime} onValueChange={handlePrepTimeChange}>
+                        <SelectTrigger id="prepTime">
+                          <SelectValue placeholder="Sélectionner un temps" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PREP_TIMES.map((p) => (
+                            <SelectItem key={p} value={p}>
+                              {p}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="level">Niveau</Label>
-                    <Select value={level} onValueChange={setLevel}>
-                      <SelectTrigger id="level">
-                        <SelectValue placeholder="Sélectionner un niveau" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Débutant">Débutant</SelectItem>
-                        <SelectItem value="Intermédiaire">Intermédiaire</SelectItem>
-                        <SelectItem value="Avancé">Avancé</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="level">Niveau</Label>
+                      <Select value={level} onValueChange={(value) => setLevel(value)}>
+                        <SelectTrigger id="level">
+                          <SelectValue placeholder="Sélectionner un niveau" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Débutant">Débutant</SelectItem>
+                          <SelectItem value="Intermédiaire">Intermédiaire</SelectItem>
+                          <SelectItem value="Avancé">Avancé</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="visibility">Visibilité</Label>
-                    <Select value={visibility} onValueChange={(v: any) => setVisibility(v)}>
-                      <SelectTrigger id="visibility">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PUBLIC">Public</SelectItem>
-                        <SelectItem value="INTERNAL_IFAC">Interne IFAC</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {/* (Épuré) Visibilité & statut gérés via l'admin en masse (/admin/access-levels) */}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
+
+{isEdit && (
+  <Card className="shadow-elegant">
+    <CardHeader>
+      <CardTitle>Statut éditorial</CardTitle>
+      <CardDescription>Pilotez le cycle éditorial de la ressource</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="status">Statut</Label>
+
+        <Select value={status} onValueChange={(value) => setStatus(value as StatusValue)}>
+          <SelectTrigger id="status">
+            <SelectValue placeholder="Sélectionner un statut" />
+          </SelectTrigger>
+
+          <SelectContent>
+            {(["draft", "pending", "approved", "rejected"] as StatusValue[]).map((s) => {
+              const allowed = new Set(allowedNextStatuses(status));
+              const disabled = !allowed.has(s);
+
+              return (
+                <SelectItem key={s} value={s} disabled={disabled}>
+                  {STATUS_LABELS[s]}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+
+        <div className="text-xs text-muted-foreground">
+          Transitions autorisées depuis <b>{STATUS_LABELS[status]}</b> :{" "}
+          {allowedNextStatuses(status).map((s) => STATUS_LABELS[s]).join(", ")}
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+)}
 
             <Card className="shadow-elegant">
               <CardHeader>
@@ -339,17 +462,14 @@ export default function AdminResourceForm() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {themes.map((theme) => (
+                  {themes.map((theme: any) => (
                     <div key={theme.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`theme-${theme.id}`}
                         checked={selectedThemes.includes(theme.id)}
                         onCheckedChange={() => toggleTheme(theme.id)}
                       />
-                      <Label
-                        htmlFor={`theme-${theme.id}`}
-                        className="text-sm font-normal cursor-pointer"
-                      >
+                      <Label htmlFor={`theme-${theme.id}`} className="text-sm font-normal cursor-pointer">
                         {theme.name}
                       </Label>
                     </div>
@@ -374,7 +494,10 @@ export default function AdminResourceForm() {
                         variant="destructive"
                         size="sm"
                         className="absolute top-2 right-2"
-                        onClick={() => setThumbnailUrl("")}
+                        onClick={() => {
+                          setThumbnailUrl("");
+                          setThumbnailKey("");
+                        }}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -403,13 +526,17 @@ export default function AdminResourceForm() {
                   <Label>Fichier PDF (ressource téléchargeable)</Label>
                   {fileUrl ? (
                     <div className="flex items-center gap-2 p-3 border rounded-lg">
-                      <span className="text-sm flex-1 truncate">{fileUrl.split('/').pop()}</span>
-                      <Button
+                      <span className="text-sm flex-1 truncate">{fileUrl.split("/").pop()}</span>
+                                            <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setFileUrl("")}
+                        onClick={() => {
+                          setFileUrl("");
+                          setStorageKey("");
+                        }}
                       >
+
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
@@ -436,21 +563,30 @@ export default function AdminResourceForm() {
             </Card>
 
             <div className="flex gap-4">
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-                className="flex-1"
-              >
-                {(createMutation.isPending || updateMutation.isPending) && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isEdit ? "Mettre à jour" : "Créer la ressource"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/admin/ressources")}
-              >
+ <Button
+  type="submit"
+  disabled={
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    uploadingThumbnail ||
+    uploadingFile
+  }
+  className="flex-1"
+>
+  {(createMutation.isPending ||
+    updateMutation.isPending ||
+    uploadingThumbnail ||
+    uploadingFile) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+  {uploadingThumbnail
+    ? "Upload vignette..."
+    : uploadingFile
+    ? "Upload fichier..."
+    : isEdit
+    ? "Mettre à jour"
+    : "Créer la ressource"}
+</Button>
+
+              <Button type="button" variant="outline" onClick={() => navigate("/admin/access-levels")}>
                 Annuler
               </Button>
             </div>

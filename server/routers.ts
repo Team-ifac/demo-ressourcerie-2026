@@ -4,10 +4,9 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
-import { storagePut } from "./storage";
+import { storagePut, storageGet } from "./storage";
 import { notifyOwner } from "./_core/notification";
 import { generateImage } from "./_core/imageGeneration";
-import { autoAssociateResourcesToCollections } from "./collectionMatcher";
 import { analyzeDuplicates, removeDuplicates } from "./deduplication";
 import * as stripeService from "./stripe";
 import { cmsRouter } from "./cmsRouter";
@@ -15,23 +14,44 @@ import * as authService from "./auth";
 import { sendVerificationEmail } from "./emailService";
 import { COOKIE_NAME } from "../shared/const";
 import { sdk } from "./_core/sdk";
+import { canViewResource, canOpenResource } from "../shared/resourceAccessPolicy";
+import {
+  AGE_RANGES_ENUM,
+  DURATIONS_ENUM,
+} from "../shared/resourceMeta";
+import { RESOURCE_TYPES, PREP_TIMES } from "../shared/resourceMeta";
+// ✅ Zod enum (cast TS) — source de vérité partagée via shared/resourceMeta
+const RESOURCE_TYPES_ENUM = z.enum(
+  RESOURCE_TYPES as unknown as [string, ...string[]]
+);
+const PREP_TIMES_ENUM = z.enum(
+  PREP_TIMES as unknown as [string, ...string[]]
+);
+
+const PROFILE_TYPES = [
+  "public",
+  "animateur",
+  "formateur",
+  "directeur",
+  "stagiaire_bafa",
+] as const;
 
 // Middleware pour vérifier le rôle admin
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== "admin") {
+  if (!ctx.user || ctx.user.role !== "admin") {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Accès réservé aux administrateurs·rices",
     });
   }
-  return next({ ctx });
+  return next();
 });
 
 // =========================================================
 // Helpers d'accès (profil + accessLevel)
 // =========================================================
 type ProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
-type AccessLevel = "PUBLIC" | "AUTHENTICATED" | "PREMIUM";
+type AccessLevel = "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM";
 
 async function resolveProfileType(userId: number): Promise<ProfileType | null> {
   try {
@@ -46,19 +66,168 @@ async function resolveProfileType(userId: number): Promise<ProfileType | null> {
   }
 }
 
-async function resolveIsPremium(userId: number): Promise<boolean> {
+export async function resolveIsPremium(userId: number): Promise<boolean> {
   try {
-    // Stripe peut être désactivé en local : on protège.
-    return await stripeService.hasActiveSubscription(userId);
-  } catch {
+    const dbConn = await db.getDb();
+    if (!dbConn) return false;
+
+    // =========================================================
+    // 1) ✅ PREMIUM OVERRIDE (users.premiumOverride) — SQL direct (DEBUG)
+    // =========================================================
+    try {
+      const { sql } = await import("drizzle-orm");
+
+      const res: any = await dbConn.execute(
+        sql`SELECT premiumOverride AS premiumOverride FROM users WHERE id = ${userId} LIMIT 1`
+      );
+
+      // Drizzle/MySQL peut renvoyer plusieurs formes :
+      // - { rows: [...] }
+      // - [rows, fields]
+      // - rows directement
+      let row: any = null;
+
+      if (res && Array.isArray(res.rows)) {
+        row = res.rows[0] ?? null;
+      } else if (Array.isArray(res) && Array.isArray(res[0])) {
+        row = res[0][0] ?? null; // mysql2: [rows, fields]
+      } else if (Array.isArray(res)) {
+        row = res[0] ?? null;
+      } else if (res && typeof res === "object") {
+        row = (res as any)[0] ?? null;
+      }
+
+      const overrideVal = row?.premiumOverride ?? null;
+
+      console.log("[resolveIsPremium] OVERRIDE DEBUG", {
+        userId,
+        row,
+        overrideVal,
+      });
+
+      if (
+        overrideVal === 1 ||
+        overrideVal === true ||
+        overrideVal === "1" ||
+        overrideVal === "true"
+      ) {
+        return true;
+      }
+    } catch (e) {
+      console.warn("[resolveIsPremium] premiumOverride SQL check skipped:", e);
+    }
+
+    // =========================================================
+    // 2) ✅ SOURCE DE VÉRITÉ ACTUELLE EN DB (legacy) : user_entitlements
+    //    (c’est ce que TU as vérifié en MySQL)
+    // =========================================================
+    try {
+      const schema = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const userEntitlementsTable =
+        (schema as any).userEntitlements ||
+        (schema as any).user_entitlements ||
+        (schema as any).userEntitlementsTable ||
+        (schema as any).user_entitlements_table;
+
+      if (userEntitlementsTable) {
+        const row = await dbConn
+          .select()
+          .from(userEntitlementsTable)
+          .where(eq((userEntitlementsTable as any).userId, userId))
+          .limit(1);
+
+        const ue = (row?.[0] as any) || null;
+
+        // premium=1 => premium
+        // premiumUntil null => premium actif
+        // premiumUntil dans le futur => premium actif
+        if (ue && (ue.premium === 1 || ue.premium === true)) {
+          const until = ue.premiumUntil ? new Date(ue.premiumUntil) : null;
+          if (!until) return true;
+          if (until.getTime() > Date.now()) return true;
+        }
+      }
+    } catch (e) {
+      console.warn("[resolveIsPremium] user_entitlements check skipped:", e);
+    }
+
+    // =========================================================
+    // 3) ✅ ENTITLEMENTS "Stripe / droits datés" (nouveau système) — si présent
+    // =========================================================
+    try {
+      const { entitlements } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+
+      if (entitlements) {
+        const rows = await dbConn
+          .select()
+          .from(entitlements)
+          .where(eq((entitlements as any).userId, userId));
+
+        const now = new Date();
+
+        const valid = (rows || []).find((r: any) => {
+          if (r.type !== "PREMIUM") return false;
+          if (r.isActive !== 1) return false;
+          if (!r.endsAt) return true;
+          return new Date(r.endsAt) > now;
+        });
+
+        return !!valid;
+      }
+    } catch (e) {
+      console.warn("[resolveIsPremium] entitlements table check skipped:", e);
+    }
+
+    return false;
+  } catch (e) {
+    console.warn("[resolveIsPremium] premium check failed:", e);
     return false;
   }
 }
 
+async function getEntitlementsFromCtx(ctx: any): Promise<{
+  isLogged: boolean;
+  isAdmin: boolean;
+  myProfileType: ProfileType | null;
+  entitlements: { isAuthenticated: boolean; isPremium: boolean; isStaff: boolean };
+}> {
+  const isLogged = !!ctx.user;
+  const isAdmin = ctx.user?.role === "admin";
+
+  const myProfileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
+  const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
+  const isStaff = isLogged && myProfileType === "formateur";
+
+  return {
+    isLogged,
+    isAdmin,
+    myProfileType,
+    entitlements: {
+      isAuthenticated: isLogged,
+      isPremium,
+      isStaff,
+    },
+  };
+}
+
 function allowedAccessLevels(isLogged: boolean, isPremium: boolean): AccessLevel[] {
-  if (!isLogged) return ["PUBLIC"];
-  if (isPremium) return ["PUBLIC", "AUTHENTICATED", "PREMIUM"];
-  return ["PUBLIC", "AUTHENTICATED"];
+  // SAFE-BY-DEFAULT :
+  // - visiteur : PUBLIC
+  // - connecté non premium : PUBLIC + INTERNAL_IFAC
+  // - premium : PUBLIC + INTERNAL_IFAC + PREMIUM
+
+  if (!isLogged) {
+    return ["PUBLIC"];
+  }
+
+  if (isPremium) {
+    return ["PUBLIC", "INTERNAL_IFAC", "PREMIUM"];
+  }
+
+  return ["PUBLIC", "INTERNAL_IFAC"];
 }
 
 function filterByAccessLevel(rows: any[], allowed: AccessLevel[]) {
@@ -68,17 +237,310 @@ function filterByAccessLevel(rows: any[], allowed: AccessLevel[]) {
   });
 }
 
+// =========================================================
+// Normalisation accès (canonique accessLevel -> miroir visibility)
+// =========================================================
+type Visibility = "PUBLIC" | "INTERNAL_IFAC";
+
+function normalizeAccessFields(params: {
+  inputAccessLevel?: AccessLevel | null | undefined;
+  inputVisibility?: Visibility | null | undefined;
+  existingAccessLevel?: AccessLevel | null | undefined;
+  existingVisibility?: Visibility | null | undefined;
+}): { accessLevel: AccessLevel; visibility: Visibility } {
+  const mapVisibilityToAccessLevel = (v: Visibility): AccessLevel =>
+    v === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
+
+  // 1) Source de vérité = accessLevel si fourni
+  // 2) Sinon on dérive depuis visibility
+  // 3) Sinon on retombe sur l'existant
+  // 4) Sinon PUBLIC
+  const accessLevel: AccessLevel =
+    (params.inputAccessLevel as AccessLevel | undefined) ??
+    (params.inputVisibility ? mapVisibilityToAccessLevel(params.inputVisibility) : undefined) ??
+    (params.existingAccessLevel as AccessLevel | undefined) ??
+    (params.existingVisibility ? mapVisibilityToAccessLevel(params.existingVisibility) : undefined) ??
+    "PUBLIC";
+
+  // Miroir legacy : PREMIUM => INTERNAL_IFAC (côté "visibility")
+  const visibility: Visibility = accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
+
+  return { accessLevel, visibility };
+}
+
+// =========================================================
+// ADMIN — CATEGORY NODES (TAXONOMIE)
+// =========================================================
+const adminCategoryNodes = router({
+  listTreeByProfile: adminProcedure
+    .input(
+      z.object({
+        profileType: z.enum(PROFILE_TYPES),
+
+        // optionnel : pour l’étape suivante si on veut lister aussi les inactifs
+        includeInactive: z.boolean().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const dbConn = await db.getDb();
+      if (!dbConn) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+
+      const { categoryNodes } = await import("../drizzle/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const whereClause = input.includeInactive
+        ? eq(categoryNodes.profileType, input.profileType)
+        : and(
+            eq(categoryNodes.profileType, input.profileType),
+            eq(categoryNodes.isActive, 1)
+          );
+
+      const rows = await dbConn
+        .select()
+        .from(categoryNodes)
+        .where(whereClause)
+        .orderBy(categoryNodes.sortOrder, categoryNodes.id);
+
+      const byId = new Map<number, any>();
+      const roots: any[] = [];
+
+      for (const row of rows) {
+        byId.set(row.id, { ...row, children: [] });
+      }
+
+      for (const node of Array.from(byId.values())) {
+        // Racine : parentId null OU parentIdKey "__ROOT__"
+        const isRoot = node.parentId == null || node.parentIdKey === "__ROOT__";
+        if (!isRoot && byId.has(node.parentId)) {
+          byId.get(node.parentId).children.push(node);
+        } else {
+          roots.push(node);
+        }
+      }
+
+      return roots;
+    }),
+
+  create: adminProcedure
+    .input(
+      z.object({
+        profileType: z.enum(PROFILE_TYPES),
+
+        title: z.string().min(1),
+        // slug optional : si absent => auto depuis title
+        slug: z.string().optional(),
+        // null = racine
+        parentId: z.number().int().nullable().optional(),
+        description: z.string().nullable().optional(),
+        isActive: z.number().int().optional(), // 1/0
+        sortOrder: z.number().int().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const dbConn = await db.getDb();
+      if (!dbConn) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+
+      const { categoryNodes } = await import("../drizzle/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const slugify = (s: string) =>
+        s
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+
+      const parentId = input.parentId ?? null;
+      const parentIdKey = parentId == null ? "__ROOT__" : String(parentId);
+      const slug = (input.slug && input.slug.trim()) ? slugify(input.slug) : slugify(input.title);
+
+      // sortOrder auto si non fourni : (max + 1) pour ce parent
+      let sortOrder = input.sortOrder;
+      if (sortOrder == null) {
+        const rows = await dbConn
+          .select()
+          .from(categoryNodes)
+          .where(
+            and(
+              eq(categoryNodes.profileType, input.profileType),
+              eq(categoryNodes.parentIdKey, parentIdKey)
+            )
+          );
+        const max = rows.reduce((acc: number, r: any) => Math.max(acc, r.sortOrder ?? 0), 0);
+        sortOrder = max + 1;
+      }
+
+      // Insert MySQL (pas de returning())
+      const inserted = await dbConn
+        .insert(categoryNodes)
+        .values({
+          profileType: input.profileType,
+          title: input.title,
+          slug,
+          parentId,        // null OK
+          parentIdKey,     // "__ROOT__" ou "123"
+          description: input.description ?? null,
+          isActive: input.isActive ?? 1,
+          sortOrder,
+        })
+        .$returningId();
+
+      const insertedId = Array.isArray(inserted) ? inserted[0]?.id : (inserted as any)?.id;
+
+      return {
+        success: true,
+        id: insertedId ?? null,
+      };
+    }),
+
+  update: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int(),
+        title: z.string().min(1).optional(),
+        slug: z.string().optional(),
+        parentId: z.number().int().nullable().optional(),
+        description: z.string().nullable().optional(),
+        isActive: z.number().int().optional(),
+        sortOrder: z.number().int().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const dbConn = await db.getDb();
+      if (!dbConn) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+
+      const { categoryNodes } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const slugify = (s: string) =>
+        s
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+
+      const updates: any = {};
+      if (input.title != null) updates.title = input.title;
+      if (input.slug != null) updates.slug = input.slug.trim() ? slugify(input.slug) : input.slug;
+
+      if (input.parentId !== undefined) {
+        const parentId = input.parentId ?? null;
+        updates.parentId = parentId;
+        updates.parentIdKey = parentId == null ? "__ROOT__" : String(parentId);
+      }
+
+      if (input.description !== undefined) updates.description = input.description;
+      if (input.isActive !== undefined) updates.isActive = input.isActive;
+      if (input.sortOrder !== undefined) updates.sortOrder = input.sortOrder;
+      if (Object.keys(updates).length === 0) {
+  return { success: true };
+}
+
+      await dbConn.update(categoryNodes).set(updates).where(eq(categoryNodes.id, input.id));
+
+      return { success: true };
+    }),
+
+  setActive: adminProcedure
+    .input(z.object({ id: z.number().int(), isActive: z.number().int() }))
+    .mutation(async ({ input }) => {
+      const dbConn = await db.getDb();
+      if (!dbConn) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+
+      const { categoryNodes } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+
+      await dbConn
+        .update(categoryNodes)
+        .set({ isActive: input.isActive })
+        .where(eq(categoryNodes.id, input.id));
+
+      return { success: true };
+    }),
+});
+
+// =====================
+// Anti-spam (Contact)
+// =====================
+const contactRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function getClientIp(req: any): string {
+  const xf = req?.headers?.["x-forwarded-for"];
+  const ip =
+    (typeof xf === "string" ? xf.split(",")[0].trim() : null) ||
+    req?.ip ||
+    req?.socket?.remoteAddress ||
+    "unknown";
+  return String(ip);
+}
+
+function enforceContactRateLimit(key: string) {
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000; // 10 min
+  const max = 3; // 3 messages / 10 min (pro + suffisant pour démo)
+
+  const cur = contactRateLimit.get(key);
+  if (!cur || now > cur.resetAt) {
+    contactRateLimit.set(key, { count: 1, resetAt: now + windowMs });
+    return;
+  }
+  if (cur.count >= max) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: "Trop de messages envoyés. Réessaie dans quelques minutes.",
+    });
+  }
+  cur.count += 1;
+  contactRateLimit.set(key, cur);
+}
+
 export const appRouter = router({
   system: systemRouter,
   cms: cmsRouter,
 
+  // ✅ BRANCHEMENT tRPC : ADMIN CATEGORY NODES
+  adminCategoryNodes,
+
   auth: router({
     me: publicProcedure.query((opts) => {
-      const u: any = opts.ctx.user;
-      if (!u) return null;
-      if (u.emailVerified === 0 || u.emailVerified === false) return null;
-      return u;
-    }),
+  const u: any = opts.ctx.user;
+  if (!u) return null;
+  if (u.emailVerified === 0 || u.emailVerified === false) return null;
+
+  // ✅ Réponse safe (whitelist) — évite toute fuite de champs internes
+  return {
+    id: u.id,
+    email: u.email,
+    firstName: u.firstName ?? null,
+    lastName: u.lastName ?? null,
+    role: u.role ?? "user",
+    emailVerified: !!u.emailVerified,
+  };
+}),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -91,7 +553,7 @@ export const appRouter = router({
           lastName: z.string().min(1),
           email: z.string().email(),
           password: z.string().min(8),
-          profileType: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"]),
+          profileType: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"] as const),
         })
       )
       .mutation(async ({ input }) => {
@@ -290,82 +752,184 @@ if (!isEmailVerified) {
       }),
   }),
 
-  // ============ RESOURCES ============
+    // ============ RESOURCES ============
   resources: router({
-    list: publicProcedure
+   list: publicProcedure
   .input(
     z
       .object({
         search: z.string().optional(),
         themeIds: z.array(z.number()).optional(),
         collectionIds: z.array(z.number()).optional(),
-        type: z.string().optional(),
+        type: RESOURCE_TYPES_ENUM.optional(),
         ageRange: z.string().optional(),
         duration: z.string().optional(),
         visibility: z.enum(["PUBLIC", "INTERNAL_IFAC"]).optional(),
         category: z.string().optional(),
-        profileType: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"]).optional(),
+        profileType: z
+          .enum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+          .optional(),
       })
       .optional()
   )
   .query(async ({ input, ctx }) => {
-  const isLogged = !!ctx.user;
-  const isAdmin = ctx.user?.role === "admin";
+    const { isLogged, isAdmin, myProfileType, entitlements } =
+      await getEntitlementsFromCtx(ctx);
 
-  // Profil de l'utilisateur connecté (si connecté)
-  const myProfileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
+    const shouldForceProfileFilter =
+      isLogged && !isAdmin && myProfileType && myProfileType !== "formateur";
 
-  console.log(
-    "[DEBUG resources.list] role=",
-    ctx.user?.role,
-    "userId=",
-    ctx.user?.id,
-    "myProfileType=",
-    myProfileType
-  );
-  console.log("[DEBUG resources.list] input.profileType=", (input as any)?.profileType);
+    // ✅ Anti-fuite (source de vérité) :
+    // - Non connecté => PUBLIC uniquement
+    // - Connecté non-premium => PUBLIC + INTERNAL_IFAC
+    // - Connecté premium => PUBLIC + INTERNAL_IFAC + PREMIUM
+    // - Admin => tout
+    const allowed = allowedAccessLevels(
+      entitlements.isAuthenticated,
+      !!entitlements.isPremium
+    );
 
-  // Règle profils :
-  // - admin : vue globale (on ignore profileType venant du front)
-  // - formateur : tous les profils
-  // - autres connectés : seulement leur profil
-  const shouldForceProfileFilter =
-    isLogged && !isAdmin && myProfileType && myProfileType !== "formateur";
+    const includeInternal = isAdmin || entitlements.isAuthenticated;
+    const includePremium = isAdmin || !!entitlements.isPremium;
 
-  const includeInternal = isAdmin || isLogged;
+    const filters: any = {
+      ...(input || {}),
+      includeInternal,
+      includePremium,
+      isAdmin: isAdmin,
+    };
 
-  const filters: any = {
-    ...(input || {}),
-    includeInternal,
-    adminView: isAdmin,
-  };
+    if (isAdmin) {
+      if (!input?.profileType) {
+        delete filters.profileType;
+      }
+    } else {
+      if (shouldForceProfileFilter) {
+        filters.profileType = myProfileType;
+      } else {
+        if (!input?.profileType) delete filters.profileType;
+      }
+    }
 
-  // IMPORTANT : en admin, ne pas se retrouver filtré par un profileType envoyé par le front.
-  if (isAdmin) {
-    delete filters.profileType;
-  }
+    let results = (await db.getAllResources(filters)) as any[];
 
-  // Non-admin : si l'utilisateur n'est pas formateur, on force le filtre profileType.
-  if (shouldForceProfileFilter) {
-    filters.profileType = myProfileType;
-  }
+    // ✅ Double-verrou : même si la DB fait une erreur de filtre,
+    // on coupe côté router (audit-proof).
+    if (!isAdmin) {
+      results = filterByAccessLevel(results, allowed);
+    }
 
-  console.log("[DEBUG tRPC] Calling getAllResources with filters:", JSON.stringify(filters, null, 2));
-  const results = await db.getAllResources(filters);
-  console.log("[DEBUG tRPC] getAllResources returned", results.length, "resources");
+    return (results || []).map((r: any) => {
+      const visibility = (r?.visibility ?? "PUBLIC") as any;
+      const accessLevel = (r?.accessLevel ?? "PUBLIC") as any;
 
-  // Filtrage accessLevel (sécurité + cohérence)
-  if (!isAdmin) {
-    const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
-    const allowed = allowedAccessLevels(isLogged, isPremium);
-    return filterByAccessLevel(results as any[], allowed);
-  }
+      const isStaff = !!entitlements?.isStaff;
 
-  return results;
-}),
+      const ent = isAdmin
+  ? { isAuthenticated: true, isPremium: true, isStaff: true }
+  : entitlements;
 
+      const canView =
+        isAdmin || isStaff || canViewResource({ visibility, entitlements: ent });
 
-    // ✅ FIX : "Dernières ressources ajoutées" doit dépendre du profil + accessLevel
+      const canOpen =
+        isAdmin ||
+        isStaff ||
+        (canView && canOpenResource({ accessLevel, entitlements: ent }));
+
+      const storageKey = (r?.storageKey ? String(r.storageKey).trim() : "") || "";
+      const fileUrl = (r?.fileUrl ? String(r.fileUrl).trim() : "") || "";
+
+      const hasFile = storageKey.length > 0 || fileUrl.length > 0;
+
+      if (!canView) {
+        const { content, fileUrl: _fu, storageKey: _sk, ...safe } = r;
+        return {
+          ...safe,
+          hasFile,
+          canView,
+          canOpen: false,
+        };
+      }
+
+      if (!canOpen) {
+        const { fileUrl: _fu, storageKey: _sk, ...safe } = r;
+        return {
+          ...safe,
+          hasFile,
+          canView,
+          canOpen,
+        };
+      }
+
+      return {
+        ...r,
+        hasFile,
+        canView,
+        canOpen,
+      };
+    });
+  }),
+
+    listCategories: publicProcedure
+      .input(
+        z
+          .object({
+            profileType: z
+              .enum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+              .optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input, ctx }) => {
+        const { isLogged, isAdmin, myProfileType, entitlements } =
+          await getEntitlementsFromCtx(ctx);
+
+        // ✅ Source de vérité : allowedAccessLevels()
+        const allowed = allowedAccessLevels(
+          entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        );
+
+        const includeInternal =
+          isAdmin || allowed.includes("INTERNAL_IFAC") || allowed.includes("PREMIUM");
+
+        const includePremium = isAdmin || allowed.includes("PREMIUM");
+
+        // 1) Si un profil est demandé, on le respecte
+        let requestedProfileType = input?.profileType;
+
+        // 2) Sinon, profil du user connecté
+        if (!requestedProfileType && myProfileType) {
+          requestedProfileType = myProfileType as any;
+        }
+
+        // 3) Règle spéciale "formateur" : accessible uniquement si admin OU formateur
+        if (requestedProfileType === "formateur" && !isAdmin) {
+          if (!isLogged || myProfileType !== "formateur") {
+            return [];
+          }
+        }
+
+        const filters: any = {
+          includeInternal,
+          includePremium,
+          isAdmin: isAdmin,
+        };
+
+        if (requestedProfileType) {
+          filters.profileType = requestedProfileType;
+        }
+
+        const categories = await db.listCategoryKeys({
+  ...filters,
+  includePremium: isAdmin || allowed.includes("PREMIUM"),
+  adminView: isAdmin ? db.ADMIN_VIEW_TOKEN : undefined,
+});
+        return categories;
+      }),
+
+    // ✅ "Dernières ressources ajoutées" : OPTION PRO => VIEW ONLY
     getRecent: publicProcedure
       .input(z.object({ limit: z.number().optional() }).optional())
       .query(async ({ input, ctx }) => {
@@ -376,7 +940,6 @@ if (!isEmailVerified) {
         const profileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
 
         const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
-        const allowed = allowedAccessLevels(isLogged, isPremium);
 
         // Règle profils :
         // - admin : tout
@@ -389,217 +952,792 @@ if (!isEmailVerified) {
 
         const baseFilters: any = {
           includeInternal,
+          includePremium: isAdmin || !!isPremium,
         };
 
         if (shouldFilterByProfile) {
           baseFilters.profileType = profileType;
         }
 
-        // On récupère + on filtre localement par accessLevel (car la DB n'a pas forcément un filtre dédié)
-        const rows = (await db.getAllResources(baseFilters)) as any[];
-        const filtered = filterByAccessLevel(rows, allowed);
+        let rows = (await db.getAllResources(baseFilters)) as any[];
+        if (!isAdmin) {
+          rows = filterByAccessLevel(
+            rows,
+            allowedAccessLevels(isLogged, !!isPremium)
+          );
+        }
+        const rowsSafe = rows;
+
+        const isStaff = isLogged && profileType === "formateur";
+
+        const filtered = isAdmin
+          ? rowsSafe
+          : rowsSafe.filter((r: any) => {
+              if (isStaff) return true;
+
+              const entitlements = {
+                isAuthenticated: isLogged,
+                isPremium,
+                isStaff: false,
+              };
+
+              const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+              return canViewResource({ visibility, entitlements });
+            });
 
         return filtered
-          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
           .slice(0, limit);
       }),
 
+    // ✅ Popular : OPTION PRO => VIEW ONLY
     getPopularResources: publicProcedure
       .input(z.object({ limit: z.number().optional() }).optional())
       .query(async ({ input, ctx }) => {
         const limit = input?.limit || 6;
-        const includeInternal = !!ctx.user;
-        return await db.getPopularResources(limit, includeInternal);
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+        const rows = (await db.getPopularResources(
+          limit,
+          isAdmin || entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        )) as any[];
+
+        // ✅ DOUBLE-VERROU ANTI-FUITE (source de vérité = accessLevel)
+        const allowed = allowedAccessLevels(
+          entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        );
+
+        let rowsSafe = rows || [];
+        if (!isAdmin) {
+          rowsSafe = filterByAccessLevel(rowsSafe, allowed);
+        }
+
+        // ✅ Filtre "view" legacy (visibility) + règle staff
+        const isStaff = entitlements.isStaff;
+
+        const filtered = isAdmin
+          ? rowsSafe
+          : rowsSafe.filter((r: any) => {
+              if (isStaff) return true;
+
+              const ent = { ...entitlements, isStaff: false };
+              const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+              return canViewResource({ visibility, entitlements: ent });
+            });
+
+        return filtered;
       }),
 
-    listPopular: publicProcedure.query(async ({ ctx }) => {
-  const isLogged = !!ctx.user;
-  const isAdmin = ctx.user?.role === "admin";
+    // ✅ Home Popular : 6 auto + 2 éditoriales (VIEW ONLY)
+    getHomePopularResources: publicProcedure
+  .input(
+    z
+      .object({
+        autoLimit: z.number().optional(),
+        editorialLimit: z.number().optional(),
+      })
+      .optional()
+  )
+  .query(async ({ input, ctx }) => {
+    const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+    const rows = (await db.getHomePopularResources({
+      includeInternal: isAdmin || entitlements.isAuthenticated,
+      includePremium: isAdmin || !!entitlements.isPremium,
+      isAdmin,
+      autoLimit: input?.autoLimit ?? 6,
+      editorialLimit: input?.editorialLimit ?? 2,
+    })) as any[];
+
+    // ✅ DOUBLE VERROU ANTI-FUITE (accessLevel)
+    const allowed = allowedAccessLevels(
+      entitlements.isAuthenticated,
+      !!entitlements.isPremium
+    );
+
+    let rowsSafe = rows;
+
+    if (!isAdmin) {
+      rowsSafe = filterByAccessLevel(rowsSafe, allowed);
+    }
+
+    const isStaff = entitlements.isStaff;
+
+    const filtered = isAdmin
+      ? rowsSafe
+      : rowsSafe.filter((r: any) => {
+          if (isStaff) return true;
+
+          const ent = { ...entitlements, isStaff: false };
+          const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+          return canViewResource({ visibility, entitlements: ent });
+        });
+
+    return filtered;
+  }),     
+
+  // ⚠️ DEPRECATED : utiliser resources.getHomePopularResources (endpoint Home canonique)
+// (gardé temporairement pour éviter toute casse si un ancien écran l'appelle encore)
+listPopular: publicProcedure.query(async ({ ctx }) => {
+  const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+  // ✅ LEGACY / DEPRECATED : on neutralise l’accès PREMIUM via cet endpoint
+  // - Il ne doit JAMAIS pouvoir renvoyer du PREMIUM (anti-fuite "audit-proof")
+  const rows = (await db.getHomePopularResources({
+    includeInternal: isAdmin || entitlements.isAuthenticated,
+    includePremium: false, // 🔒 jamais de PREMIUM via listPopular
+    isAdmin: false,        // 🔒 force le filtre status=approved côté DB (pas de drafts)
+    autoLimit: 6,
+    editorialLimit: 0,
+  })) as any[];
+
+  // ✅ Double-verrou accessLevel (anti-fuite) — ici, premium est volontairement désactivé
+  const allowed = allowedAccessLevels(
+    entitlements.isAuthenticated,
+    false
+  );
+
+  let rowsSafe = rows || [];
+  rowsSafe = filterByAccessLevel(rowsSafe, allowed);
+
+  const isStaff = entitlements.isStaff;
+
+  return rowsSafe.filter((r: any) => {
+    if (isStaff) return true;
+    const ent = { ...entitlements, isStaff: false };
+    const visibility = (r?.visibility ?? "PUBLIC") as any;
+    return canViewResource({ visibility, entitlements: ent });
+  });
+}),
+
+    // ⚠️ DEPRECATED : utiliser resources.getHomeRecentResources (endpoint Home canonique)
+    listRecent: publicProcedure.query(async ({ ctx }) => {
+  const { isLogged, isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
   const profileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
 
-  const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
-  const allowed = allowedAccessLevels(isLogged, isPremium);
+  const isStaff = entitlements.isStaff;
 
   const shouldFilterByProfile =
     isLogged && !isAdmin && profileType && profileType !== "formateur";
 
   const includeInternal = isAdmin || isLogged;
 
-  const baseFilters: any = { includeInternal };
+  const baseFilters: any = {
+    includeInternal,
+    includePremium: isAdmin || !!entitlements.isPremium,
+  };
 
   if (shouldFilterByProfile) {
     baseFilters.profileType = profileType;
   }
 
-  // On récupère la même "forme" de ressource que /resources.list
-  const rows = (await db.getAllResources(baseFilters)) as any[];
+  let rows = (await db.getAllResources(baseFilters)) as any[];
 
-  // Filtrage accessLevel (non-admin)
-  const filtered = isAdmin ? rows : filterByAccessLevel(rows, allowed);
+  // ✅ Double-verrou accessLevel (anti-fuite)
+  const allowed = allowedAccessLevels(
+    entitlements.isAuthenticated,
+    !!entitlements.isPremium
+  );
 
-  // Popularité : on trie par viewCount si présent, sinon views si présent, sinon 0
+  if (!isAdmin) {
+    rows = filterByAccessLevel(rows, allowed);
+  }
+
+  const filtered = isAdmin
+    ? rows
+    : rows.filter((r: any) => {
+        if (isStaff) return true;
+
+        const ent = { ...entitlements, isStaff: false };
+        const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+        return canViewResource({ visibility, entitlements: ent });
+      });
+
   return filtered
-    .sort((a: any, b: any) => {
-      const av = Number(a.viewCount ?? a.views ?? 0);
-      const bv = Number(b.viewCount ?? b.views ?? 0);
-      return bv - av;
-    })
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
     .slice(0, 6);
 }),
+    // ✅ Home Recent : endpoint canonique (VIEW ONLY)
+    getHomeRecentResources: publicProcedure
+      .input(z.object({ limit: z.number().optional() }).optional())
+      .query(async ({ input, ctx }) => {
+        const limit = input?.limit ?? 6;
 
+        const { isLogged, isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+        const profileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
 
-    // ✅ FIX : "Dernières ressources ajoutées" (autre endpoint) même logique que getRecent
-    listRecent: publicProcedure.query(async ({ ctx }) => {
-      const isLogged = !!ctx.user;
-      const isAdmin = ctx.user?.role === "admin";
-      const profileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
+        const isStaff = entitlements.isStaff;
 
-      const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
-      const allowed = allowedAccessLevels(isLogged, isPremium);
+        const shouldFilterByProfile =
+          isLogged && !isAdmin && profileType && profileType !== "formateur";
 
-      const shouldFilterByProfile =
-        isLogged && !isAdmin && profileType && profileType !== "formateur";
+        const includeInternal = isAdmin || isLogged;
 
-      const includeInternal = isAdmin || isLogged;
+        const baseFilters: any = {
+          includeInternal,
+          includePremium: isAdmin || !!entitlements.isPremium,
+        };
 
-      const baseFilters: any = {
-        includeInternal,
-      };
+        if (shouldFilterByProfile) {
+          baseFilters.profileType = profileType;
+        }
 
-      if (shouldFilterByProfile) {
-        baseFilters.profileType = profileType;
-      }
+        // 1) DB
+        let rows = (await db.getAllResources(baseFilters)) as any[];
 
-      const rows = (await db.getAllResources(baseFilters)) as any[];
-      const filtered = filterByAccessLevel(rows, allowed);
+        // 2) ✅ DOUBLE-VERROU ANTI-FUITE (source de vérité = accessLevel)
+        const allowed = allowedAccessLevels(
+          entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        );
 
-      return filtered
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 6);
-    }),
+        if (!isAdmin) {
+          rows = filterByAccessLevel(rows, allowed);
+        }
+
+        // 3) Filtre "view" legacy (visibility) + règle staff
+        const filtered = isAdmin
+          ? rows
+          : rows.filter((r: any) => {
+              if (isStaff) return true;
+
+              const ent = { ...entitlements, isStaff: false };
+              const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+              return canViewResource({ visibility, entitlements: ent });
+            });
+
+        return filtered
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          .slice(0, limit);
+      }),
 
     getAnimationTechniques: publicProcedure
       .input(z.object({ limit: z.number().optional() }).optional())
       .query(async ({ input, ctx }) => {
         const limit = input?.limit || 6;
-        const includeInternal = !!ctx.user;
-        return await db.getAnimationTechniqueResources(limit, includeInternal);
+
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+        // ✅ Même logique "outil national" que le reste :
+        // - Non connecté => PUBLIC seulement
+        // - Connecté non-premium => PUBLIC + INTERNAL_IFAC
+        // - Premium => PUBLIC + INTERNAL_IFAC + PREMIUM
+        // - Admin => tout
+        const includeInternal = isAdmin || entitlements.isAuthenticated;
+        const includePremium = isAdmin || !!entitlements.isPremium;
+
+        const rows = (await db.getAnimationTechniqueResources(
+          limit,
+          includeInternal,
+          includePremium
+        )) as any[];
+
+        // ✅ Double-verrou accessLevel (anti-fuite)
+        const allowed = allowedAccessLevels(
+          entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        );
+
+        let rowsSafe = rows || [];
+
+        if (!isAdmin) {
+          rowsSafe = filterByAccessLevel(rowsSafe, allowed);
+        }
+
+        // ✅ Filtre "view" legacy (visibility) + règle staff
+        const isStaff = entitlements.isStaff;
+
+        const filtered = isAdmin
+          ? rowsSafe
+          : rowsSafe.filter((r: any) => {
+              if (isStaff) return true;
+
+              const ent = { ...entitlements, isStaff: false };
+              const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+              return canViewResource({ visibility, entitlements: ent });
+            });
+
+        return filtered;
       }),
 
+    // ✅ DÉTAIL : VIEW + OPEN (verrou final)
+    // 🔒 NE RETOURNE PLUS fileUrl DIRECTEMENT
     getById: publicProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input, ctx }) => {
-        const resource = await db.getResourceById(input.id);
+        const isLogged = !!ctx.user;
+        const isAdmin = ctx.user?.role === "admin";
+        const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
+        const myProfileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
+        const isStaff = isLogged && myProfileType === "formateur";
+
+        // ✅ Appel DB sécurisé (anti-fuite) : la DB doit déjà filtrer
+        const resource = await db.getResourceById(input.id, {
+          includeInternal: isAdmin || isLogged,
+          includePremium: isAdmin || !!isPremium,
+          isAdmin,
+        } as any);
+
+        // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
         if (!resource) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvée" });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Ressource non trouvée",
+          });
         }
 
-        // Vérifier la visibilité
-        if (resource.visibility === "INTERNAL_IFAC" && !ctx.user) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Connexion requise pour accéder à cette ressource" });
+        // ✅ Double-verrou sécurité (router) : VIEW + OPEN
+        if (!isAdmin && !isStaff) {
+          const ent = {
+            isAuthenticated: isLogged,
+            isPremium,
+            isStaff: false,
+          };
+
+          const visibility = (resource.visibility ?? "PUBLIC") as any;
+          const accessLevel = (resource.accessLevel ?? "PUBLIC") as any;
+
+          const canView = canViewResource({ visibility, entitlements: ent });
+          const canOpenByLevel = canOpenResource({ accessLevel, entitlements: ent });
+
+          if (!canView || !canOpenByLevel) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Ressource non trouvée",
+            });
+          }
         }
 
         const themes = await db.getResourceThemes(input.id);
-        return { ...resource, themes };
+
+        // 🔒 Jamais exposer fileUrl en clair
+        const { fileUrl, ...safeResource } = resource as any;
+
+        const storageKey = (safeResource as any)?.storageKey as string | null | undefined;
+        const hasFile =
+          (storageKey && String(storageKey).trim().length > 0) || !!fileUrl;
+
+        return {
+          ...safeResource,
+          themes,
+          hasFile,
+          canOpen: true,
+        };
       }),
 
-    create: adminProcedure
+    // ✅ NOUVEAU : endpoint sécurisé qui génère une URL de téléchargement
+    // - applique VIEW + OPEN
+    // - récupère une URL via storageGet (proxy) si possible
+    // - fallback: si fileUrl est déjà une URL (legacy), on la renvoie (à migrer ensuite)
+    getFileUrl: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const isLogged = !!ctx.user;
+        const isAdmin = ctx.user?.role === "admin";
+        const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
+        const myProfileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
+        const isStaff = isLogged && myProfileType === "formateur";
+
+        // ✅ Appel DB sécurisé (anti-fuite) : la DB doit déjà filtrer
+        const resource = await db.getResourceById(input.id, {
+          includeInternal: isAdmin || isLogged,
+          includePremium: isAdmin || !!isPremium,
+          isAdmin,
+        } as any);
+
+        // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
+        if (!resource) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Ressource non trouvée",
+          });
+        }
+
+        // admin/formateur : bypass
+        if (!isAdmin && !isStaff) {
+          const entitlements = {
+            isAuthenticated: isLogged,
+            isPremium,
+            isStaff: false,
+          };
+
+          const visibility = (resource.visibility ?? "PUBLIC") as any;
+          const accessLevel = (resource.accessLevel ?? "PUBLIC") as any;
+
+          if (
+            !canViewResource({ visibility, entitlements }) ||
+            !canOpenResource({ accessLevel, entitlements })
+          ) {
+            // ✅ NOT_FOUND pour éviter toute fuite d'existence
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Ressource non trouvée",
+            });
+          }
+        }
+
+        // ✅ Canonique (outil national) :
+        // Le client ne reçoit JAMAIS d'URL signée.
+        // Il reçoit uniquement une route backend qui applique sécurité + logs + redirect/stream.
+        return { url: `/api/resources/download/${input.id}` };
+      }),
+
+    // ================= ADMIN =================
+        // ✅ Historique (audit trail) — ADMIN ONLY
+    getResourceHistory: adminProcedure
+      .input(z.object({ resourceId: z.number().int() }))
+      .query(async ({ input }) => {
+        return await db.getResourceHistory(input.resourceId);
+      }),
+
+                create: adminProcedure
       .input(
         z.object({
           title: z.string().min(1),
           summary: z.string().min(1),
           content: z.string().min(1),
-          type: z.string().min(1),
+          type: RESOURCE_TYPES_ENUM,
           ageRange: z.string().optional(),
           duration: z.string().optional(),
           level: z.string().optional(),
-          prepTime: z.string().optional(),
+          prepTime: PREP_TIMES_ENUM.nullable().optional(),
           visibility: z.enum(["PUBLIC", "INTERNAL_IFAC"]),
           thumbnailUrl: z.string().optional(),
+          thumbnailKey: z.string().optional(),
+
+          // ✅ PILIER 12 bis — canonique
+          storageKey: z.string().optional(),
+
+          // Legacy (temporaire)
           fileUrl: z.string().optional(),
+
+
+          // ✅ PILIER 10 : gouvernance éditoriale (ADMIN ONLY)
+          // Le front peut proposer, mais le serveur tranche.
+          accessLevel: z.enum(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"]).optional(),
+          status: z.enum(["draft", "pending", "approved", "rejected"]).optional(),
+
           themeIds: z.array(z.number()),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        const { themeIds, ...resourceData } = input;
-        const id = await db.createResource(resourceData, themeIds);
+        return debugMutation("resources.create", input, async () => {
+          const { themeIds, ...resourceData } = input;
 
-        // Ajouter une entrée dans l'historique
+          // ==================================================
+          // 🔒 Verrouillage anti-régression (PRO)
+          // - fileUrl est désormais interdit en écriture (DB canonique storageKey)
+          // - normalisation : storageKey sans "/" initial
+          // - normalisation : si thumbnailUrl local => thumbnailKey dérivé automatiquement
+          // ==================================================
+          if ((resourceData as any).fileUrl && String((resourceData as any).fileUrl).trim().length > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Champ fileUrl interdit (déprécié). Utilise storageKey (canonique) ou l’upload.",
+            });
+          }
+          (resourceData as any).fileUrl = null;
+
+          if ((resourceData as any).storageKey && String((resourceData as any).storageKey).startsWith("/")) {
+            (resourceData as any).storageKey = String((resourceData as any).storageKey).replace(/^\/+/, "");
+          }
+
+          const tUrl = (resourceData as any).thumbnailUrl as string | undefined;
+          const tKey = (resourceData as any).thumbnailKey as string | undefined;
+
+          if (tUrl && (!tKey || String(tKey).trim().length === 0) && tUrl.startsWith("/imported_thumbs/")) {
+            (resourceData as any).thumbnailKey = tUrl.replace(/^\/+/, "");
+          }
+
+          // ==================================================
+          // Accès (canonique) : accessLevel -> visibility miroir (legacy)
+          // ==================================================
+          const normalizedAccess = normalizeAccessFields({
+            inputAccessLevel: (resourceData as any).accessLevel,
+            inputVisibility: (resourceData as any).visibility,
+          });
+
+          // On force la cohérence dans le payload envoyé à la DB
+          (resourceData as any).accessLevel = normalizedAccess.accessLevel;
+          (resourceData as any).visibility = normalizedAccess.visibility;
+
+          // ==================================================
+          // PILIER 10 — GOUVERNANCE ÉDITORIALE (ADMIN ONLY)
+          // ==================================================
+          const requestedStatus = resourceData.status;
+          const effectiveStatus = requestedStatus ?? "draft";
+
+          const nextVisibility = normalizedAccess.visibility;
+
+          // ✅ Blindage PRO (INTERDICTION) : si pas "approved" => interdit d’être PUBLIC
+          if (effectiveStatus !== "approved" && nextVisibility === "PUBLIC") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Interdit : une ressource en brouillon (draft) ne peut pas être publique (PUBLIC).",
+            });
+          }
+
+          // ✅ safe payload serveur (source de vérité)
+          const safeResourceData = {
+            ...resourceData,
+            status: effectiveStatus,
+          };
+
+          const id = await db.createResource(safeResourceData, themeIds);
+
+          const changes: string[] = [];
+          changes.push("création ressource");
+          if (resourceData.accessLevel) changes.push("accès défini");
+          if (requestedStatus)
+            changes.push(`statut demandé: ${requestedStatus} → appliqué: ${effectiveStatus}`);
+          else
+            changes.push(`statut appliqué: ${effectiveStatus}`);
+
+          await db.addResourceHistory({
+            resourceId: id,
+            userId: ctx.user.id,
+            action: "created",
+            changes: `Création : ${input.title} (${changes.join(", ")})`,
+          });
+
+          return { id, statusApplied: effectiveStatus };
+        });
+      }),
+
+
+        update: adminProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          title: z.string().min(1).optional(),
+          summary: z.string().min(1).optional(),
+          content: z.string().min(1).optional(),
+           type: RESOURCE_TYPES_ENUM.optional(),
+          resourceType: z.string().nullable().optional(),
+          ageRange: AGE_RANGES_ENUM.nullable().optional(),
+          duration: DURATIONS_ENUM.nullable().optional(),
+          level: z.string().optional(),
+          prepTime: PREP_TIMES_ENUM.nullable().optional(),
+
+          visibility: z.enum(["PUBLIC", "INTERNAL_IFAC"]).optional(),
+          thumbnailUrl: z.string().optional(),
+          thumbnailKey: z.string().optional(),
+
+          // ✅ PILIER 12 bis — canonique
+          storageKey: z.string().optional(),
+
+          // Legacy (temporaire)
+          fileUrl: z.string().optional(),
+
+          accessLevel: z.enum(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"]).optional(),
+          status: z.enum(["draft", "pending", "approved", "rejected"]).optional(),
+
+          themeIds: z.array(z.number()).optional(),
+        })
+      )
+            .mutation(async ({ input, ctx }) => {
+        return debugMutation("resources.update", input, async () => {
+
+        const { id, themeIds, ...resourceData } = input;
+
+        // ==================================================
+        // 🔒 Verrouillage anti-régression (PRO)
+        // - fileUrl interdit en écriture
+        // - normalisation storageKey / thumbnailKey
+        // ==================================================
+        // 🔒 fileUrl interdit en écriture :
+        // - si le front envoie une valeur non vide => on bloque
+        // - si le front envoie undefined/null/"" => on IGNORE (ne pas écraser l'existant)
+        if ((resourceData as any).fileUrl !== undefined) {
+          const v = (resourceData as any).fileUrl;
+          if (v && String(v).trim().length > 0) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Champ fileUrl interdit (déprécié). Utilise storageKey (canonique) ou l’upload.",
+            });
+          }
+          delete (resourceData as any).fileUrl;
+        }
+
+        if ((resourceData as any).storageKey && String((resourceData as any).storageKey).startsWith("/")) {
+          (resourceData as any).storageKey = String((resourceData as any).storageKey).replace(/^\/+/, "");
+        }
+
+        const tUrl = (resourceData as any).thumbnailUrl as string | undefined;
+        const tKey = (resourceData as any).thumbnailKey as string | undefined;
+
+        if (tUrl && (!tKey || String(tKey).trim().length === 0) && tUrl.startsWith("/imported_thumbs/")) {
+          (resourceData as any).thumbnailKey = tUrl.replace(/^\/+/, "");
+        }
+
+        // ==================================================
+        // PILIER 10 — GOUVERNANCE ÉDITORIALE (ADMIN ONLY)
+        // ==================================================
+        // - SEUL l’admin peut modifier une ressource
+        // - SEUL l’admin peut définir le statut
+        // - Le serveur tranche TOUJOURS
+        // ==================================================
+
+        const requestedStatus = resourceData.status;
+
+// ✅ Blindage PRO (INTERDICTION) : un brouillon ne peut JAMAIS être PUBLIC
+// On calcule l’état final (status/visibility) en tenant compte de l’existant en DB.
+const existing = await db.getResourceById(id);
+if (!existing) {
+  throw new TRPCError({
+    code: "NOT_FOUND",
+    message: "Ressource non trouvée",
+  });
+}
+
+const nextStatus =
+  requestedStatus !== undefined
+    ? requestedStatus
+    : (existing as any).status ?? "draft";
+
+// Normalisation accès : si l'admin envoie visibility et/ou accessLevel, on canonise.
+const accessInputProvided =
+  (resourceData as any).accessLevel !== undefined ||
+  (resourceData as any).visibility !== undefined;
+
+const normalizedAccess = accessInputProvided
+  ? normalizeAccessFields({
+      inputAccessLevel: (resourceData as any).accessLevel,
+      inputVisibility: (resourceData as any).visibility,
+      existingAccessLevel: (existing as any).accessLevel,
+      existingVisibility: (existing as any).visibility,
+    })
+  : normalizeAccessFields({
+      existingAccessLevel: (existing as any).accessLevel,
+      existingVisibility: (existing as any).visibility,
+    });
+
+const nextVisibility = accessInputProvided
+  ? normalizedAccess.visibility
+  : ((existing as any).visibility ?? "INTERNAL_IFAC");
+
+// 🔒 Règle de gouvernance : si pas "approved" => INTERDIT d’être PUBLIC
+if (nextStatus !== "approved" && nextVisibility === "PUBLIC") {
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: "Interdit : une ressource en brouillon (draft) ne peut pas être publique (PUBLIC).",
+  });
+}
+
+// ✅ safe payload serveur (source de vérité)
+const safeResourceData: any = {
+  ...resourceData,
+};
+
+// Si l'admin a touché aux champs d'accès, on force une écriture cohérente en DB
+if (accessInputProvided) {
+  safeResourceData.accessLevel = normalizedAccess.accessLevel;
+  safeResourceData.visibility = normalizedAccess.visibility;
+} else {
+  // Sinon on évite toute régression : on n'écrit pas access/visibility
+  delete safeResourceData.accessLevel;
+  delete safeResourceData.visibility;
+}
+
+if (requestedStatus !== undefined) {
+  safeResourceData.status = requestedStatus;
+}
+
+
+        const changes: string[] = [];
+        if (input.title) changes.push("titre modifié");
+        if (input.summary) changes.push("résumé modifié");
+        if (input.content) changes.push("contenu modifié");
+        if (input.resourceType !== undefined) changes.push("type de ressource modifié");
+        if (input.visibility) changes.push("visibilité modifiée");
+        if (input.accessLevel) changes.push("accès modifié");
+        if (input.status)
+          changes.push(`statut demandé: ${requestedStatus}`);
+        if (themeIds) changes.push("thématiques modifiées");
+
+        await db.updateResource(
+  id,
+  {
+    ...safeResourceData,
+    _actorRole: ctx.user?.role ?? null,
+  } as any,
+  themeIds
+);
+
         await db.addResourceHistory({
           resourceId: id,
           userId: ctx.user.id,
-          action: "created",
-          changes: `Ressource créée : ${input.title}`,
+          action: "updated",
+          changes:
+            changes.length > 0
+              ? `Modifications : ${changes.join(", ")}`
+              : "Mise à jour sans changement significatif",
         });
 
-        return { id };
+        return { success: true, statusApplied: requestedStatus ?? null };
+        });
       }),
 
-    update: adminProcedure
-  .input(
-    z.object({
-      id: z.number(),
-      title: z.string().min(1).optional(),
-      summary: z.string().min(1).optional(),
-      content: z.string().min(1).optional(),
-      type: z.string().optional(),
-      ageRange: z.string().optional(),
-      duration: z.string().optional(),
-      level: z.string().optional(),
-      prepTime: z.string().optional(),
-      visibility: z.enum(["PUBLIC", "INTERNAL_IFAC"]).optional(),
-      thumbnailUrl: z.string().optional(),
-      fileUrl: z.string().optional(),
+    bulkUpdateAccessLevel: adminProcedure
+      .input(
+        z.object({
+          resourceIds: z.array(z.number()).min(1),
+          accessLevel: z.enum(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"]),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { resourceIds, accessLevel } = input;
 
-      // ✅ AJOUTS : champs réellement modifiables depuis l’admin
-      accessLevel: z.enum(["PUBLIC", "AUTHENTICATED", "PREMIUM"]).optional(),
-      status: z.enum(["draft", "approved"]).optional(),
+        // Miroir legacy obligatoire : PREMIUM/INTERNAL_IFAC => visibility INTERNAL_IFAC
+        const visibility: "PUBLIC" | "INTERNAL_IFAC" =
+          accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
 
-      themeIds: z.array(z.number()).optional(),
-    })
-  )
-  .mutation(async ({ input, ctx }) => {
-    const { id, themeIds, ...resourceData } = input;
+        for (const id of resourceIds) {
+          await db.updateResource(id, { accessLevel, visibility } as any, undefined);
 
-    // Construire le message des changements
-    const changes: string[] = [];
-    if (input.title) changes.push("titre modifié");
-    if (input.summary) changes.push("résumé modifié");
-    if (input.content) changes.push("contenu modifié");
-    if (input.visibility) changes.push("visibilité modifiée");
-    if (input.accessLevel) changes.push("accès modifié");
-    if (input.status) changes.push("statut modifié");
-    if (themeIds) changes.push("thématiques modifiées");
+          await db.addResourceHistory({
+            resourceId: id,
+            userId: ctx.user.id,
+            action: "bulk_updated",
+            changes: `Accès modifié (bulk) : ${accessLevel} (visibility miroir: ${visibility})`,
+          });
+        }
 
-    await db.updateResource(id, resourceData, themeIds);
+        return { success: true, updated: resourceIds.length };
+      }),
 
-    // Ajouter une entrée dans l'historique
-    // On laisse MySQL gérer createdAt (DEFAULT CURRENT_TIMESTAMP)
-    if (changes.length > 0) {
-      await db.addResourceHistory({
-        resourceId: id,
-        userId: ctx.user.id,
-        action: "updated",
-        changes: `Modifications : ${changes.join(", ")}`,
-        // ❌ PAS de createdAt ici
-      });
-    }
-
-    return { success: true };
-  }),
-
-    // ✅ Admin : définir les profils d'une ressource (remplace tous les profils existants)
     setProfiles: adminProcedure
       .input(
         z.object({
           resourceId: z.number(),
-          profileTypes: z.array(z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"])),
+          profileTypes: z.array(
+            z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+          ),
         })
       )
       .mutation(async ({ input, ctx }) => {
         await db.setResourceProfiles(input.resourceId, input.profileTypes);
 
-        // Historique (utile en démo)
         await db.addResourceHistory({
           resourceId: input.resourceId,
           userId: ctx.user.id,
@@ -613,49 +1751,17 @@ if (!isEmailVerified) {
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        // Récupérer le titre avant suppression
-        const resource = await db.getResourceById(input.id);
-        const title = resource?.title || "Ressource inconnue";
-
-        // Ajouter une entrée dans l'historique avant suppression
-        await db.addResourceHistory({
-          resourceId: input.id,
-          userId: ctx.user.id,
-          action: "deleted",
-          changes: `Ressource supprimée : ${title}`,
-        });
-
-        await db.deleteResource(input.id);
-        return { success: true };
-      }),
-
-    uploadFile: adminProcedure
-      .input(
-        z.object({
-          fileName: z.string(),
-          fileData: z.string(), // base64
-          contentType: z.string(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        const buffer = Buffer.from(input.fileData, "base64");
-        const timestamp = Date.now();
-        const randomSuffix = Math.random().toString(36).substring(2, 8);
-        const fileKey = `resources/${timestamp}-${randomSuffix}-${input.fileName}`;
-
-        const { url } = await storagePut(fileKey, buffer, input.contentType);
-        return { url, fileKey };
-      }),
-
-    deleteResource: adminProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+        // Harmonisé avec deleteResource (même comportement, même erreurs)
         const resource = await db.getResourceById(input.id);
         if (!resource) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvee" });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Ressource non trouvée",
+          });
         }
+
         try {
-          await db.deleteResource(input.id);
+          await db.deleteResource(input.id, ctx.user.id);
         } catch (error: any) {
           console.error("Erreur lors de la suppression:", error);
           throw new TRPCError({
@@ -663,75 +1769,100 @@ if (!isEmailVerified) {
             message: "Erreur lors de la suppression de la ressource",
           });
         }
+
         return { success: true };
       }),
+getAllResourcesForAdmin: adminProcedure.query(async () => {
+  return await db.getAllResources({
+    includeInternal: true,
+    includePremium: true,
+    adminView: db.ADMIN_VIEW_TOKEN,
+  });
+}),
 
-    deleteAllResources: adminProcedure.mutation(async () => {
-      const resources = await db.getAllResources();
-      let deleted = 0;
-      for (const resource of resources as any[]) {
-        try {
-          await db.deleteResource(resource.id);
-          deleted++;
-        } catch (error: any) {
-          console.error(`Erreur lors de la suppression de la ressource ${resource.id}:`, error);
-        }
-      }
-      return { success: true, deleted };
-    }),
-
-    // ✅ CORRIGÉ : accessLevel doit être "PUBLIC" (ENUM), pas "public"
-    // ✅ On laisse MySQL gérer createdAt/updatedAt via CURRENT_TIMESTAMP
-    createResource: adminProcedure
+    uploadFile: adminProcedure
       .input(
         z.object({
-          title: z.string().min(1),
-          description: z.string().optional(),
-          category: z.string().min(1),
-          profile: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"]),
-          url: z.string().optional(),
-          type: z.enum(["document", "video", "image", "lien"]).optional(),
+          fileName: z.string(),
+          fileData: z.string(), // base64 (sans prefix "data:...")
+          contentType: z.string(),
         })
       )
       .mutation(async ({ input }) => {
-        const desc = (input.description ?? "").trim();
-        const text = desc.length > 0 ? desc : "Exemple créé en 1 clic pour la démo admin.";
+        // ✅ garde-fou PRO : limites simples (évite les payloads énormes)
+        // (tu peux ajuster plus tard, mais ça évite de tuer MySQL / Node)
+        const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
-        const id = await db.createResource(
-          {
-            title: input.title,
-            summary: text,
-            content: text,
-            type: input.type || "document",
+        const buffer = Buffer.from(input.fileData, "base64");
+        if (buffer.byteLength > MAX_BYTES) {
+          throw new TRPCError({
+            code: "PAYLOAD_TOO_LARGE",
+            message: "Image trop lourde (max 5 Mo). Réduis-la et réessaie.",
+          });
+        }
 
-            // MySQL attend EXACTEMENT ces valeurs d'ENUM
-            visibility: "INTERNAL_IFAC",
-            accessLevel: "PUBLIC",
+        const timestamp = Date.now();
+        const randomSuffix = Math.random().toString(36).substring(2, 8);
 
-            // Champs facultatifs
-            thumbnailUrl: null,
-            fileUrl: input.url && input.url.trim().length > 0 ? input.url.trim() : null,
-            category: input.category,
+        // ✅ on nettoie un peu le nom (propre pour les URLs)
+        const safeName = String(input.fileName || "file")
+          .replace(/[^a-zA-Z0-9._-]+/g, "-")
+          .replace(/-+/g, "-");
 
-            // Optionnel (ta table a une valeur par défaut "approved")
-            // On force draft pour que l'admin voie la différence
-            status: "draft",
+        // ✅ thumbs dans un sous-dossier dédié (plus clair)
+        const fileKey = `thumbnails/${timestamp}-${randomSuffix}-${safeName}`;
 
-            // OK car default est 0, mais on peut l’envoyer explicitement
-            viewCount: 0,
-          },
-          []
-        );
+        // 1) Upload dans ton storage
+        await storagePut(fileKey, buffer, input.contentType);
 
-        await db.associateResourceToProfile(id, input.profile);
-        return { id };
+        // 2) ✅ IMPORTANT : on récupère l’URL finale via storageGet
+        //    (évite les data: urls et assure une URL exploitable en front)
+        const { url } = await storageGet(fileKey);
+
+        return {
+          url,              // ✅ URL finale propre pour l’aperçu
+          storageKey: fileKey, // ✅ canonique : à enregistrer en DB
+          fileKey,          // compat legacy si utilisé ailleurs
+        };
       }),
+
+// deleteResource supprimé : on garde uniquement resources.delete (endpoint unique)
+
   }),
 
   // ============ FAVORITES ============
   favorites: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      return await db.getUserFavorites(ctx.user.id);
+      const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+      const rows = (await db.getUserFavorites(ctx.user.id)) as any[];
+
+      // ✅ Double-verrou accessLevel (anti-fuite)
+      const allowed = allowedAccessLevels(
+        entitlements.isAuthenticated,
+        !!entitlements.isPremium
+      );
+
+      let rowsSafe = rows || [];
+      if (!isAdmin) {
+        rowsSafe = filterByAccessLevel(rowsSafe, allowed);
+      }
+
+      // ✅ Filtre "view" legacy (visibility) + règle staff
+      const isStaff = entitlements.isStaff;
+
+      const filtered = isAdmin
+        ? rowsSafe
+        : rowsSafe.filter((r: any) => {
+            if (isStaff) return true;
+
+            const ent = { ...entitlements, isStaff: false };
+            const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+            return canViewResource({ visibility, entitlements: ent });
+          });
+
+      return filtered;
     }),
 
     check: protectedProcedure
@@ -761,24 +1892,63 @@ if (!isEmailVerified) {
     users: router({
   // ✅ MODIF : renvoyer profileType (profil métier) avec les users
   list: adminProcedure.query(async () => {
-    const users = (await db.getAllUsers()) as any[];
+  const users = (await db.getAllUsers()) as any[];
 
-    const enriched = await Promise.all(
-      users.map(async (u) => {
-        try {
-          const p = await db.getUserProfile(u.id);
-          const profileType =
-            (p as any)?.profileType ?? (typeof p === "string" ? p : null);
+  const enriched = await Promise.all(
+    users.map(async (u) => {
+      // Profil métier
+      let profileType: string | null = null;
+      try {
+        const p = await db.getUserProfile(u.id);
+        profileType = (p as any)?.profileType ?? (typeof p === "string" ? p : null);
+      } catch {}
 
-          return { ...u, profileType };
-        } catch (e) {
-          return { ...u, profileType: null };
+      // ✅ Premium = DB uniquement (ADMIN UI)
+      // Règle:
+      // - si premiumOverride=1 => premium
+      // - sinon, on lit user_entitlements.premium
+      let isPremium = false;
+
+      try {
+        const dbConn = await db.getDb();
+        if (dbConn) {
+          const { entitlements } = await import("../drizzle/schema");
+          const { eq } = await import("drizzle-orm");
+
+          const rows = await dbConn
+            .select()
+            .from(entitlements)
+            .where(eq(entitlements.userId, u.id));
+
+          const now = new Date();
+
+          const valid = rows.find((r: any) => {
+            if (r.type !== "PREMIUM") return false;
+            if (r.isActive !== 1) return false;
+            if (!r.endsAt) return true;
+            return new Date(r.endsAt) > now;
+          });
+
+          isPremium = !!valid;
         }
-      })
-    );
+      } catch {
+        isPremium = false;
+      }
 
-    return enriched;
-  }),
+      return {
+        ...u,
+        profileType,
+        entitlements: {
+          premium: isPremium,
+          isPremium,
+        },
+      };
+    })
+  );
+
+  return enriched;
+}),
+
 
   updateRole: adminProcedure
     .input(
@@ -808,6 +1978,20 @@ if (!isEmailVerified) {
         return { success: true };
       });
     }),
+      setPremium: adminProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        premium: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return debugMutation("admin.users.setPremium", input, async () => {
+        const { userId, premium } = input;
+        await db.setUserPremium(userId, premium);
+        return { success: true };
+      });
+    }),
 }),
 
     importResources: adminProcedure
@@ -825,10 +2009,66 @@ if (!isEmailVerified) {
           return await ResourceImporter.importFromJSON(input.content);
         }
       }),
+    importZipOptionB: adminProcedure
+      .input(
+        z.object({
+          extractRoot: z.string(), // ex: import_tmp/_extract_all_v2
+          dryRun: z.boolean().optional(),
+          audit: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { spawn } = await import("child_process");
+        const path = await import("path");
 
+        const scriptPath = path.resolve(
+          process.cwd(),
+          "server/_scripts/import_zip_optionB.ts"
+        );
 
+        const args = [
+          "-r",
+          "dotenv/config",
+          scriptPath,
+          "--extract-root",
+          input.extractRoot,
+        ];
 
+        if (input.dryRun) args.push("--dry-run");
+        if (input.audit) args.push("--audit");
 
+        return new Promise((resolve, reject) => {
+          const child = spawn("pnpm", ["-s", "tsx", ...args], {
+            stdio: "pipe",
+          });
+
+          let stdout = "";
+          let stderr = "";
+
+          child.stdout.on("data", (data) => {
+            stdout += data.toString();
+          });
+
+          child.stderr.on("data", (data) => {
+            stderr += data.toString();
+          });
+
+          child.on("close", (code) => {
+            if (code === 0) {
+              resolve({
+                success: true,
+                output: stdout,
+              });
+            } else {
+              reject(
+                new Error(
+                  `Import Option B failed (code ${code})\n${stderr || stdout}`
+                )
+              );
+            }
+          });
+        });
+      }),
 
     generateThumbnails: adminProcedure
       .input(
@@ -963,7 +2203,8 @@ Quality: High quality, professional design`;
           }
 
           const newCategories = typeToCategories[resource.type] || ["Autres"];
-          await db.updateResourceCategories(resource.id, newCategories);
+          await db.updateResourceCategories(resource.id, (newCategories?.[0] ?? null));
+
           updated++;
         } catch (error) {
           console.error(`Erreur pour la ressource ${resource.id}:`, error);
@@ -990,7 +2231,7 @@ Quality: High quality, professional design`;
         })
         .from(users)
         .innerJoin(userProfiles, eq(users.id, userProfiles.userId))
-        .where(eq(userProfiles.profileType, "formateur"));
+        .where(eq(userProfiles.profileTypeId, 2));;
 
       return formateurs;
     }),
@@ -1129,11 +2370,12 @@ profiles: router({
     .input(
       z.object({
         profileType: z.enum([
-          "animateur",
-          "formateur",
-          "directeur",
-          "stagiaire_bafa",
-        ]),
+  "animateur",
+  "formateur",
+  "directeur",
+  "stagiaire_bafa",
+] as const),
+
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1153,7 +2395,7 @@ profiles: router({
       return await db.getAllTags();
     }),
 
-    getById: publicProcedure
+     getById:publicProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
         return await db.getTagById(input.id);
@@ -1194,7 +2436,38 @@ profiles: router({
 
     getResourceTags: publicProcedure
       .input(z.object({ resourceId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+        const isLogged = entitlements.isAuthenticated;
+        const isStaff = entitlements.isStaff;
+
+        // ✅ Appel DB sécurisé (anti-fuite) : la DB doit déjà filtrer selon includeInternal/includePremium
+        const resource = await db.getResourceById(input.resourceId, {
+          includeInternal: isAdmin || isLogged,
+          includePremium: isAdmin || !!entitlements.isPremium,
+          isAdmin,
+        } as any);
+
+        // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
+        if (!resource) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvée" });
+        }
+
+        // ✅ Double-verrou côté router : droits "VIEW" (et règle staff)
+        if (!isAdmin && !isStaff) {
+          const allowed = allowedAccessLevels(isLogged, !!entitlements.isPremium);
+
+          const accessLevel = (resource.accessLevel ?? "PUBLIC") as any;
+          const visibility = (resource.visibility ?? "PUBLIC") as any;
+
+          const ent = { ...entitlements, isStaff: false };
+          const canSeeByVisibility = canViewResource({ visibility, entitlements: ent });
+
+          if (!allowed.includes(accessLevel) || !canSeeByVisibility) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvée" });
+          }
+        }
+
         return await db.getResourceTags(input.resourceId);
       }),
 
@@ -1235,86 +2508,472 @@ profiles: router({
       }),
   }),
 
-  // ============ COLLECTIONS ============
-collections: router({
-  // ✅ Admin : liste complète des ressources (pour l’écran admin "ressources-management")
-  // + enrichissement avec profiles
-  getAllResourcesForAdmin: adminProcedure.query(async () => {
-    const rows = (await db.getAllResources({
-      includeInternal: true,
-      adminView: true,
-    })) as any[];
+   // ============ COLLECTIONS ============
+  collections: router({
 
-    const enriched = await Promise.all(
-      rows.map(async (r: any) => {
-        const profRows = await db.getResourceProfiles(Number(r.id));
-        const profiles = Array.isArray(profRows)
-          ? profRows.map((p: any) => p.profileType).filter(Boolean)
-          : [];
-        return { ...r, profiles };
-      })
-    );
+  
 
-    return enriched;
-  }),
+    // ✅ Admin : liste complète des ressources (pour l’écran admin "ressources-management")
+    // + enrichissement avec profiles
+   
+    // =========================================================
+    // ✅ ADMIN Collections — endpoints attendus par le client
+    // =========================================================
 
-  // Collections de l'utilisateur connecté
-  list: protectedProcedure.query(async ({ ctx }) => {
-    return await db.getUserCollections(ctx.user.id);
-  }),
+    // Liste toutes les collections (admin)
+    getAllCollections: adminProcedure.query(async () => {
+      const dbConn = await db.getDb();
+      if (!dbConn) return [];
 
-  // Collections publiques
-  listPublic: publicProcedure.query(async () => {
-    return await db.getPublicCollections();
-  }),
-}),
+      const schema = await import("../drizzle/schema");
+      const table =
+        (schema as any).collectionsTable ||
+        (schema as any).collections ||
+        (schema as any).collections_table;
 
+      if (!table) {
+        console.warn("[collections.getAllCollections] collections table not found in schema");
+        return [];
+      }
 
-
-  comments: router({
-    listByResource: publicProcedure
-      .input(z.object({ resourceId: z.number() }))
-      .query(async ({ input }) => {
-        return await db.getResourceComments(input.resourceId);
-      }),
-    // ... (inchangé)
-  }),
-
-  history: router({
-    getByResource: publicProcedure
-      .input(z.object({ resourceId: z.number() }))
-      .query(async ({ input }) => {
-        return await db.getResourceHistory(input.resourceId);
-      }),
-    // ... (inchangé)
-  }),
-
-  contact: router({
-    send: publicProcedure
-      .input(
-        z.object({
-          name: z.string().min(1, "Le nom est requis"),
-          email: z.string().email("Email invalide"),
-          subject: z.string().min(1, "Le sujet est requis"),
-          message: z.string().min(10, "Le message doit contenir au moins 10 caractères"),
+      const rows = (await dbConn
+        .select({
+          id: table.id,
+          name: (table as any).name ?? null,
+          title: (table as any).title ?? (table as any).name ?? null,
+          description: (table as any).description ?? null,
+          isPublic: (table as any).isPublic ?? (table as any).public ?? null,
+          createdAt: (table as any).createdAt ?? null,
+          updatedAt: (table as any).updatedAt ?? null,
         })
-      )
-      .mutation(async ({ input }) => {
-        const success = await notifyOwner({
-          title: `Nouveau message de contact : ${input.subject}`,
-          content: `De: ${input.name} (${input.email})\n\nSujet: ${input.subject}\n\nMessage:\n${input.message}`,
-        });
+        .from(table)) as any[];
 
-        if (!success) {
+      return rows || [];
+    }),
+
+    // Récupère une collection + ses ressources (admin)
+    getCollectionWithResources: adminProcedure
+      .input(z.object({ collectionId: z.number().int() }))
+      .query(async ({ input }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+        }
+
+        const schema = await import("../drizzle/schema");
+
+        const collectionsTable =
+          (schema as any).collectionsTable ||
+          (schema as any).collections ||
+          (schema as any).collections_table;
+
+        const joinTable =
+          (schema as any).collectionResources ||
+          (schema as any).collection_resources ||
+          (schema as any).collectionResourcesTable ||
+          (schema as any).collection_resources_table;
+
+        const resourcesTable =
+          (schema as any).resourcesTable ||
+          (schema as any).resources ||
+          (schema as any).resources_table;
+
+        if (!collectionsTable || !joinTable || !resourcesTable) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "Erreur lors de l'envoi du message. Veuillez réessayer.",
+            message: "Schema tables missing (collections / join / resources)",
           });
+        }
+
+        const { eq, and, desc } = await import("drizzle-orm");
+
+        const colRows = (await dbConn
+          .select()
+          .from(collectionsTable)
+          .where(eq(collectionsTable.id, input.collectionId))
+          .limit(1)) as any[];
+
+        const collection = colRows?.[0];
+        if (!collection) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+        }
+
+        const resources = (await dbConn
+          .select({
+            id: resourcesTable.id,
+            title: resourcesTable.title,
+            summary: (resourcesTable as any).summary ?? null,
+            visibility: (resourcesTable as any).visibility ?? null,
+            accessLevel: (resourcesTable as any).accessLevel ?? null,
+            status: (resourcesTable as any).status ?? null,
+            thumbnailUrl: (resourcesTable as any).thumbnailUrl ?? null,
+            thumbnailKey: (resourcesTable as any).thumbnailKey ?? null,
+          })
+          .from(joinTable)
+          .innerJoin(resourcesTable, eq((joinTable as any).resourceId, resourcesTable.id))
+          .where(eq((joinTable as any).collectionId, input.collectionId))
+          .orderBy(desc(resourcesTable.id))) as any[];
+
+        return { collection, resources: resources || [] };
+      }),
+
+    // Ajoute une ressource à une collection (admin)
+    addResourceAsAdmin: adminProcedure
+      .input(z.object({ collectionId: z.number().int(), resourceId: z.number().int() }))
+      .mutation(async ({ input }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+        }
+
+        const schema = await import("../drizzle/schema");
+        const joinTable =
+          (schema as any).collectionResources ||
+          (schema as any).collection_resources ||
+          (schema as any).collectionResourcesTable ||
+          (schema as any).collection_resources_table;
+
+        if (!joinTable) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Join table not found in schema" });
+        }
+
+        try {
+          await dbConn.insert(joinTable).values({
+            collectionId: input.collectionId,
+            resourceId: input.resourceId,
+          } as any);
+        } catch (e: any) {
+          const msg = String(e?.message ?? "").toLowerCase();
+          if (msg.includes("duplicate") || msg.includes("unique")) {
+            return { success: true, alreadyExists: true };
+          }
+          throw e;
         }
 
         return { success: true };
       }),
+
+    // Retire une ressource d’une collection (admin)
+    removeResourceAsAdmin: adminProcedure
+      .input(z.object({ collectionId: z.number().int(), resourceId: z.number().int() }))
+      .mutation(async ({ input }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+        }
+
+        const schema = await import("../drizzle/schema");
+        const joinTable =
+          (schema as any).collectionResources ||
+          (schema as any).collection_resources ||
+          (schema as any).collectionResourcesTable ||
+          (schema as any).collection_resources_table;
+
+        if (!joinTable) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Join table not found in schema" });
+        }
+
+        const { eq, and } = await import("drizzle-orm");
+
+        await dbConn
+          .delete(joinTable)
+          .where(
+            and(
+              eq((joinTable as any).collectionId, input.collectionId),
+              eq((joinTable as any).resourceId, input.resourceId)
+            )
+          );
+
+        return { success: true };
+      }),
+
+    // Collections de l'utilisateur connecté
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getUserCollections(ctx.user.id);
+    }),
+
+    // Collections publiques
+    listPublic: publicProcedure.query(async ({ ctx }) => {
+      const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+      // On récupère la liste "publique" côté DB,
+      // puis ✅ double-verrou côté router (audit-proof)
+      let rows = (await db.getPublicCollections()) as any[];
+
+      if (isAdmin) return rows || [];
+
+      const allowed = allowedAccessLevels(
+        entitlements.isAuthenticated,
+        !!entitlements.isPremium
+      );
+
+      rows = filterByAccessLevel(rows || [], allowed);
+
+      return rows;
+    }),
+
+    // 👇👇👇 TU COLLES LE BLOC ICI 👇👇👇
+
+    getById: publicProcedure
+      .input(z.object({ id: z.number().int() }))
+      .query(async ({ input, ctx }) => {
+        const { isLogged, isAdmin, entitlements } =
+          await getEntitlementsFromCtx(ctx);
+
+        const allowed = allowedAccessLevels(
+          entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        );
+
+        const includeInternal = isAdmin || entitlements.isAuthenticated;
+        const includePremium = isAdmin || !!entitlements.isPremium;
+
+        const collection = await db.getCollectionById(input.id);
+        if (!collection) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Collection introuvable",
+          });
+        }
+
+        if (!isAdmin) {
+  const level = (collection?.accessLevel ?? "PUBLIC") as any;
+  if (!allowed.includes(level)) {
+    // ✅ NOT_FOUND pour éviter toute fuite d'existence
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Collection introuvable",
+    });
+  }
+}
+
+        let resources = await db.getCollectionResources(input.id, {
+          includeInternal,
+          includePremium,
+          isAdmin: isAdmin,
+        });
+
+        if (!isAdmin) {
+          resources = filterByAccessLevel(resources, allowed);
+        }
+
+        return {
+          ...collection,
+          resources: resources || [],
+        };
+      }),
+
   }),
+
+  comments: router({
+    // =========================
+    // LIST (public) — par ressource
+    // =========================
+    listByResource: publicProcedure
+      .input(z.object({ resourceId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        // ✅ Anti-fuite : on vérifie d'abord que l'utilisateur a le droit de "voir" la ressource
+        const resource = await db.getResourceById(input.resourceId);
+
+        // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
+        if (!resource) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvée" });
+        }
+
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+        const isStaff = entitlements.isStaff;
+
+        // Admin / formateur : accès OK
+        if (!isAdmin && !isStaff) {
+          const allowed = allowedAccessLevels(
+            entitlements.isAuthenticated,
+            !!entitlements.isPremium
+          );
+
+          const accessLevel = (resource.accessLevel ?? "PUBLIC") as any;
+          const visibility = (resource.visibility ?? "PUBLIC") as any;
+
+          const canSeeByAccessLevel = allowed.includes(accessLevel);
+
+          const ent = { ...entitlements, isStaff: false };
+          const canSeeByVisibility = canViewResource({ visibility, entitlements: ent });
+
+          if (!canSeeByAccessLevel || !canSeeByVisibility) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvée" });
+          }
+        }
+
+        return await (db as any).getResourceComments(input.resourceId);
+      }),
+
+    // =========================
+    // LIST (auth) — mes commentaires
+    // =========================
+    listByUser: protectedProcedure.query(async ({ ctx }) => {
+      return await (db as any).getUserComments(ctx.user.id);
+    }),
+
+    // =========================
+    // CREATE (auth)
+    // =========================
+    create: protectedProcedure
+      .input(
+        z.object({
+          resourceId: z.number(),
+          content: z.string().min(1),
+          rating: z.number().int().min(1).max(5).optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        // ✅ Anti-fuite : on ne commente que si l’accès à la ressource est autorisé
+        const resource = await db.getResourceById(input.resourceId);
+        if (!resource) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvée" });
+        }
+
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+        const isStaff = entitlements.isStaff;
+
+        if (!isAdmin && !isStaff) {
+          const allowed = allowedAccessLevels(
+            entitlements.isAuthenticated,
+            !!entitlements.isPremium
+          );
+
+          const accessLevel = (resource.accessLevel ?? "PUBLIC") as any;
+          const visibility = (resource.visibility ?? "PUBLIC") as any;
+
+          const ent = { ...entitlements, isStaff: false };
+          const canSeeByVisibility = canViewResource({ visibility, entitlements: ent });
+
+          if (!allowed.includes(accessLevel) || !canSeeByVisibility) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Ressource non trouvée" });
+          }
+        }
+
+        const created = await (db as any).createComment({
+          resourceId: input.resourceId,
+          userId: ctx.user.id,
+          content: input.content,
+          rating: input.rating ?? null,
+        });
+
+        // ✅ Historique (audit trail)
+        await db.addResourceHistory({
+          resourceId: input.resourceId,
+          userId: ctx.user.id,
+          action: "comment_added",
+          changes: `Commentaire ajouté (rating=${input.rating ?? "null"})`,
+        });
+
+        return { id: created?.id ?? created ?? null, success: true };
+      }),
+
+    // =========================
+    // UPDATE (auth) — owner only
+    // =========================
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          content: z.string().min(1).optional(),
+          rating: z.number().int().min(1).max(5).nullable().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const existing = await (db as any).getCommentById(input.id);
+        if (!existing) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Commentaire introuvable" });
+        }
+
+        const isAdmin = ctx.user?.role === "admin";
+        const isOwner = Number(existing.userId) === Number(ctx.user.id);
+
+        if (!isAdmin && !isOwner) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+        }
+
+        await (db as any).updateComment(input.id, {
+          content: input.content,
+          rating: input.rating,
+        });
+
+        return { success: true };
+      }),
+
+    // =========================
+    // DELETE (auth) — owner or admin
+    // =========================
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const existing = await (db as any).getCommentById(input.id);
+        if (!existing) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Commentaire introuvable" });
+        }
+
+        const isAdmin = ctx.user?.role === "admin";
+        const isOwner = Number(existing.userId) === Number(ctx.user.id);
+
+        if (!isAdmin && !isOwner) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+        }
+
+        await (db as any).deleteComment(input.id);
+
+        return { success: true };
+      }),
+  }),
+
+  history: router({
+  getByResource: adminProcedure
+    .input(z.object({ resourceId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getResourceHistory(input.resourceId);
+    }),
+  // ... (inchangé)
+}),
+
+  contact: router({
+  send: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1, "Le nom est requis"),
+        email: z.string().email("Email invalide"),
+        subject: z.string().min(1, "Le sujet est requis"),
+        message: z.string().min(10, "Le message doit contenir au moins 10 caractères"),
+
+        // ✅ Honeypot anti-bot (champ caché côté UI)
+        website: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      // 1) Honeypot : si rempli → bot probable → on répond "success" sans envoyer
+      if (input.website && input.website.trim().length > 0) {
+        return { success: true };
+      }
+
+      // 2) Rate limit (IP + email)
+      const ip = getClientIp((ctx as any).req);
+      const key = `${ip}:${String(input.email).toLowerCase()}`;
+      enforceContactRateLimit(key);
+
+      const success = await notifyOwner({
+        title: `Nouveau message de contact : ${input.subject}`,
+        content: `De: ${input.name} (${input.email})\n\nSujet: ${input.subject}\n\nMessage:\n${input.message}`,
+      });
+
+      if (!success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erreur lors de l'envoi du message. Veuillez réessayer.",
+        });
+      }
+
+      return { success: true };
+    }),
+}),
+
 
   // ... (inchangé)
   stripe: router({

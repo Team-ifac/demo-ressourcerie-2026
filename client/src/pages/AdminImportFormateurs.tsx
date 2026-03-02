@@ -18,15 +18,21 @@ export default function AdminImportFormateurs() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (!selectedFile.name.endsWith(".xlsx")) {
-        setError("Veuillez sélectionner un fichier Excel (.xlsx)");
-        setFile(null);
-        return;
-      }
-      setFile(selectedFile);
-      setError("");
+    if (!selectedFile) return;
+
+    const name = selectedFile.name.toLowerCase();
+
+    const isAllowed =
+      name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".csv");
+
+    if (!isAllowed) {
+      setError("Veuillez sélectionner un fichier .xlsx, .xls ou .csv");
+      setFile(null);
+      return;
     }
+
+    setFile(selectedFile);
+    setError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -160,7 +166,7 @@ export default function AdminImportFormateurs() {
                     <Input
                       id="file"
                       type="file"
-                      accept=".xlsx"
+                      accept=".xlsx,.xls,.csv"
                       onChange={handleFileChange}
                       disabled={loading}
                       required

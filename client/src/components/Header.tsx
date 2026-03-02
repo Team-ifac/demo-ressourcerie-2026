@@ -35,6 +35,13 @@ export function Header() {
 
   const isActive = (path: string) => location === path;
 
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
+    user?.email ||
+    "";
+
+  const displayInitial = (displayName?.charAt(0) || "U").toUpperCase();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -130,12 +137,12 @@ export function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2">
                       <User className="h-4 w-4" />
-                      <span className="hidden sm:inline">{user.name || user.email}</span>
+                      <span className="hidden sm:inline">{displayName}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <div className="px-2 py-1.5 text-sm">
-                      <p className="font-medium">{user.name}</p>
+                      <p className="font-medium">{displayName}</p>
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                     <DropdownMenuSeparator />

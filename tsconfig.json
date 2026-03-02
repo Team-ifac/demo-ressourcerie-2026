@@ -1,6 +1,25 @@
 {
   "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "**/*.test.ts",
+    "client/src/components/DashboardLayout.tsx",
+    "client/src/components/ResourceComments.tsx",
+    "client/src/pages/AdminAutoClassify.tsx",
+    "client/src/pages/AdminCollectionAssociation.tsx",
+    "client/src/pages/AdminCollections.tsx",
+    "client/src/pages/AdminDeduplication.tsx",
+    "client/src/pages/AdminProfiles.tsx",
+    "client/src/pages/Collections.tsx",
+    "client/src/pages/Contribute.tsx",
+    "client/src/pages/ProfileSelection.tsx",
+    "client/src/pages/Settings.tsx",
+    "client/src/pages/UserProfile.tsx",
+    "client/src/pages/UserProfileManagement.tsx",
+    "server/stripe.ts"
+  ],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",

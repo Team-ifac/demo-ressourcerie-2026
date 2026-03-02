@@ -15,7 +15,7 @@ interface AccessDeniedModalProps {
   isOpen: boolean;
   onClose: () => void;
   resourceTitle: string;
-  accessLevel: 'AUTHENTICATED' | 'PREMIUM';
+  accessLevel: 'INTERNAL_IFAC' | 'PREMIUM';
   isAuthenticated: boolean;
 }
 
@@ -28,7 +28,7 @@ export function AccessDeniedModal({
 }: AccessDeniedModalProps) {
   const [, setLocation] = useLocation();
 
-  const isAuthRequired = accessLevel === 'AUTHENTICATED';
+  const isInternalRequired = accessLevel === 'INTERNAL_IFAC';
   const isPremiumRequired = accessLevel === 'PREMIUM';
 
   return (
@@ -60,20 +60,20 @@ export function AccessDeniedModal({
             </div>
           )}
 
-          {isAuthRequired && !isAuthenticated && (
+          {isInternalRequired && !isAuthenticated && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="font-semibold text-blue-900 mb-2">🔐 Compte requis</p>
+              <p className="font-semibold text-blue-900 mb-2">🔐 Connexion requise (ifac)</p>
               <p className="text-sm text-blue-800">
-                Créez un compte pour accéder à cette ressource et à 70% des autres ressources.
+                Connectez-vous pour accéder à cette ressource.
               </p>
             </div>
           )}
 
-          {isAuthRequired && isAuthenticated && (
+          {isInternalRequired && isAuthenticated && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="font-semibold text-green-900 mb-2">✅ Accès disponible</p>
+              <p className="font-semibold text-green-900 mb-2">✅ Connexion détectée</p>
               <p className="text-sm text-green-800">
-                Vous avez accès à cette ressource. Veuillez rafraîchir la page ou réessayer.
+                Vous êtes connecté·e. Veuillez rafraîchir la page ou réessayer.
               </p>
             </div>
           )}
@@ -97,16 +97,16 @@ export function AccessDeniedModal({
             </Button>
           )}
 
-          {isAuthRequired && !isAuthenticated && (
+          {isInternalRequired && !isAuthenticated && (
             <Button
               onClick={() => {
                 onClose();
-                setLocation('/');
+                setLocation('/auth/login');
               }}
               className="bg-blue-600 hover:bg-blue-700"
             >
               <LogIn className="w-4 h-4 mr-2" />
-              Créer un compte
+              Se connecter
             </Button>
           )}
         </DialogFooter>

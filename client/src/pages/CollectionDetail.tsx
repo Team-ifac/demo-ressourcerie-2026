@@ -26,19 +26,23 @@ export default function CollectionDetail() {
   }, [publicCollections, params?.slug]);
 
   // Récupérer les ressources de la collection
-  const { data: collectionResources, isLoading: resourcesLoading } = 
-    trpc.collections.getResources.useQuery(
+  const { data: collectionWithResources, isLoading: resourcesLoading } =
+    trpc.collections.getCollectionWithResources.useQuery(
       { collectionId: collection?.id! },
       { enabled: !!collection?.id }
     );
 
+  const collectionResources = collectionWithResources?.resources ?? [];
+
   // Filtrer les ressources par recherche
   const filteredResources = useMemo(() => {
-    if (!collectionResources) return [];
-    return collectionResources.filter((resource: any) =>
-      resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      resource.summary.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const q = searchQuery.trim().toLowerCase();
+
+    return collectionResources.filter((resource: any) => {
+      const title = (resource?.title ?? "").toLowerCase();
+      const summary = (resource?.summary ?? "").toLowerCase();
+      return title.includes(q) || summary.includes(q);
+    });
   }, [collectionResources, searchQuery]);
 
   if (collectionsLoading) {
@@ -86,7 +90,7 @@ export default function CollectionDetail() {
                 <Badge variant="secondary">
                   {filteredResources.length} ressource{filteredResources.length !== 1 ? 's' : ''}
                 </Badge>
-                {collection.isPublic === 'true' && (
+                {collection.accessLevel === "PUBLIC" && (
                   <Badge variant="outline">Publique</Badge>
                 )}
               </div>
@@ -117,15 +121,15 @@ export default function CollectionDetail() {
                   className="hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => navigate(`/resources/${resource.id}`)}
                 >
-                  {resource.thumbnailUrl && (
-                    <div className="aspect-video overflow-hidden rounded-t-lg">
-                      <img
-                        src={resource.thumbnailUrl}
-                        alt={resource.title}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform"
-                      />
-                    </div>
-                  )}
+                  {resource.thumbnailUrl && resource.accessLevel !== "PREMIUM" && (
+  <div className="aspect-video overflow-hidden rounded-t-lg">
+    <img
+      src={resource.thumbnailUrl}
+      alt={resource.title}
+      className="w-full h-full object-cover hover:scale-105 transition-transform"
+    />
+  </div>
+)}
                   <CardHeader>
                     <CardTitle className="line-clamp-2">{resource.title}</CardTitle>
                     <CardDescription className="line-clamp-2">

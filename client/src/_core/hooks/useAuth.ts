@@ -41,11 +41,32 @@ export function useAuth(options?: UseAuthOptions) {
     }
   }, [logoutMutation, utils]);
 
+  useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  try {
+    // On stocke uniquement un sous-ensemble "safe" et stable,
+    // pour éviter qu'un ancien payload incomplet/erroné pollue l'UI.
+    if (meQuery.data) {
+      const safeUser = {
+        id: meQuery.data.id,
+        email: meQuery.data.email ?? null,
+        role: meQuery.data.role ?? null,
+        firstName: meQuery.data.firstName ?? null,
+        lastName: meQuery.data.lastName ?? null,
+      };
+
+      localStorage.setItem("manus-runtime-user-info", JSON.stringify(safeUser));
+    } else {
+      localStorage.removeItem("manus-runtime-user-info");
+    }
+  } catch {
+    // ignore (storage disabled/quota/etc.)
+  }
+}, [meQuery.data]);
+
+
   const state = useMemo(() => {
-    localStorage.setItem(
-      "manus-runtime-user-info",
-      JSON.stringify(meQuery.data)
-    );
     return {
       user: meQuery.data ?? null,
       loading: meQuery.isLoading || logoutMutation.isPending,

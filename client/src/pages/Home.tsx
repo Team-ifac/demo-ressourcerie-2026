@@ -10,8 +10,14 @@ export default function Home() {
   // ✅ Source unique et fiable : état connecté côté serveur (cookie)
   const { data: me } = trpc.auth.me.useQuery();
 
-  const { data: popularResources = [] } = trpc.resources.listPopular.useQuery();
-  const { data: recentResources = [] } = trpc.resources.listRecent.useQuery();
+  const { data: popularResources = [] } = trpc.resources.getHomePopularResources.useQuery({
+    autoLimit: 6,
+    editorialLimit: 2,
+  });
+
+  const { data: recentResources = [] } = trpc.resources.getHomeRecentResources.useQuery({
+    limit: 6,
+  });
 
   // connecté réel
   const isReallyLogged = !!me;
@@ -57,29 +63,44 @@ export default function Home() {
      VIGNETTES – même logique que /resources (safe démo)
      ===================================================== */
   function getResourceThumbnail(resource: any): string {
-    // 1) thumbnailUrl explicite (uniquement si locale et pas profil)
-    if (
-      resource?.thumbnailUrl &&
-      typeof resource.thumbnailUrl === "string" &&
-      resource.thumbnailUrl.startsWith("/") &&
-      !resource.thumbnailUrl.includes("/thumbnails/profile-")
-    ) {
-      return resource.thumbnailUrl;
+    const accessLevel = (resource?.accessLevel ?? "PUBLIC") as
+      | "PUBLIC"
+      | "INTERNAL_IFAC"
+      | "PREMIUM";
+
+    // 🔒 Anti-fuite visuelle : pas de vignette pour PREMIUM
+    if (accessLevel === "PREMIUM") {
+      return "/thumbnails/default-document.png";
     }
 
-    // 2) vignette auto depuis PDF importé (Option B)
-    if (
-      resource?.fileUrl &&
-      typeof resource.fileUrl === "string" &&
-      resource.fileUrl.startsWith("/imported/") &&
-      resource.fileUrl.toLowerCase().endsWith(".pdf")
-    ) {
-      return resource.fileUrl
-        .replace("/imported/", "/imported_thumbs/")
-        .replace(/\.pdf$/i, ".png");
+    const thumbnailUrl = resource?.thumbnailUrl;
+
+    // 1️⃣ thumbnailUrl explicite prioritaire
+    if (typeof thumbnailUrl === "string" && thumbnailUrl.trim() !== "") {
+      // base64 legacy
+      if (thumbnailUrl.startsWith("data:image/")) {
+        return thumbnailUrl;
+      }
+
+      // URL absolue
+      if (thumbnailUrl.startsWith("http://") || thumbnailUrl.startsWith("https://")) {
+        return thumbnailUrl;
+      }
+
+      // URL locale valide (Option B)
+      if (thumbnailUrl.startsWith("/imported_thumbs/")) {
+        return thumbnailUrl;
+      }
+
+      // Ancien /imported/xxx.pdf → transformation auto
+      if (thumbnailUrl.startsWith("/imported/") && thumbnailUrl.toLowerCase().endsWith(".pdf")) {
+        return thumbnailUrl
+          .replace("/imported/", "/imported_thumbs/")
+          .replace(/\.pdf$/i, ".png");
+      }
     }
 
-    // 3) fallback neutre
+    // 2️⃣ Fallback neutre final (aucun fileUrl ici)
     return "/thumbnails/default-document.png";
   }
 
@@ -284,7 +305,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {popularResources.slice(0, 6).map((resource: any) => (
+              {popularResources.map((resource: any) => (
                 <ResourceHomeCard
                   key={resource.id}
                   resource={resource}
@@ -305,7 +326,7 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recentResources.slice(0, 6).map((resource: any) => (
+              {recentResources.map((resource: any) => (
                 <ResourceHomeCard
                   key={resource.id}
                   resource={resource}

@@ -5,8 +5,11 @@ import { Clock, Eye } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 export function PopularResources({ limit = 6 }: { limit?: number }) {
-  const { data: popularResources, isLoading } = trpc.resources.listPopular.useQuery();
-  const limitedResources = popularResources?.slice(0, limit) || [];
+  const { data: popularResources = [], isLoading } =
+    trpc.resources.getHomePopularResources.useQuery({
+      autoLimit: limit,
+      editorialLimit: 2,
+    });
 
   if (isLoading) {
     return (
@@ -61,25 +64,30 @@ export function PopularResources({ limit = 6 }: { limit?: number }) {
                       )}
                     </div>
                   )}
+
                   <div className="p-6 flex-1 flex flex-col">
                     <div className="flex gap-2 mb-3 flex-wrap">
-                      <Badge variant={resource.visibility === "PUBLIC" ? "default" : "secondary"}>
-                        {resource.visibility === "PUBLIC" ? "Public" : "Interne IFAC"}
+                      <Badge
+                        variant={
+                          resource.visibility === "PUBLIC" ? "default" : "secondary"
+                        }
+                      >
+                        {resource.visibility === "PUBLIC" ? "Public" : "Interne ifac"}
                       </Badge>
-                      {resource.type && (
-                        <Badge variant="outline">{resource.type}</Badge>
-                      )}
+
+                      {resource.type && <Badge variant="outline">{resource.type}</Badge>}
                     </div>
-                    <h3 className="font-semibold text-lg mb-2 line-clamp-2 flex-1">{resource.title}</h3>
+
+                    <h3 className="font-semibold text-lg mb-2 line-clamp-2 flex-1">
+                      {resource.title}
+                    </h3>
+
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
                       {resource.summary}
                     </p>
+
                     <div className="flex items-center gap-4 text-xs text-muted-foreground mt-auto">
-                      {resource.ageRange && (
-                        <span className="flex items-center gap-1">
-                          👥 {resource.ageRange}
-                        </span>
-                      )}
+                      {resource.ageRange && <span className="flex items-center gap-1">👥 {resource.ageRange}</span>}
                       {resource.duration && (
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" /> {resource.duration}

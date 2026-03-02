@@ -5,7 +5,7 @@
     "content": "Fichier PDF: Activité manuelle - Empreintes fossiles.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -23,7 +23,7 @@
     "content": "Fichier PDF: Activité manuelle - KALÉIDOSCOPE SCIENTIFIQUE.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -41,7 +41,7 @@
     "content": "Fichier PDF: Balles de Jonglage.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -59,7 +59,7 @@
     "content": "Fichier PDF: Balles rebondissantes avec des ballons de baudruche.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -77,7 +77,7 @@
     "content": "Fichier PDF: Berlingot de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -95,7 +95,7 @@
     "content": "Fichier PDF: Boite à confiseries de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -113,7 +113,7 @@
     "content": "Fichier PDF: Bonhomme de neige avec alvéoles de boite d’œufs.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -131,7 +131,7 @@
     "content": "Fichier PDF: Bonhomme de neige avec de la laine.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -149,7 +149,7 @@
     "content": "Fichier PDF: Bonhomme de neige chaussette.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -167,7 +167,7 @@
     "content": "Fichier PDF: Bonhomme de neige en gobelets plastiques.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -185,7 +185,7 @@
     "content": "Fichier PDF: Bonhommes pain d’épices.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -203,7 +203,7 @@
     "content": "Fichier PDF: Bonnet de laine à suspendre.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -221,7 +221,7 @@
     "content": "Fichier PDF: Boule à neige.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -239,7 +239,7 @@
     "content": "Fichier PDF: Boule de Noël en papier.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -257,7 +257,7 @@
     "content": "Fichier PDF: Boule de Noël en plastique recyclé.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -275,7 +275,7 @@
     "content": "Fichier PDF: Bracelet avec une bouteille plastique.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -293,7 +293,7 @@
     "content": "Fichier PDF: Cadre photo en 3D.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -311,7 +311,7 @@
     "content": "Fichier PDF: Calendrier de l’avant.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -329,7 +329,7 @@
     "content": "Fichier PDF: Calendrier de l’avent avec des rouleaux de papier de toilette.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -347,7 +347,7 @@
     "content": "Fichier PDF: Canon à confettis.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -365,7 +365,7 @@
     "content": "Fichier PDF: Carte à gratter de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -383,7 +383,7 @@
     "content": "Fichier PDF: Carte boule à neige.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -401,7 +401,7 @@
     "content": "Fichier PDF: Carte de Noël personnalisés.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -419,7 +419,7 @@
     "content": "Fichier PDF: Collier avec des rondelles en acier.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -437,7 +437,7 @@
     "content": "Fichier PDF: Couronne de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -455,7 +455,7 @@
     "content": "Fichier PDF: Déco bougie led.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -473,7 +473,7 @@
     "content": "Fichier PDF: Décoration de sapin en pâte à sel.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -491,7 +491,7 @@
     "content": "Fichier PDF: Etiquette de Noël à gratter.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -509,7 +509,7 @@
     "content": "Fichier PDF: Fleurs de Noël en Rouleaux de Papier Toilette.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -527,7 +527,7 @@
     "content": "Fichier PDF: Fleurs de papier en forme de rosace.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -545,7 +545,7 @@
     "content": "Fichier PDF: Flocon de neige avec des cotons-tiges.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -563,7 +563,7 @@
     "content": "Fichier PDF: Flocons de neige en bâtonnets.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -581,7 +581,7 @@
     "content": "Fichier PDF: Hérisson avec un vieux livre de poche pour décorer le bas du sapin.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -599,7 +599,7 @@
     "content": "Fichier PDF: Maisonnette du calendrier de l’avent.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -617,7 +617,7 @@
     "content": "Fichier PDF: Maracas - rouleau de papier.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -635,7 +635,7 @@
     "content": "Fichier PDF: Masques de Super-Héros Nature.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -653,7 +653,7 @@
     "content": "Fichier PDF: Pantin de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -671,7 +671,7 @@
     "content": "Fichier PDF: Pâte à modeler alimentaire.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -689,7 +689,7 @@
     "content": "Fichier PDF: Peinture à faire soi-même.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -707,7 +707,7 @@
     "content": "Fichier PDF: Personnages de Noël avec des pince à linges.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -725,7 +725,7 @@
     "content": "Fichier PDF: Père Noël empreintes des mains.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -743,7 +743,7 @@
     "content": "Fichier PDF: Père Noël en papier.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -761,7 +761,7 @@
     "content": "Fichier PDF: Plastique dingue, maison.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -779,7 +779,7 @@
     "content": "Fichier PDF: Renne de Noël en rouleau de papier toilette.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -797,7 +797,7 @@
     "content": "Fichier PDF: Sapin de Noël avec de la laine.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -815,7 +815,7 @@
     "content": "Fichier PDF: Sapin de Noël en bonbons.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -833,7 +833,7 @@
     "content": "Fichier PDF: Sapin et étoile en laine de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -851,7 +851,7 @@
     "content": "Fichier PDF: Tableau boîte a camembert.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -869,7 +869,7 @@
     "content": "Fichier PDF: Tortue avec une coquille de noix.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -887,7 +887,7 @@
     "content": "Fichier PDF: Bataille des tailles.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -905,7 +905,7 @@
     "content": "Fichier PDF: Blagues de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -923,7 +923,7 @@
     "content": "Fichier PDF: Carnet d_activité et de jeux de Noël  -  Réparation.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -941,7 +941,7 @@
     "content": "Fichier PDF: Coloriages de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -959,7 +959,7 @@
     "content": "Fichier PDF: Grand jeu - LA MACHINE À VOYAGER DANS LE TEMPS.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -977,7 +977,7 @@
     "content": "Fichier PDF: Grand jeu - Mission Spatiale - à la conquête des planètes.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -995,7 +995,7 @@
     "content": "Fichier PDF: Jeu de société - Voyage Temporel - L_Aventure des Explorateurs.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1013,7 +1013,7 @@
     "content": "Fichier PDF: Jeu de société Élementarium.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1031,7 +1031,7 @@
     "content": "Fichier PDF: Jeu de société Les Gardiens de la Nature.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1049,7 +1049,7 @@
     "content": "Fichier PDF: Jeu des ombres.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1067,7 +1067,7 @@
     "content": "Fichier PDF: Jeu du  -Qui suis-je de la famille.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1085,7 +1085,7 @@
     "content": "Fichier PDF: Jeu du ouistiti.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1103,7 +1103,7 @@
     "content": "Fichier PDF: L_instrument mystère.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1121,7 +1121,7 @@
     "content": "Fichier PDF: Loto de Noël  -  Réparation.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1139,7 +1139,7 @@
     "content": "Fichier PDF: Memory de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1157,7 +1157,7 @@
     "content": "Fichier PDF: Brochettes de Fruits Déguisées en Bonhomme de Neige.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1175,7 +1175,7 @@
     "content": "Fichier PDF: Chocolat chaud crémeux.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1193,7 +1193,7 @@
     "content": "Fichier PDF: Kit Vin chaud Express.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1211,7 +1211,7 @@
     "content": "Fichier PDF: Kit à cookies Express.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1229,7 +1229,7 @@
     "content": "Fichier PDF: Kit chocolat chaud Express.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1247,7 +1247,7 @@
     "content": "Fichier PDF: Kit riz au lait au Carambar express.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1265,7 +1265,7 @@
     "content": "Fichier PDF: Macaron de noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1283,7 +1283,7 @@
     "content": "Fichier PDF: Mandarines enrobées de chocolat.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1301,7 +1301,7 @@
     "content": "Fichier PDF: Mendiants au chocolat.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1319,7 +1319,7 @@
     "content": "Fichier PDF: Meringues arc-en-ciel.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1337,7 +1337,7 @@
     "content": "Fichier PDF: Nougat tendre aux amandes.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1355,7 +1355,7 @@
     "content": "Fichier PDF: Nougatine.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1373,7 +1373,7 @@
     "content": "Fichier PDF: Orangettes au chocolat noir.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",
@@ -1391,7 +1391,7 @@
     "content": "Fichier PDF: Sablés colorés de Noël.pdf",
     "type": "Fiche",
     "visibility": "PUBLIC",
-    "accessLevel": "AUTHENTICATED",
+    "accessLevel": "INTERNAL_IFAC",
     "status": "approved",
     "profiles": [
       "animateur",

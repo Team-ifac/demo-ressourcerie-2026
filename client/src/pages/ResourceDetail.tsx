@@ -1,11 +1,27 @@
 import { useRoute } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { trpc } from "@/lib/trpc";
-import { Download, Heart, Clock, Users, Target, Timer, Globe, Lock, Loader2 } from "lucide-react";
+import {
+  Download,
+  Heart,
+  Clock,
+  Users,
+  Target,
+  Timer,
+  Globe,
+  Lock,
+  Loader2,
+} from "lucide-react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { QRCodeGenerator } from "@/components/QRCodeGenerator";
 import { ExportPDF } from "@/components/ExportPDF";
@@ -17,13 +33,15 @@ import { getLoginUrl } from "@/const";
 export default function ResourceDetail() {
   const [, params] = useRoute("/resources/:id");
   const resourceId = parseInt(params?.id || "0");
-  const { user, isAuthenticated } = useAuth();
+
+  const { isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
 
-  const { data: resource, isLoading } = trpc.resources.getById.useQuery(
-    { id: resourceId },
-    { enabled: resourceId > 0 }
-  );
+  const {
+    data: resource,
+    isLoading,
+    error,
+  } = trpc.resources.getById.useQuery({ id: resourceId }, { enabled: resourceId > 0 });
 
   const { data: favoriteCheck } = trpc.favorites.check.useQuery(
     { resourceId },
@@ -60,20 +78,61 @@ export default function ResourceDetail() {
     }
   };
 
-  const handleDownload = () => {
-    if (!resource?.fileUrl) {
-      toast.error("Aucun fichier disponible pour cette ressource");
+  // ✅ PRO : téléchargement 100% piloté par le backend (policy + URL sécurisée)
+  const fileUrlQuery = trpc.resources.getFileUrl.useQuery(
+    { id: resourceId },
+    { enabled: false, retry: false }
+  );
+
+  const handleDownload = async () => {
+    if (!resourceId || resourceId <= 0) {
+      toast.error("Ressource invalide");
       return;
     }
 
-    if (resource.visibility === "INTERNAL_IFAC" && !isAuthenticated) {
-      toast.error("Veuillez vous connecter pour télécharger cette ressource");
-      window.location.href = getLoginUrl();
+    // 1) Pas de fichier
+    if (!resource?.hasFile) {
+      toast.error("Aucun fichier disponible");
       return;
     }
 
-    window.open(resource.fileUrl, "_blank");
-    toast.success("Téléchargement en cours...");
+    // 2) Pas le droit d’ouvrir/télécharger
+    if (!resource?.canOpen) {
+      if (!isAuthenticated) {
+        toast.error("Connexion requise pour télécharger cette ressource");
+        window.location.href = getLoginUrl();
+        return;
+      }
+
+      toast.error("Accès restreint : vous n’avez pas le droit de télécharger ce fichier");
+      return;
+    }
+
+    try {
+      const res = await fileUrlQuery.refetch();
+
+      const url = res.data?.url;
+      if (!url) {
+        toast.error("Aucun fichier disponible");
+        return;
+      }
+
+      // ✅ ouvre le lien fourni par le backend (signé / proxy / legacy)
+      window.location.assign(url);
+    } catch (e: any) {
+      const code = e?.data?.code || e?.shape?.data?.code;
+
+      if (code === "FORBIDDEN") {
+        toast.error("Accès restreint : vous n’avez pas le droit de télécharger ce fichier");
+        return;
+      }
+      if (code === "NOT_FOUND") {
+        toast.error("Aucun fichier disponible");
+        return;
+      }
+
+      toast.error("Impossible de récupérer le fichier");
+    }
   };
 
   if (isLoading) {
@@ -90,6 +149,75 @@ export default function ResourceDetail() {
     );
   }
 
+  // ✅ Gestion d’erreur tRPC propre
+  if (error) {
+    const code = (error as any)?.data?.code;
+
+    if (code === "FORBIDDEN") {
+      return (
+        <div className="min-h-screen flex flex-col bg-background">
+          <main className="flex-1 py-8">
+            <div className="container">
+              <Card className="py-12">
+                <CardContent className="text-center space-y-3">
+                  <p className="text-lg font-medium">Accès restreint</p>
+                  <p className="text-muted-foreground">
+                    Vous n’avez pas les droits pour consulter cette ressource.
+                  </p>
+
+                  {!isAuthenticated && (
+                    <div className="pt-2">
+                      <Button onClick={() => (window.location.href = getLoginUrl())}>
+                        Se connecter
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    if (code === "NOT_FOUND") {
+      return (
+        <div className="min-h-screen flex flex-col bg-background">
+          <main className="flex-1 py-8">
+            <div className="container">
+              <Card className="py-12">
+                <CardContent className="text-center space-y-2">
+                  <p className="text-lg font-medium">Ressource non trouvée</p>
+                  <p className="text-muted-foreground">
+                    Cette ressource n&apos;existe pas ou n&apos;est plus disponible.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    console.error(error);
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 py-8">
+          <div className="container">
+            <Card className="py-12">
+              <CardContent className="text-center space-y-2">
+                <p className="text-lg font-medium">Erreur</p>
+                <p className="text-muted-foreground">
+                  Une erreur est survenue lors du chargement de la ressource.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!resource) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -97,9 +225,9 @@ export default function ResourceDetail() {
           <div className="container">
             <Card className="py-12">
               <CardContent className="text-center space-y-2">
-                <p className="text-lg font-medium">Ressource non trouvée</p>
+                <p className="text-lg font-medium">Ressource indisponible</p>
                 <p className="text-muted-foreground">
-                  Cette ressource n'existe pas ou n'est plus disponible
+                  Impossible de charger cette ressource pour le moment.
                 </p>
               </CardContent>
             </Card>
@@ -111,14 +239,13 @@ export default function ResourceDetail() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      
       <main className="flex-1 py-8">
         <div className="container space-y-8">
-          <Breadcrumb 
+          <Breadcrumb
             items={[
               { label: "Ressources", href: "/resources" },
-              { label: resource.title }
-            ]} 
+              { label: resource.title },
+            ]}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -127,10 +254,15 @@ export default function ResourceDetail() {
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <h1 className="text-4xl font-bold">{resource.title}</h1>
-                  {resource.visibility === "INTERNAL_IFAC" ? (
+                  {resource.accessLevel === "PREMIUM" ? (
                     <Badge variant="secondary" className="gap-1 flex-shrink-0">
                       <Lock className="h-3 w-3" />
-                      Interne IFAC
+                      Premium
+                    </Badge>
+                  ) : resource.accessLevel === "INTERNAL_IFAC" ? (
+                    <Badge variant="secondary" className="gap-1 flex-shrink-0">
+                      <Lock className="h-3 w-3" />
+                      Interne ifac
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="gap-1 flex-shrink-0">
@@ -152,7 +284,7 @@ export default function ResourceDetail() {
 
               <Separator />
 
-              {resource.thumbnailUrl && (
+              {resource.thumbnailUrl && resource.accessLevel !== "PREMIUM" && (
                 <div className="rounded-lg overflow-hidden shadow-elegant">
                   <img
                     src={resource.thumbnailUrl}
@@ -178,7 +310,7 @@ export default function ResourceDetail() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
-                      {resource.themes.map((theme) => (
+                      {resource.themes?.map((theme: any) => (
                         <Badge key={theme.id} variant="secondary">
                           {theme.name}
                         </Badge>
@@ -198,31 +330,56 @@ export default function ResourceDetail() {
                     Téléchargez ou ajoutez cette ressource à vos favoris
                   </CardDescription>
                 </CardHeader>
+
                 <CardContent className="space-y-3">
-                  <Button 
-                    onClick={handleDownload} 
-                    className="w-full gap-2"
-                    disabled={!resource.fileUrl}
-                  >
-                    <Download className="h-4 w-4" />
-                    Télécharger la ressource
+                  <Button
+  onClick={handleDownload}
+  className="w-full gap-2"
+  disabled={!resource?.hasFile || fileUrlQuery.isFetching}
+>
+                    {fileUrlQuery.isFetching ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Préparation…
+                      </>
+                    ) : !resource?.hasFile ? (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        Aucun fichier
+                      </>
+                    ) : !resource?.canOpen ? (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        Téléchargement restreint
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        Télécharger la ressource
+                      </>
+                    )}
                   </Button>
-                  <Button 
+
+                  <Button
                     onClick={handleFavoriteToggle}
                     variant={favoriteCheck?.isFavorite ? "default" : "outline"}
                     className="w-full gap-2"
                     disabled={addFavoriteMutation.isPending || removeFavoriteMutation.isPending}
                   >
-                    <Heart 
-                      className={`h-4 w-4 ${favoriteCheck?.isFavorite ? 'fill-current' : ''}`} 
+                    <Heart
+                      className={`h-4 w-4 ${
+                        favoriteCheck?.isFavorite ? "fill-current" : ""
+                      }`}
                     />
                     {favoriteCheck?.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
                   </Button>
-                  
+
                   <Separator className="my-2" />
-                  
+
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">PARTAGER & EXPORTER</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      PARTAGER & EXPORTER
+                    </p>
                     <div className="flex gap-2 flex-wrap">
                       <ShareButtons
                         title={resource.title}
@@ -236,6 +393,7 @@ export default function ResourceDetail() {
                         url={`/resources/${resource.id}`}
                       />
                     </div>
+
                     <div className="flex gap-2 flex-wrap">
                       <ExportPDF
                         resourceId={resource.id}

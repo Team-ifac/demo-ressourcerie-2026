@@ -68,7 +68,7 @@ export default function Library() {
                 {favorites.map((resource) => (
                   <Card key={resource.id} className="hover:shadow-elegant transition-all duration-300 group">
                     <Link href={`/resources/${resource.id}`}>
-                      {resource.thumbnailUrl && (
+                      {resource.thumbnailUrl && (resource as any).accessLevel !== "PREMIUM" && (
                         <div className="aspect-video w-full overflow-hidden rounded-t-lg bg-muted">
                           <img
                             src={resource.thumbnailUrl}
@@ -116,15 +116,16 @@ export default function Library() {
                         >
                           <Heart className="h-4 w-4 fill-current" />
                         </Button>
-                        {resource.fileUrl && (
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
+                        {(resource as any).hasFile && (resource as any).canOpen && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             className="h-8 w-8 p-0"
                             onClick={(e) => {
                               e.preventDefault();
-                              window.open(resource.fileUrl!, "_blank");
+                              window.open(`/api/resources/download/${resource.id}`, "_blank");
                             }}
+                            title="Télécharger"
                           >
                             <Download className="h-4 w-4" />
                           </Button>

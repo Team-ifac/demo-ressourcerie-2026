@@ -17,9 +17,9 @@ export default function AdminCollectionsManagement() {
   const { data: collections, isLoading: collectionsLoading, refetch: refetchCollections } = 
     trpc.collections.getAllCollections.useQuery();
 
-  // Récupérer toutes les ressources
-  const { data: allResources, isLoading: resourcesLoading } = 
-    trpc.collections.getAllResourcesForAdmin.useQuery();
+  // Récupérer toutes les ressources (admin)
+  const { data: allResources, isLoading: resourcesLoading } =
+    trpc.resources.getAllResourcesForAdmin.useQuery();
 
   // Récupérer les ressources d'une collection
   const { data: collectionData, isLoading: collectionDataLoading } = 
