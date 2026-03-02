@@ -43,10 +43,12 @@ export function isBypassUser(me: MeLike): boolean {
 
 export function isPremiumUser(me: MeLike): boolean {
   if (!me) return false;
+
   return (
     !!(me as any).isPremium ||
     (me as any).premium === true ||
-    (me as any).entitlements?.premium === true
+    (me as any).entitlements?.premium === true ||
+    (me as any).entitlements?.isPremium === true
   );
 }
 

@@ -472,7 +472,11 @@ app.use("/api", apiLimiter);
       const me: any = (ctx as any)?.me ?? (ctx as any)?.user ?? null;
 
       // ✅ Source de vérité : DB
-      const resource: any = await db.getResourceById(id);
+      const resource: any = await db.getResourceById(id, {
+  includeInternal: true,
+  includePremium: true,
+  isAdmin: true,
+});
       if (!resource) {
         log.info({ event: "resource_download_not_found", resourceId: id, actor: me ? { id: me.id, role: me.role } : null }, "Resource not found");
         return res.status(404).send("Not found");
@@ -492,31 +496,23 @@ app.use("/api", apiLimiter);
         "Download attempt"
       );
 
-      // ✅ Entitlements canonique (audit-proof) — même logique que tRPC
-      const isLogged = !!me;
-      let isPremium = false;
+      // ✅ Entitlements canonique (audit-proof) — module partagé (outil national)
+      // Objectif : même logique partout, sans import depuis "../routers" (évite les dépendances circulaires)
+      const { buildEntitlementsForUser } = await import("./entitlements");
+      const entState = await buildEntitlementsForUser(me);
 
-      if (isLogged) {
-        try {
-          // même helper que routers.ts
-          const { resolveIsPremium } = await import("../routers");
-          isPremium = await resolveIsPremium(me.id);
-        } catch {
-          isPremium = false;
-        }
-      }
-
-      // staff/admin
-      const isAdmin = !!me && me.role === "admin";
-      const isStaff = isAdmin; // (si tu as un vrai champ staff plus tard, on l’ajoutera ici)
+      const isLogged = entState.isLogged;
+      const isAdmin = entState.isAdmin;
+      const isStaff = entState.entitlements.isStaff;   // ✅ formateur => staff
+      const isPremium = entState.entitlements.isPremium;
 
       // injecte entitlements dans me pour que la policy soit 100% fiable
-      const meWithEntitlements = me
-        ? { ...me, entitlements: { isAuthenticated: isLogged, isPremium, isStaff } }
-        : null;
+const meWithEntitlements = me
+  ? { ...me, entitlements: entState.entitlements }
+  : null;
 
-      // ✅ SÉCURITÉ DOWNLOAD : appliquée côté serveur (source de vérité = policy)
-      if (!canDownloadResource({ resource, me: meWithEntitlements })) {
+// ✅ SÉCURITÉ DOWNLOAD : appliquée côté serveur (source de vérité = policy)
+if (!canDownloadResource({ resource, me: meWithEntitlements })) {
         log.warn(
           {
             event: "resource_download_forbidden",

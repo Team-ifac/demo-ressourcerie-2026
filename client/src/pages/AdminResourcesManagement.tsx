@@ -1222,8 +1222,9 @@ const hasFile =
     const count = (r as any)?.historyCount ?? 0;
 
     let cls = "bg-gray-100 text-gray-700";
-    if (count >= 5) cls = "bg-orange-100 text-orange-800";
-    else if (count >= 1) cls = "bg-blue-100 text-blue-800";
+if (count >= 10) cls = "bg-red-100 text-red-800";
+else if (count >= 5) cls = "bg-orange-100 text-orange-800";
+else if (count >= 1) cls = "bg-blue-100 text-blue-800";
 
     return (
       <span className={`rounded-md px-2 py-1 text-sm ${cls}`}>

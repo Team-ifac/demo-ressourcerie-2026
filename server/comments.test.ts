@@ -13,6 +13,15 @@ const user1Context: Context = {
     loginMethod: "test",
     lastSignedIn: new Date(),
   },
+  me: {
+    id: 1,
+    openId: "user1-test",
+    name: "User 1 Test",
+    email: "user1@test.com",
+    role: "user",
+    loginMethod: "test",
+    lastSignedIn: new Date(),
+  },
   req: {} as any,
   res: {} as any,
 };
@@ -20,6 +29,15 @@ const user1Context: Context = {
 // Mock context pour utilisateur·rice 2
 const user2Context: Context = {
   user: {
+    id: 2,
+    openId: "user2-test",
+    name: "User 2 Test",
+    email: "user2@test.com",
+    role: "user",
+    loginMethod: "test",
+    lastSignedIn: new Date(),
+  },
+  me: {
     id: 2,
     openId: "user2-test",
     name: "User 2 Test",
@@ -43,13 +61,23 @@ const adminContext: Context = {
     loginMethod: "test",
     lastSignedIn: new Date(),
   },
+  me: {
+    id: 3,
+    openId: "admin-test",
+    name: "Admin Test",
+    email: "admin@test.com",
+    role: "admin",
+    loginMethod: "test",
+    lastSignedIn: new Date(),
+  },
   req: {} as any,
   res: {} as any,
 };
 
 // Mock context pour visiteur·euse non connecté·e
 const guestContext: Context = {
-  user: undefined,
+  user: null,
+  me: null,
   req: {} as any,
   res: {} as any,
 };
