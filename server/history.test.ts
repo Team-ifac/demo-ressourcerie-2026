@@ -65,6 +65,7 @@ describe("Resource History API", () => {
       content: "Contenu de test",
       type: "Article",
       visibility: "PUBLIC",
+      status: "approved",
       themeIds: [],
     });
 

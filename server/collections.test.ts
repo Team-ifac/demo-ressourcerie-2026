@@ -19,6 +19,16 @@ const user1Context: Context = {
     loginMethod: "test",
     lastSignedIn: new Date("2026-01-01T00:00:00.000Z"),
   },
+  // ✅ TrpcContext exige aussi "me"
+  me: {
+    id: 1,
+    openId: "user1-test",
+    name: "User 1 Test",
+    email: "user1@test.com",
+    role: "user",
+    loginMethod: "test",
+    lastSignedIn: new Date("2026-01-01T00:00:00.000Z"),
+  },
   req: {} as any,
   res: {} as any,
 };
@@ -26,6 +36,15 @@ const user1Context: Context = {
 // Mock context pour utilisateur·rice 2
 const user2Context: Context = {
   user: {
+    id: 2,
+    openId: "user2-test",
+    name: "User 2 Test",
+    email: "user2@test.com",
+    role: "user",
+    loginMethod: "test",
+    lastSignedIn: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  me: {
     id: 2,
     openId: "user2-test",
     name: "User 2 Test",
@@ -49,13 +68,23 @@ const adminContext: Context = {
     loginMethod: "test",
     lastSignedIn: new Date("2026-01-01T00:00:00.000Z"),
   },
+  me: {
+    id: 3,
+    openId: "admin-test",
+    name: "Admin Test",
+    email: "admin@test.com",
+    role: "admin",
+    loginMethod: "test",
+    lastSignedIn: new Date("2026-01-01T00:00:00.000Z"),
+  },
   req: {} as any,
   res: {} as any,
 };
 
 // Mock context pour visiteur·euse non connecté·e
 const guestContext: Context = {
-  user: undefined,
+  user: null,
+  me: null,
   req: {} as any,
   res: {} as any,
 };
@@ -74,13 +103,13 @@ describe.sequential("Collections API", () => {
   beforeAll(async () => {
     // Créer une ressource de test (admin)
     const caller = appRouter.createCaller(adminContext);
+
     const resourceResult = await caller.resources.create({
       title: `Ressource pour test collections (${runId})`,
       summary: "Une ressource de test",
       content: "Contenu de test",
       type: "Fiche",
-      // ⚠️ garde ce champ tel quel si ton router attend "visibility"
-      // Si ton modèle a basculé sur "accessLevel", il faudra adapter ici.
+      // ✅ Ton router attend "visibility" (d'après l'erreur TS)
       visibility: "PUBLIC",
       themeIds: [],
     });
@@ -92,11 +121,9 @@ describe.sequential("Collections API", () => {
     // Best-effort cleanup (ne doit pas faire échouer la suite si déjà supprimé)
     const adminCaller = appRouter.createCaller(adminContext);
 
-    // Supprime la ressource test si ton router expose delete côté admin.
-    // Si la route n'existe pas, enlève ce bloc.
+    // Supprime la ressource test si la route existe.
     try {
-      // @ts-expect-error - selon ton router, delete peut ne pas exister
-      await adminCaller.resources.delete({ id: resourceId });
+      await (adminCaller.resources as any).delete?.({ id: resourceId });
     } catch {
       // ignore
     }
@@ -105,7 +132,7 @@ describe.sequential("Collections API", () => {
     if (newCollectionId) {
       try {
         const user1Caller = appRouter.createCaller(user1Context);
-        await user1Caller.collections.delete({ id: newCollectionId });
+        await (user1Caller.collections as any).delete?.({ id: newCollectionId });
       } catch {
         // ignore
       }
@@ -116,7 +143,7 @@ describe.sequential("Collections API", () => {
     const caller = appRouter.createCaller(guestContext);
 
     await expect(
-      caller.collections.create({
+      (caller.collections as any).create({
         name: `Ma collection (${runId})`,
         description: "Description de test",
         isPublic: false,
@@ -126,7 +153,8 @@ describe.sequential("Collections API", () => {
 
   it("should allow authenticated user to create a collection", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const result = await caller.collections.create({
+
+    const result = await (caller.collections as any).create({
       name: collectionName1,
       description: "Une collection de test",
       isPublic: false,
@@ -139,19 +167,21 @@ describe.sequential("Collections API", () => {
 
   it("should list user's collections", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const collections = await caller.collections.list();
+
+    const collections = await (caller.collections as any).list();
 
     expect(Array.isArray(collections)).toBe(true);
     expect(collections.length).toBeGreaterThan(0);
 
-    const createdCollection = collections.find((c) => c.id === collectionId);
+    const createdCollection = collections.find((c: any) => c.id === collectionId);
     expect(createdCollection).toBeDefined();
     expect(createdCollection?.name).toBe(collectionName1);
   });
 
   it("should get a collection by ID (owner)", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const collection = await caller.collections.getById({ id: collectionId });
+
+    const collection = await (caller.collections as any).getById({ id: collectionId });
 
     expect(collection).toBeDefined();
     expect(collection?.name).toBe(collectionName1);
@@ -161,12 +191,13 @@ describe.sequential("Collections API", () => {
   it("should prevent non-owner from accessing private collection", async () => {
     const caller = appRouter.createCaller(user2Context);
 
-    await expect(caller.collections.getById({ id: collectionId })).rejects.toThrow();
+    await expect((caller.collections as any).getById({ id: collectionId })).rejects.toThrow();
   });
 
   it("should allow owner to update their collection", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const result = await caller.collections.update({
+
+    const result = await (caller.collections as any).update({
       id: collectionId,
       name: updatedName,
       isPublic: true,
@@ -175,14 +206,15 @@ describe.sequential("Collections API", () => {
     expect(result.success).toBe(true);
 
     // Vérifier la mise à jour
-    const updatedCollection = await caller.collections.getById({ id: collectionId });
+    const updatedCollection = await (caller.collections as any).getById({ id: collectionId });
     expect(updatedCollection?.name).toBe(updatedName);
     expect(updatedCollection?.isPublic).toBe(true);
   });
 
   it("should allow non-owner to access public collection", async () => {
     const caller = appRouter.createCaller(user2Context);
-    const collection = await caller.collections.getById({ id: collectionId });
+
+    const collection = await (caller.collections as any).getById({ id: collectionId });
 
     expect(collection).toBeDefined();
     expect(collection?.name).toBe(updatedName);
@@ -192,7 +224,7 @@ describe.sequential("Collections API", () => {
     const caller = appRouter.createCaller(user2Context);
 
     await expect(
-      caller.collections.update({
+      (caller.collections as any).update({
         id: collectionId,
         name: `Tentative de modification (${runId})`,
       })
@@ -201,7 +233,8 @@ describe.sequential("Collections API", () => {
 
   it("should add a resource to collection", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const result = await caller.collections.addResource({
+
+    const result = await (caller.collections as any).addResource({
       collectionId,
       resourceId,
     });
@@ -211,7 +244,8 @@ describe.sequential("Collections API", () => {
 
   it("should list resources in collection", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const resources = await caller.collections.getResources({ collectionId });
+
+    const resources = await (caller.collections as any).getResources({ collectionId });
 
     expect(Array.isArray(resources)).toBe(true);
     expect(resources.length).toBe(1);
@@ -221,7 +255,8 @@ describe.sequential("Collections API", () => {
 
   it("should check if resource is in collection", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const result = await caller.collections.checkResource({
+
+    const result = await (caller.collections as any).checkResource({
       collectionId,
       resourceId,
     });
@@ -231,7 +266,8 @@ describe.sequential("Collections API", () => {
 
   it("should remove a resource from collection", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const result = await caller.collections.removeResource({
+
+    const result = await (caller.collections as any).removeResource({
       collectionId,
       resourceId,
     });
@@ -239,7 +275,7 @@ describe.sequential("Collections API", () => {
     expect(result.success).toBe(true);
 
     // Vérifier la suppression
-    const checkResult = await caller.collections.checkResource({
+    const checkResult = await (caller.collections as any).checkResource({
       collectionId,
       resourceId,
     });
@@ -248,18 +284,20 @@ describe.sequential("Collections API", () => {
 
   it("should allow owner to delete their collection", async () => {
     const caller = appRouter.createCaller(user1Context);
-    const result = await caller.collections.delete({ id: collectionId });
+
+    const result = await (caller.collections as any).delete({ id: collectionId });
 
     expect(result.success).toBe(true);
 
     // Vérifier que la collection n'existe plus
-    await expect(caller.collections.getById({ id: collectionId })).rejects.toThrow();
+    await expect((caller.collections as any).getById({ id: collectionId })).rejects.toThrow();
   });
 
   it("should prevent non-owner from deleting collection", async () => {
     // Créer une nouvelle collection (owner = user1)
     const caller1 = appRouter.createCaller(user1Context);
-    const createResult = await caller1.collections.create({
+
+    const createResult = await (caller1.collections as any).create({
       name: protectedName,
       isPublic: true,
     });
@@ -268,10 +306,10 @@ describe.sequential("Collections API", () => {
 
     // Tenter de supprimer avec un autre utilisateur
     const caller2 = appRouter.createCaller(user2Context);
-    await expect(caller2.collections.delete({ id: newCollectionId })).rejects.toThrow();
+    await expect((caller2.collections as any).delete({ id: newCollectionId })).rejects.toThrow();
 
     // Cleanup best-effort (owner supprime)
-    await expect(caller1.collections.delete({ id: newCollectionId })).resolves.toMatchObject({
+    await expect((caller1.collections as any).delete({ id: newCollectionId })).resolves.toMatchObject({
       success: true,
     });
   });
