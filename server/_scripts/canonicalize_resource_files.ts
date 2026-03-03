@@ -40,13 +40,27 @@ async function main() {
         ? String(r.fileUrl).trim()
         : null;
 
-    // ✅ CAS 1 : storageKey déjà présent → OK
+    // ✅ CAS 0 (PRO) : bothSet (storageKey + fileUrl) => canonique = storageKey only
+    if (storageKey && fileUrl) {
+      await db
+        .update(resourcesTable)
+        .set({
+          fileUrl: null,
+        })
+        .where(eq(resourcesTable.id, id));
+
+      console.log(`🧹 Resource ${id} canonicalisée (fileUrl supprimé, storageKey conservé)`);
+      updated++;
+      continue;
+    }
+
+    // ✅ CAS 1 : storageKey déjà présent (et pas de fileUrl) → OK
     if (storageKey) {
       skipped++;
       continue;
     }
 
-    // ✅ CAS 2 : fileUrl existe → on le migre vers storageKey
+    // ✅ CAS 2 : fileUrl existe (storageKey absent) → on migre vers storageKey
     if (fileUrl) {
       await db
         .update(resourcesTable)

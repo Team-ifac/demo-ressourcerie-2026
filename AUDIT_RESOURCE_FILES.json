@@ -1,14 +1,14 @@
 {
   "totals": {
-    "total": 53,
-    "canonicalOnly": 52,
+    "total": 87,
+    "canonicalOnly": 71,
     "legacyOnly": 0,
     "bothSet": 0,
-    "noFile": 1,
+    "noFile": 16,
     "importedFile": 0,
     "httpFile": 0,
     "otherFile": 0,
-    "thumbUrlNoKey": 0,
+    "thumbUrlNoKey": 15,
     "thumbKeyNoUrl": 0,
     "thumbImportedMismatch": 0
   },
