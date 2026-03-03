@@ -11,7 +11,7 @@ Total: 87
 http(s):                     0
 autres fileUrl:              0
 
-thumbUrl sans thumbKey:      15
+thumbUrl sans thumbKey:      0
 thumbKey sans thumbUrl:      0
 thumbUrl suspect (imported): 0
 
