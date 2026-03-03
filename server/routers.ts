@@ -8,6 +8,7 @@ import { storagePut, storageGet } from "./storage";
 import { notifyOwner } from "./_core/notification";
 import { generateImage } from "./_core/imageGeneration";
 import { analyzeDuplicates, removeDuplicates } from "./deduplication";
+import { autoAssociateResourcesToCollections } from "./collectionMatcher";
 import * as stripeService from "./stripe";
 import { cmsRouter } from "./cmsRouter";
 import * as authService from "./auth";
@@ -524,6 +525,28 @@ export const appRouter = router({
 
   // ✅ BRANCHEMENT tRPC : ADMIN CATEGORY NODES
   adminCategoryNodes,
+
+  // ✅ AUTO-ASSOCIATION (admin) — classer automatiquement les ressources dans les collections
+  collectionAssociation: router({
+    autoAssociate: adminProcedure
+      .input(
+        z.object({
+          minScore: z.number().int().min(0).max(100).optional(),
+          overwrite: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const result: any = await autoAssociateResourcesToCollections({
+          minScore: input.minScore ?? 30,
+          overwrite: input.overwrite ?? false,
+        } as any);
+
+        return {
+          associationsCreated: result?.associationsCreated ?? result?.created ?? 0,
+          associationsSkipped: result?.associationsSkipped ?? result?.skipped ?? 0,
+        };
+      }),
+  }),
 
   auth: router({
     me: publicProcedure.query((opts) => {

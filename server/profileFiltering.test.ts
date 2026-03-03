@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "./db";
 import * as db from "./db";
-import { resources, resourceProfiles } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { resources, resourceProfiles, profileTypes } from "../drizzle/schema";
+import { eq, sql } from "drizzle-orm";
 
 describe("Profile Filtering System", () => {
   let testResourceId: number | null = null;
@@ -11,7 +11,26 @@ describe("Profile Filtering System", () => {
     const database = await getDb();
     if (!database) throw new Error("Database not available");
 
-    // ✅ Insert + get id reliably (no title re-select)
+    // ✅ 1) Récupère l'id du profile "animateur" sans dépendre d'un champ TS (slug/name/code…)
+        // ✅ Récupère l'id du profileType "animateur" via Drizzle (colonne key)
+    const animateurRows = await database
+      .select({ id: profileTypes.id })
+      .from(profileTypes)
+      .where(eq(profileTypes.key, "animateur"))
+      .limit(1);
+
+    const animateurProfileTypeId = animateurRows[0]?.id;
+
+    if (!animateurProfileTypeId) {
+      throw new Error(
+        'ProfileType "animateur" introuvable dans la table profile_types (colonne key).'
+      );
+    }
+
+    // ✅ 2) Insert ressource : IMPORTANT -> contrainte SQL
+    // chk_resources_visibility_matches_accessLevel :
+    // - accessLevel = PUBLIC => visibility = PUBLIC
+    // - accessLevel != PUBLIC => visibility = INTERNAL_IFAC
     const inserted = await database
       .insert(resources)
       .values({
@@ -20,35 +39,32 @@ describe("Profile Filtering System", () => {
         content: "Test content",
         type: "activity",
 
-        // ⚠️ Align with Ressourcerie ifac model
-        // PUBLIC = visible to everyone
-        // INTERNAL_IFAC = visible to connected (non-premium) if includeInternal = true
+        // ✅ Important : getAllResources filtre souvent sur approved
+        status: "approved",
+
+        // ✅ Doit rester cohérent avec le CHECK SQL
         accessLevel: "INTERNAL_IFAC",
+        visibility: "INTERNAL_IFAC",
+      } as any)
+      .$returningId();
 
-        // Keep these only if they exist in your schema; otherwise remove them.
-        // If your schema doesn't have `visibility`, delete this line.
-        visibility: "PUBLIC",
+    const insertedId = Array.isArray(inserted)
+      ? inserted[0]?.id
+      : (inserted as any)?.id;
 
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning({ id: resources.id });
+    if (!insertedId) throw new Error("Failed to create test resource");
+    testResourceId = insertedId;
 
-    if (!inserted?.length) throw new Error("Failed to create test resource");
-
-    testResourceId = inserted[0].id;
-
+    // ✅ 3) Lier la ressource au profileType animateur
     await database.insert(resourceProfiles).values({
       resourceId: testResourceId,
-      profileType: "animateur",
-    });
+      profileTypeId: animateurProfileTypeId,
+    } as any);
   });
 
   afterAll(async () => {
     const database = await getDb();
     if (!database) return;
-
-    // ✅ Avoid crashing cleanup if beforeAll failed
     if (!testResourceId) return;
 
     await database
@@ -85,7 +101,6 @@ describe("Profile Filtering System", () => {
         includeInternal: true,
       });
 
-      // ✅ In our model: connected (includeInternal) can see PUBLIC + INTERNAL_IFAC (and maybe PREMIUM depending on user context)
       list.forEach((r) => {
         expect(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"]).toContain(r.accessLevel);
       });
@@ -109,7 +124,6 @@ describe("Profile Filtering System", () => {
 
       expect(publicResources.length).toBeGreaterThan(0);
 
-      // ✅ Only PUBLIC when includeInternal=false
       publicResources.forEach((r) => {
         expect(r.accessLevel).toBe("PUBLIC");
       });

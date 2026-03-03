@@ -319,6 +319,10 @@ export const users = mysqlTable(
     email: varchar({ length: 320 }),
     loginMethod: varchar({ length: 64 }),
     role: mysqlEnum(["user", "admin"]).default("user").notNull(),
+
+    // ✅ Premium manuel (override) — 0/1 en DB
+    premiumOverride: int().default(0).notNull(),
+
     createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
     updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
     lastSignedIn: timestamp({ mode: "string" }).defaultNow().notNull(),

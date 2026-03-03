@@ -387,23 +387,25 @@ export async function getAllResources(filters?: {
   // IMPORTANT : par défaut, on n'expose jamais PREMIUM via ce listing "standard".
   // Le listing PREMIUM doit être demandé explicitement (includePremium=true) après décision tRPC + entitlements.
   if (!isAdminView) {
+    // ✅ Compat legacy : AUTHENTICATED = ancien label de INTERNAL_IFAC
+    // On le traite comme INTERNAL_IFAC pour ne pas casser les vieux contenus / fixtures de tests.
+    const internalOrLegacyAuthenticated = or(
+      eq(resources.accessLevel, "INTERNAL_IFAC"),
+      eq(resources.accessLevel as any, "AUTHENTICATED" as any)
+    );
+
     if (!filters?.includeInternal) {
       conditions.push(eq(resources.accessLevel, "PUBLIC"));
     } else if (filters?.includePremium) {
       conditions.push(
         or(
           eq(resources.accessLevel, "PUBLIC"),
-          eq(resources.accessLevel, "INTERNAL_IFAC"),
+          internalOrLegacyAuthenticated,
           eq(resources.accessLevel, "PREMIUM")
         )
       );
     } else {
-      conditions.push(
-        or(
-          eq(resources.accessLevel, "PUBLIC"),
-          eq(resources.accessLevel, "INTERNAL_IFAC")
-        )
-      );
+      conditions.push(or(eq(resources.accessLevel, "PUBLIC"), internalOrLegacyAuthenticated));
     }
   }
 
@@ -1446,19 +1448,24 @@ export async function createComment(data: { resourceId: number; userId: number; 
   return Number((result as any).insertId);
 }
 
-export async function updateComment(id: number, data: { content?: string; rating?: number }) {
+export async function updateComment(
+  id: number,
+  data: { content?: string; rating?: number }
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const { comments } = await import("../drizzle/schema");
+  // ✅ No-op si rien à mettre à jour
+  const patch: any = {};
+  if (data.content !== undefined) patch.content = data.content;
+  if (data.rating !== undefined) patch.rating = data.rating;
 
-  await db
-    .update(comments)
-    .set({
-      ...data,
-      updatedAt: new Date().toISOString() as any,
-    })
-    .where(eq(comments.id, id));
+  if (Object.keys(patch).length === 0) return;
+
+  // ✅ Source de vérité DB (timezone/format gérés par MySQL)
+  patch.updatedAt = sql`NOW()`;
+
+  await db.update(comments).set(patch).where(eq(comments.id, id));
 }
 
 export async function deleteComment(id: number) {

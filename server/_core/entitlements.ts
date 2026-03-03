@@ -1,4 +1,6 @@
 import * as db from "../db";
+import { users } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * Entitlements canonique (outil national)
@@ -28,26 +30,15 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
     const dbConn = await db.getDb();
     if (!dbConn) return false;
 
-    // 1) ✅ PREMIUM OVERRIDE (users.premiumOverride)
+    // 1) ✅ PREMIUM OVERRIDE (users.premiumOverride) — version stable (Drizzle select)
     try {
-      const { sql } = await import("drizzle-orm");
+      const rows: any[] = await dbConn
+        .select()
+        .from(users as any)
+        .where(eq((users as any).id, userId))
+        .limit(1);
 
-      const res: any = await dbConn.execute(
-        sql`SELECT premiumOverride AS premiumOverride FROM users WHERE id = ${userId} LIMIT 1`
-      );
-
-      let row: any = null;
-
-      if (res && Array.isArray(res.rows)) {
-        row = res.rows[0] ?? null;
-      } else if (Array.isArray(res) && Array.isArray(res[0])) {
-        row = res[0][0] ?? null; // mysql2: [rows, fields]
-      } else if (Array.isArray(res)) {
-        row = res[0] ?? null;
-      } else if (res && typeof res === "object") {
-        row = (res as any)[0] ?? null;
-      }
-
+      const row: any = rows?.[0] ?? null;
       const overrideVal = row?.premiumOverride ?? null;
 
       if (
@@ -59,7 +50,7 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
         return true;
       }
     } catch (e) {
-      console.warn("[resolveIsPremium] premiumOverride SQL check skipped:", e);
+      console.warn("[resolveIsPremium] premiumOverride Drizzle check skipped:", e);
     }
 
     // 2) ✅ legacy : user_entitlements (si présent)

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { trpc } from "@/lib/trpc";
 import { Zap, CheckCircle, AlertCircle } from "lucide-react";
+
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Progress } from "../components/ui/progress";
+
+import { trpc } from "../lib/trpc";
 
 export default function AdminAutoClassify() {
   const [isClassifying, setIsClassifying] = useState(false);
