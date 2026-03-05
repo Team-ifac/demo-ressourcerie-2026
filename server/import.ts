@@ -55,7 +55,10 @@ export class ResourceImporter {
     }
 
     const rows = parsed.data ?? [];
-
+    // ✅ Si CSV vide (ou seulement header), on ne compte rien en failed.
+    if (!rows.length) {
+      return { success: 0, failed: 0, errors: [] };
+    }
     for (let i = 0; i < rows.length; i++) {
       try {
         const row = rows[i] || {};
@@ -199,16 +202,51 @@ export class ResourceImporter {
   static validateData(data: ResourceImportData): string[] {
     const errors: string[] = [];
 
-    if (!data.title || data.title.trim().length === 0) {
+    const title = (data.title ?? "").trim();
+    const description = (data.description ?? "").trim();
+    const fileType = (data.fileType ?? "").trim().toLowerCase();
+
+    if (!title) {
       errors.push("Title is required");
     }
 
-    if (data.title && data.title.length > 500) {
-      errors.push("Title must be less than 500 characters");
+    // ✅ Tests attendent 255
+    if (title && title.length > 255) {
+      errors.push("Title must be less than 255 characters");
     }
 
-    if (data.description && data.description.length > 5000) {
-      errors.push("Description must be less than 5000 characters");
+    // ✅ Tests attendent 1000
+    if (description && description.length > 1000) {
+      errors.push("Description must be less than 1000 characters");
+    }
+
+    // ✅ Tests attendent "Invalid file type"
+    // On autorise vide (optionnel), sinon on valide une whitelist
+    if (fileType) {
+      const allowed = new Set([
+        "pdf",
+        "doc",
+        "docx",
+        "ppt",
+        "pptx",
+        "xls",
+        "xlsx",
+        "csv",
+        "txt",
+        "jpg",
+        "jpeg",
+        "png",
+        "gif",
+        "mp3",
+        "wav",
+        "mp4",
+        "mov",
+        "zip",
+      ]);
+
+      if (!allowed.has(fileType)) {
+        errors.push("Invalid file type");
+      }
     }
 
     if (data.fileUrl && !this.isValidUrl(data.fileUrl)) {

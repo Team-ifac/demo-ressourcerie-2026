@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from './db';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { getPopularResources, getRecentResources } from "./db";
 
 describe('Améliorations Phase 27', () => {
   describe('Fonction getPopularResources', () => {
     it('devrait retourner les ressources triées par nombre de vues', async () => {
-      const resources = await db.getPopularResources(6, false);
+      const resources = await getPopularResources(6, false);
       
       expect(Array.isArray(resources)).toBe(true);
       expect(resources.length).toBeLessThanOrEqual(6);
@@ -19,13 +19,13 @@ describe('Améliorations Phase 27', () => {
 
     it('devrait respecter la limite de ressources', async () => {
       const limit = 3;
-      const resources = await db.getPopularResources(limit, false);
+      const resources = await getPopularResources(limit, false);
       
       expect(resources.length).toBeLessThanOrEqual(limit);
     });
 
     it('devrait filtrer les ressources internes si includeInternal est false', async () => {
-      const publicResources = await db.getPopularResources(10, false);
+      const publicResources = await getPopularResources(10, false);
       
       publicResources.forEach((resource) => {
         expect(resource.visibility).toBe('PUBLIC');
@@ -33,7 +33,7 @@ describe('Améliorations Phase 27', () => {
     });
 
     it('devrait inclure les ressources internes si includeInternal est true', async () => {
-      const allResources = await db.getPopularResources(10, true);
+      const allResources = await getPopularResources(10, true);
       
       // Vérifier qu'il y a au moins une ressource
       expect(allResources.length).toBeGreaterThan(0);
@@ -42,7 +42,7 @@ describe('Améliorations Phase 27', () => {
 
   describe('Fonction getRecentResources', () => {
     it('devrait retourner les ressources triées par date décroissante', async () => {
-      const resources = await db.getRecentResources(6, false);
+      const resources = await getRecentResources(6, false);
       
       expect(Array.isArray(resources)).toBe(true);
       expect(resources.length).toBeLessThanOrEqual(6);
@@ -57,7 +57,7 @@ describe('Améliorations Phase 27', () => {
 
     it('devrait respecter la limite de ressources', async () => {
       const limit = 4;
-      const resources = await db.getRecentResources(limit, false);
+      const resources = await getRecentResources(limit, false);
       
       expect(resources.length).toBeLessThanOrEqual(limit);
     });
@@ -65,7 +65,7 @@ describe('Améliorations Phase 27', () => {
 
   describe('Schéma des ressources', () => {
     it('devrait avoir la colonne viewCount', async () => {
-      const resources = await db.getPopularResources(1, true);
+      const resources = await getPopularResources(1, true);
       
       if (resources.length > 0) {
         expect(resources[0]).toHaveProperty('viewCount');

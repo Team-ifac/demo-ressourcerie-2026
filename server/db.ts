@@ -768,11 +768,16 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   //   - INTERNAL_IFAC/PREMIUM -> INTERNAL_IFAC
   // =========================================================
   const patch: any = { ...(resource as any) };
+
+  // 🔒 On lit l’info d’actor AVANT de supprimer le champ technique
+  const actorRole = String((patch as any)?._actorRole ?? "").toLowerCase();
+  const isAdminActor = actorRole === "admin";
+
   // ✅ On retire le champ technique avant update DB (ne doit JAMAIS finir en base)
   if ((patch as any)?._actorRole !== undefined) {
     delete (patch as any)._actorRole;
   }
-  
+
   // =========================================================
   // 🏛 PILIER 4 — Revalidation automatique (correcte)
   // Objectif :
@@ -863,12 +868,7 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   // ✅ Option 2 (validée) : Admin tout-puissant
   // - Si l'update vient d'un admin, on autorise toutes les transitions.
   // - Sinon, on garde le verrouillage strict.
-  const isAdmin = String((patch as any)?._actorRole ?? "").toLowerCase() === "admin";
-
-  // ✅ On retire le champ technique avant update DB (ne doit JAMAIS finir en base)
-  if ((patch as any)?._actorRole !== undefined) {
-    delete (patch as any)._actorRole;
-  }
+  const isAdmin = isAdminActor;
 
   const previousStatusStrict = String(current?.status ?? "draft").toLowerCase();
   const nextStatus = String(patch?.status ?? current?.status ?? "draft").toLowerCase();
@@ -1808,8 +1808,18 @@ export async function getUserProfile(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const result = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
-  return result[0] || null;
+  const result = await db
+    .select({
+      userId: userProfiles.userId,
+      profileTypeId: userProfiles.profileTypeId,
+      profileType: profileTypes.key,
+    })
+    .from(userProfiles)
+    .innerJoin(profileTypes, eq(userProfiles.profileTypeId, profileTypes.id))
+    .where(eq(userProfiles.userId, userId))
+    .limit(1);
+
+  return result[0] ?? null;
 }
 
 // ============ FORMATEUR HELPERS ============
@@ -1845,7 +1855,10 @@ export async function authenticateFormateur(email: string, password: string) {
   const isPasswordValid = await bcrypt.compare(password, formateur.passwordHash);
   if (!isPasswordValid) return null;
 
-  await db.update(formateurs).set({ lastLogin: new Date().toISOString() }).where(eq(formateurs.id, formateur.id));
+  await db
+  .update(formateurs)
+  .set({ lastLogin: sql`NOW()` })
+  .where(eq(formateurs.id, formateur.id));
 
   return formateur;
 }

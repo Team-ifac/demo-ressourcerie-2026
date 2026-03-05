@@ -22,6 +22,7 @@ describe('Access Levels System', () => {
       type: 'activity',
       visibility: 'PUBLIC',
       accessLevel: 'PUBLIC',
+      status: 'approved',
       createdAt: mysqlDateTime,
       updatedAt: mysqlDateTime,
     };

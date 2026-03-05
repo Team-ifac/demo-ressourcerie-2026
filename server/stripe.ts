@@ -15,7 +15,46 @@ const stripe = STRIPE_SECRET_KEY
 if (!stripe) {
   console.warn('[Stripe] STRIPE_SECRET_KEY is missing -> Stripe disabled (local dev mode).');
 }
+function unwrapRows(result: any): any[] {
+  if (!result) return [];
 
+  // Cas mysql2 classique : [rows, fields]
+  if (Array.isArray(result)) {
+    if (Array.isArray(result[0])) {
+      return result[0];
+    }
+
+    // Cas tuple mysql2 sans rows
+    if (
+      result.length === 2 &&
+      Array.isArray(result[1]) &&
+      result[1].length > 0 &&
+      typeof result[1][0] === "object" &&
+      result[1][0] !== null &&
+      "name" in result[1][0]
+    ) {
+      return [];
+    }
+
+    if (result.length === 0) return [];
+
+    if (typeof result[0] === "object" && result[0] !== null) {
+      return result as any[];
+    }
+
+    return [];
+  }
+
+  if (typeof result === "object") {
+    const anyRes: any = result;
+
+    if (Array.isArray(anyRes.rows)) return anyRes.rows;
+    if (Array.isArray(anyRes[0])) return anyRes[0];
+    if (Array.isArray(anyRes.result)) return anyRes.result;
+  }
+
+  return [];
+}
 /**
  * Créer une session de checkout Stripe
  */
@@ -72,7 +111,8 @@ export async function getOrCreateSubscription(userId: number) {
     sql`SELECT * FROM subscriptions WHERE userId = ${userId} AND status = 'active' LIMIT 1`
   );
 
-  return result[0] || null;
+  const rows = unwrapRows(result);
+  return rows[0] ?? null;
 }
 
 /**
@@ -86,7 +126,8 @@ export async function hasActiveSubscription(userId: number): Promise<boolean> {
     sql`SELECT id FROM subscriptions WHERE userId = ${userId} AND status = 'active' AND currentPeriodEnd > NOW() LIMIT 1`
   );
 
-  return result.length > 0;
+  const rows = unwrapRows(result);
+  return rows.length > 0;
 }
 
 /**

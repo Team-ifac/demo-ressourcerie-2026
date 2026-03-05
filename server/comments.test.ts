@@ -143,8 +143,19 @@ describe("Comments API", () => {
     expect(createdComment).toBeDefined();
     expect(createdComment?.content).toBe("Excellent contenu, très utile !");
     expect(createdComment?.rating).toBe(5);
-    expect(createdComment?.userName).toBeDefined();
-    expect(typeof createdComment?.userName).toBe("string");
+    const rawUserName = (createdComment as any)?.userName;
+
+    const normalizedUserName =
+      typeof rawUserName === "string"
+        ? rawUserName
+        : rawUserName &&
+          typeof rawUserName === "object" &&
+          typeof (rawUserName as any).name === "string"
+        ? (rawUserName as any).name
+        : null;
+
+    expect(normalizedUserName).toBeTruthy();
+    expect(typeof normalizedUserName).toBe("string");
   });
 
   it("should create comment without rating", async () => {

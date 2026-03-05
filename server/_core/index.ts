@@ -16,6 +16,7 @@ import { storageGet } from "../storage";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 
 import { logger, httpLogger } from "./logger";
 import { errorHandler } from "./errorHandler";
@@ -118,11 +119,18 @@ async function resolveDownloadTarget(fileUrlRaw: string): Promise<
 
 async function startServer() {
   const app = express();
-  const server = createServer(app);
+const server = createServer(app);
+
+// ✅ Nécessaire pour lire la session (COOKIE_NAME) dans createContext()
+// Sans ça : req.cookies = undefined => me=null => download => NOT_FOUND
+app.use(cookieParser());
 
     // ✅ Trust proxy (important pour récupérer la vraie IP derrière proxy)
   app.set("trust proxy", 1);
-
+    // ✅ Cookies (session auth)
+  app.use(cookieParser());
+  // ✅ Cookies (OBLIGATOIRE pour que createContext puisse lire la session)
+  app.use(cookieParser());
   // =========================================================
   // ✅ OBSERVABILITÉ — Logger HTTP (centralisé)
   // - Toute la config vit dans server/_core/logger.ts
