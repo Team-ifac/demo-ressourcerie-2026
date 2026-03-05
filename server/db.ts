@@ -768,7 +768,11 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   //   - INTERNAL_IFAC/PREMIUM -> INTERNAL_IFAC
   // =========================================================
   const patch: any = { ...(resource as any) };
-
+  // ✅ On retire le champ technique avant update DB (ne doit JAMAIS finir en base)
+  if ((patch as any)?._actorRole !== undefined) {
+    delete (patch as any)._actorRole;
+  }
+  
   // =========================================================
   // 🏛 PILIER 4 — Revalidation automatique (correcte)
   // Objectif :
@@ -782,8 +786,11 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   const statutDemande =
     statutDemandeBrut !== undefined ? String(statutDemandeBrut).toLowerCase() : undefined;
 
+  // ✅ IMPORTANT: on retire les champs techniques AVANT toute logique métier
+  const patchKeysForLogic = Object.keys(patch).filter((k) => k !== "_actorRole");
+
   // Vrai si on modifie au moins un champ autre que "status"
-  const modificationAutreQueStatut = Object.keys(patch).some((cle) => cle !== "status");
+  const modificationAutreQueStatut = patchKeysForLogic.some((cle) => cle !== "status");
 
   // Vrai si on a demandé explicitement un changement de statut (et pas juste "status" remis tel quel)
   const changementStatutExplicite =
@@ -797,9 +804,20 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
     patch.status = "pending";
   }
 
-  const nextAccessLevel = String(
+  // ✅ Normalisation canonique : l'ancien label "AUTHENTICATED" doit être traité comme "INTERNAL_IFAC"
+  const rawNextAccessLevel = String(
     patch?.accessLevel ?? current?.accessLevel ?? "PUBLIC"
   ).toUpperCase();
+
+  const nextAccessLevel =
+    rawNextAccessLevel === "AUTHENTICATED" ? "INTERNAL_IFAC" : rawNextAccessLevel;
+
+  // ✅ Si la ressource en base est encore en legacy AUTHENTICATED et que l'appel ne touche pas accessLevel,
+  // on en profite pour la "réparer" automatiquement (évite les violations de contrainte).
+  const currentAccessLevelUpper = String(current?.accessLevel ?? "").toUpperCase();
+  if ((patch as any).accessLevel === undefined && currentAccessLevelUpper === "AUTHENTICATED") {
+    (patch as any).accessLevel = "INTERNAL_IFAC";
+  }
 
   const canonicalVisibility =
     nextAccessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
@@ -880,10 +898,32 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
 
   const nextVisibility = String(patch?.visibility ?? current?.visibility ?? "PUBLIC").toUpperCase();
 
-  if (nextStatus !== "approved" && nextVisibility === "PUBLIC") {
-    throw new Error(
-      "Interdit : une ressource non publiée (draft/pending/rejected) ne peut pas être publique (PUBLIC)."
-    );
+  // =========================================================
+  // 🔧 COHÉRENCE DB (CRITIQUE)
+  // Règle produit + contrainte DB :
+  // - Tant que la ressource n’est pas "approved", elle ne peut PAS être publique.
+  //   => accessLevel ≠ PUBLIC ET visibility = INTERNAL_IFAC
+  // - Quand elle est "approved", visibility doit miroir strict de accessLevel
+  //   => PUBLIC -> PUBLIC, INTERNAL_IFAC/PREMIUM -> INTERNAL_IFAC
+  // =========================================================
+  const finalAccessLevelUpper = String(
+    patch?.accessLevel ?? current?.accessLevel ?? "PUBLIC"
+  ).toUpperCase();
+
+  const finalAccessLevel =
+    finalAccessLevelUpper === "AUTHENTICATED"
+      ? "INTERNAL_IFAC"
+      : finalAccessLevelUpper;
+
+  if (nextStatus !== "approved") {
+    // Non publié => jamais public (sinon on casse la contrainte chk_resources_visibility_matches_accessLevel)
+    if (finalAccessLevel === "PUBLIC") {
+      patch.accessLevel = "INTERNAL_IFAC";
+    }
+    patch.visibility = "INTERNAL_IFAC";
+  } else {
+    // Publié => miroir strict
+    patch.visibility = finalAccessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
   }
 
   await db.update(resources).set(patch).where(eq(resources.id, id));
@@ -989,7 +1029,10 @@ export async function deleteResource(id: number, actorUserId: number) {
     const __filename = fileURLToPath(import.meta.url);
     const __dirnameResolved = path.dirname(__filename);
 
-    const projectRoot = path.resolve(__dirnameResolved, "..");
+    // ✅ repo root (ne pas confondre avec /server)
+    // __dirnameResolved = dossier du fichier courant (souvent .../server/...)
+    // On remonte de 2 niveaux pour tomber sur la racine du projet.
+    const projectRoot = path.resolve(__dirnameResolved, "..", "..");
 
     const safeAbsFromPublicUrl = (url: string): string | null => {
       const raw = (url ?? "").trim();

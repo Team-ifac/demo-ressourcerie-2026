@@ -1,11 +1,13 @@
-import Stripe from 'stripe';
+import * as StripeSDK from "stripe";
+import type Stripe from "stripe";
+const StripeCtor: any = (StripeSDK as any).default ?? StripeSDK;
 import { getDb } from './db';
 import { sql } from 'drizzle-orm';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY?.trim();
 
 const stripe = STRIPE_SECRET_KEY
-  ? new Stripe(STRIPE_SECRET_KEY, {
+  ? new StripeCtor(STRIPE_SECRET_KEY, {
       apiVersion: '2025-12-15.clover',
     })
   : null;

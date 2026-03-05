@@ -102,15 +102,26 @@ describe.sequential("Collections API", () => {
 
   beforeAll(async () => {
     // Créer une ressource de test (admin)
+    // ✅ On force un état "publié" + niveau PUBLIC pour éviter toute règle
+    // qui interdit PUBLIC quand status != approved (audit-proof)
     const caller = appRouter.createCaller(adminContext);
 
-    const resourceResult = await caller.resources.create({
+    const resourceResult = await (caller.resources as any).create({
       title: `Ressource pour test collections (${runId})`,
       summary: "Une ressource de test",
       content: "Contenu de test",
       type: "Fiche",
-      // ✅ Ton router attend "visibility" (d'après l'erreur TS)
+
+      // ✅ Source de vérité côté sécurité = accessLevel
+      // (si ton schema zod ne le prend pas, il sera ignoré, mais s’il existe, ça stabilise)
+      accessLevel: "PUBLIC",
+
+      // ✅ Certains routes utilisent encore visibility (legacy)
       visibility: "PUBLIC",
+
+      // ✅ Le point critique : on force "approved" pour que PUBLIC soit toujours autorisé.
+      status: "approved",
+
       themeIds: [],
     });
 

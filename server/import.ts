@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { resources } from "../drizzle/schema";
+import Papa from "papaparse";
 
 export interface ResourceImportData {
   title: string;
@@ -29,38 +30,52 @@ export class ResourceImporter {
     failed: number;
     errors: Array<{ row: number; error: string }>;
   }> {
-    const lines = csvContent.split("\n").filter((line) => line.trim());
-    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
     const errors: Array<{ row: number; error: string }> = [];
     let success = 0;
     let failed = 0;
 
-    // Parse CSV and import
-    for (let i = 1; i < lines.length; i++) {
-      try {
-        const values = lines[i].split(",").map((v) => v.trim());
-        const row: Record<string, string> = {};
+    const parsed = Papa.parse<Record<string, string>>(csvContent, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: false,
+      transformHeader: (h) => (h ?? "").trim().toLowerCase(),
+      transform: (v) => (typeof v === "string" ? v.trim() : v),
+    });
 
-        headers.forEach((header, index) => {
-          row[header] = values[index] || "";
+    if (parsed.errors?.length) {
+      // Erreurs de parsing CSV (format cassé)
+      for (const e of parsed.errors) {
+        failed++;
+        errors.push({
+          row: (e.row ?? 0) + 1, // PapaParse: 0-based
+          error: e.message || "CSV parsing error",
         });
+      }
+      // On continue quand même sur les lignes valides si possible
+    }
+
+    const rows = parsed.data ?? [];
+
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        const row = rows[i] || {};
 
         const importData: ResourceImportData = {
           title: row.title || "",
           description: row.description || "",
           content: row.content || "",
           thematic: row.thematic || "",
-          fileUrl: row.file_url || "",
-          fileName: row.file_name || "",
-          fileType: row.file_type || "",
-          authorName: row.author_name || "",
-          tags: row.tags ? row.tags.split(";").map((t) => t.trim()) : [],
-          isPublic: row.is_public === "true" || row.is_public === "1",
+          fileUrl: row.file_url || row.fileurl || "",
+          fileName: row.file_name || row.filename || "",
+          fileType: row.file_type || row.filetype || "",
+          authorName: row.author_name || row.authorname || "",
+          tags: row.tags ? String(row.tags).split(";").map((t) => t.trim()).filter(Boolean) : [],
+          isPublic: String(row.is_public ?? "").toLowerCase() === "true" || String(row.is_public ?? "") === "1",
         };
 
-        // Validate required fields
-        if (!importData.title) {
-          throw new Error("Title is required");
+        const vErrors = this.validateData(importData);
+        if (vErrors.length) {
+          throw new Error(vErrors.join(" | "));
         }
 
         await this.importResource(importData);
@@ -68,7 +83,7 @@ export class ResourceImporter {
       } catch (error) {
         failed++;
         errors.push({
-          row: i + 1,
+          row: i + 2, // +1 header, +1 0-based
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
@@ -140,24 +155,38 @@ export class ResourceImporter {
     
     try {
       // Create resource with correct schema
+      const isPublic = data.isPublic !== false;
+      const visibility = (isPublic ? "PUBLIC" : "INTERNAL_IFAC") as any;
+      const accessLevel = (isPublic ? "PUBLIC" : "INTERNAL_IFAC") as any;
+
       const result = await db.insert(resources).values({
         title: data.title,
         summary: data.description || "",
         content: data.content || data.description || "",
-        type: "Fiche", // Default type
-        ageRange: "", // Not provided in import
-        duration: "", // Not provided in import
-        level: "", // Not provided in import
-        prepTime: "", // Not provided in import
-        visibility: (data.isPublic !== false ? "PUBLIC" : "INTERNAL_IFAC") as any,
-        status: "approved" as any,
+        type: "Fiche", // Default type (à faire évoluer plus tard)
+        ageRange: "",
+        duration: "",
+        level: "",
+        prepTime: "",
+        visibility,
+        status: "draft" as any, // IMPORTANT: review admin après import
         category: data.thematic ? JSON.stringify([data.thematic]) : JSON.stringify(["Général"]),
-        thumbnailUrl: "", // Not provided in import
+        thumbnailUrl: "",
         fileUrl: data.fileUrl || "",
-        accessLevel: "PUBLIC" as any,
+        accessLevel,
       });
 
-      return (result as any).insertId;
+      // Normalisation du retour d'insert (selon driver/adaptateur)
+      const insertId =
+        (result as any)?.insertId ??
+        (Array.isArray(result) ? (result as any)[0]?.insertId : undefined) ??
+        (Array.isArray(result) ? (result as any)[0] : undefined);
+
+      if (insertId === undefined || insertId === null || insertId === 0) {
+        throw new Error("Insert succeeded but insertId is missing (driver mismatch)");
+      }
+
+      return Number(insertId);
     } catch (error) {
       console.error("[Import] Error importing resource:", error);
       throw error;

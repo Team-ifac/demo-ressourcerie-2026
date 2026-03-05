@@ -12,16 +12,21 @@ describe('Access Levels System', () => {
     const database = await getDb();
     if (!database) throw new Error('Database not available');
 
-    const result = await database.insert(resources).values({
+    const now = new Date();
+    const mysqlDateTime = now.toISOString().slice(0, 19).replace('T', ' ');
+
+    const row: typeof resources.$inferInsert = {
       title: 'Test Resource for Access Levels',
       summary: 'Testing access level filtering',
       content: 'Test content',
       type: 'activity',
       visibility: 'PUBLIC',
       accessLevel: 'PUBLIC',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      createdAt: mysqlDateTime,
+      updatedAt: mysqlDateTime,
+    };
+
+    await database.insert(resources).values(row);
 
     // Get the inserted ID
     const inserted = await database
@@ -46,8 +51,8 @@ describe('Access Levels System', () => {
   });
 
   describe('updateResourceAccessLevel', () => {
-    it('should update resource access level to AUTHENTICATED', async () => {
-      await db.updateResourceAccessLevel(testResourceId, 'AUTHENTICATED');
+    it('should update resource access level to INTERNAL_IFAC', async () => {
+      await db.updateResourceAccessLevel(testResourceId, 'INTERNAL_IFAC');
 
       const database = await getDb();
       if (!database) throw new Error('Database not available');
@@ -58,7 +63,7 @@ describe('Access Levels System', () => {
         .where(eq(resources.id, testResourceId))
         .limit(1);
 
-      expect(resource[0].accessLevel).toBe('AUTHENTICATED');
+      expect(resource[0].accessLevel).toBe('INTERNAL_IFAC');
     });
 
     it('should update resource access level to PREMIUM', async () => {
@@ -102,12 +107,12 @@ describe('Access Levels System', () => {
       expect(publicResources.some((r) => r.id === testResourceId)).toBe(true);
     });
 
-    it('should return AUTHENTICATED resources', async () => {
-      await db.updateResourceAccessLevel(testResourceId, 'AUTHENTICATED');
+    it('should return INTERNAL_IFAC resources', async () => {
+      await db.updateResourceAccessLevel(testResourceId, 'INTERNAL_IFAC');
 
-      const authenticatedResources = await db.getResourcesByAccessLevel('AUTHENTICATED');
+      const internalResources = await db.getResourcesByAccessLevel('INTERNAL_IFAC');
 
-      expect(authenticatedResources.some((r) => r.id === testResourceId)).toBe(true);
+      expect(internalResources.some((r) => r.id === testResourceId)).toBe(true);
     });
 
     it('should return PREMIUM resources', async () => {
@@ -146,41 +151,41 @@ describe('Access Levels System', () => {
     it('should filter PUBLIC resources for anonymous users', async () => {
       await db.updateResourceAccessLevel(testResourceId, 'PUBLIC');
 
-      const resources = await db.getAllResources({
+      const all = await db.getAllResources({
         includeInternal: false,
       });
 
-      expect(resources.some((r) => r.id === testResourceId)).toBe(true);
+      expect(all.some((r) => r.id === testResourceId)).toBe(true);
     });
 
     it('should not include PREMIUM resources for anonymous users', async () => {
       await db.updateResourceAccessLevel(testResourceId, 'PREMIUM');
 
-      const resources = await db.getAllResources({
+      const all = await db.getAllResources({
         includeInternal: false,
       });
 
-      expect(resources.some((r) => r.id === testResourceId)).toBe(false);
+      expect(all.some((r) => r.id === testResourceId)).toBe(false);
     });
 
-    it('should include AUTHENTICATED resources for authenticated users', async () => {
-      await db.updateResourceAccessLevel(testResourceId, 'AUTHENTICATED');
+    it('should include INTERNAL_IFAC resources for authenticated users', async () => {
+      await db.updateResourceAccessLevel(testResourceId, 'INTERNAL_IFAC');
 
-      const resources = await db.getAllResources({
+      const all = await db.getAllResources({
         includeInternal: true,
       });
 
-      expect(resources.some((r) => r.id === testResourceId)).toBe(true);
+      expect(all.some((r) => r.id === testResourceId)).toBe(true);
     });
 
-    it('should not include PREMIUM resources for authenticated users', async () => {
+    it('should not include PREMIUM resources for authenticated (non-premium) users', async () => {
       await db.updateResourceAccessLevel(testResourceId, 'PREMIUM');
 
-      const resources = await db.getAllResources({
+      const all = await db.getAllResources({
         includeInternal: true,
       });
 
-      expect(resources.some((r) => r.id === testResourceId)).toBe(false);
+      expect(all.some((r) => r.id === testResourceId)).toBe(false);
     });
   });
 });

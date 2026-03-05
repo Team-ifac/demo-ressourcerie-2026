@@ -1316,11 +1316,11 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
         const isStaff = isLogged && myProfileType === "formateur";
 
         // ✅ Appel DB sécurisé (anti-fuite) : la DB doit déjà filtrer
-        const resource = await db.getResourceById(input.id, {
-          includeInternal: isAdmin || isLogged,
-          includePremium: isAdmin || !!isPremium,
-          isAdmin,
-        } as any);
+       const resource = await db.getResourceById(input.id, {
+  includeInternal: isAdmin || isLogged,
+  includePremium: isAdmin || isStaff || !!isPremium,
+  isAdmin,
+} as any);
 
         // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
         if (!resource) {
@@ -1383,11 +1383,11 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
         const isStaff = isLogged && myProfileType === "formateur";
 
         // ✅ Appel DB sécurisé (anti-fuite) : la DB doit déjà filtrer
-        const resource = await db.getResourceById(input.id, {
-          includeInternal: isAdmin || isLogged,
-          includePremium: isAdmin || !!isPremium,
-          isAdmin,
-        } as any);
+       const resource = await db.getResourceById(input.id, {
+  includeInternal: isAdmin || isLogged,
+  includePremium: isAdmin || isStaff || !!isPremium,
+  isAdmin,
+} as any);
 
         // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
         if (!resource) {
@@ -2536,13 +2536,8 @@ profiles: router({
   }),
 
    // ============ COLLECTIONS ============
+    // ============ COLLECTIONS ============
   collections: router({
-
-  
-
-    // ✅ Admin : liste complète des ressources (pour l’écran admin "ressources-management")
-    // + enrichissement avec profiles
-   
     // =========================================================
     // ✅ ADMIN Collections — endpoints attendus par le client
     // =========================================================
@@ -2570,6 +2565,8 @@ profiles: router({
           title: (table as any).title ?? (table as any).name ?? null,
           description: (table as any).description ?? null,
           isPublic: (table as any).isPublic ?? (table as any).public ?? null,
+          accessLevel: (table as any).accessLevel ?? null,
+          userId: (table as any).userId ?? null,
           createdAt: (table as any).createdAt ?? null,
           updatedAt: (table as any).updatedAt ?? null,
         })
@@ -2612,7 +2609,7 @@ profiles: router({
           });
         }
 
-        const { eq, and, desc } = await import("drizzle-orm");
+        const { eq, desc } = await import("drizzle-orm");
 
         const colRows = (await dbConn
           .select()
@@ -2714,82 +2711,406 @@ profiles: router({
         return { success: true };
       }),
 
-    // Collections de l'utilisateur connecté
+    // =========================================================
+    // ✅ USER Collections — endpoints attendus par les tests
+    // =========================================================
+
+    // Créer une collection (auth)
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(1),
+          description: z.string().optional(),
+          isPublic: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const schema = await import("../drizzle/schema");
+        const table =
+          (schema as any).collectionsTable ||
+          (schema as any).collections ||
+          (schema as any).collections_table;
+
+        if (!table) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Collections table not found in schema" });
+        }
+
+        const isPublic = !!input.isPublic;
+
+        // ✅ Par défaut (pro + cohérent avec l’anti-fuite) :
+        // - public => accessLevel PUBLIC
+        // - privé => accessLevel INTERNAL_IFAC
+        const accessLevel: AccessLevel = isPublic ? "PUBLIC" : "INTERNAL_IFAC";
+
+        const inserted = await dbConn
+          .insert(table)
+          .values({
+            name: input.name,
+            description: input.description ?? null,
+            isPublic: isPublic ? 1 : 0,
+            accessLevel,
+            userId: ctx.user.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as any)
+          .$returningId();
+
+        const id = Array.isArray(inserted) ? inserted[0]?.id : (inserted as any)?.id;
+
+        return { id: Number(id) };
+      }),
+
+    // Lister MES collections (auth)
     list: protectedProcedure.query(async ({ ctx }) => {
       return await db.getUserCollections(ctx.user.id);
     }),
 
-    // Collections publiques
+    // Lister collections publiques (public)
     listPublic: publicProcedure.query(async ({ ctx }) => {
       const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
 
-      // On récupère la liste "publique" côté DB,
-      // puis ✅ double-verrou côté router (audit-proof)
       let rows = (await db.getPublicCollections()) as any[];
-
       if (isAdmin) return rows || [];
 
-      const allowed = allowedAccessLevels(
-        entitlements.isAuthenticated,
-        !!entitlements.isPremium
-      );
-
+      const allowed = allowedAccessLevels(entitlements.isAuthenticated, !!entitlements.isPremium);
       rows = filterByAccessLevel(rows || [], allowed);
 
       return rows;
     }),
 
-    // 👇👇👇 TU COLLES LE BLOC ICI 👇👇👇
-
+    // Récupérer une collection par id (public si isPublic, sinon owner/admin)
     getById: publicProcedure
       .input(z.object({ id: z.number().int() }))
       .query(async ({ input, ctx }) => {
-        const { isLogged, isAdmin, entitlements } =
-          await getEntitlementsFromCtx(ctx);
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+        const isLogged = entitlements.isAuthenticated;
 
-        const allowed = allowedAccessLevels(
-          entitlements.isAuthenticated,
-          !!entitlements.isPremium
-        );
-
-        const includeInternal = isAdmin || entitlements.isAuthenticated;
-        const includePremium = isAdmin || !!entitlements.isPremium;
+        const allowed = allowedAccessLevels(isLogged, !!entitlements.isPremium);
 
         const collection = await db.getCollectionById(input.id);
         if (!collection) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Collection introuvable",
-          });
+          throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
         }
 
+        const ownerId = Number((collection as any).userId ?? 0);
+        const isOwner = isLogged && ownerId === Number(ctx.user?.id ?? 0);
+
+        const isPublic = !!(collection as any).isPublic;
+
+        // 🔒 Privé => owner/admin uniquement (anti-fuite: NOT_FOUND)
+        if (!isAdmin && !isOwner && !isPublic) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+        }
+
+        // 🔒 Même si public, on respecte accessLevel (anti-fuite premium/internal)
         if (!isAdmin) {
-  const level = (collection?.accessLevel ?? "PUBLIC") as any;
-  if (!allowed.includes(level)) {
-    // ✅ NOT_FOUND pour éviter toute fuite d'existence
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Collection introuvable",
-    });
-  }
-}
+          const level = ((collection as any)?.accessLevel ?? "PUBLIC") as AccessLevel;
+          if (!allowed.includes(level)) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+          }
+        }
+
+        const includeInternal = isAdmin || isLogged;
+        const includePremium = isAdmin || !!entitlements.isPremium;
 
         let resources = await db.getCollectionResources(input.id, {
           includeInternal,
           includePremium,
-          isAdmin: isAdmin,
-        });
+          isAdmin,
+        } as any);
 
         if (!isAdmin) {
-          resources = filterByAccessLevel(resources, allowed);
+          resources = filterByAccessLevel(resources || [], allowed);
         }
 
-        return {
-          ...collection,
-          resources: resources || [],
-        };
+        return { ...collection, resources: resources || [] };
       }),
 
+    // Mettre à jour (owner/admin)
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number().int(),
+          name: z.string().min(1).optional(),
+          description: z.string().optional(),
+          isPublic: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const schema = await import("../drizzle/schema");
+        const table =
+          (schema as any).collectionsTable ||
+          (schema as any).collections ||
+          (schema as any).collections_table;
+
+        if (!table) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Collections table not found in schema" });
+        }
+
+        const { eq } = await import("drizzle-orm");
+
+        const rows = (await dbConn.select().from(table).where(eq(table.id, input.id)).limit(1)) as any[];
+        const existing = rows?.[0];
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+
+        const isAdmin = ctx.user?.role === "admin";
+        const isOwner = Number((existing as any).userId) === Number(ctx.user.id);
+        if (!isAdmin && !isOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+
+        const nextIsPublic =
+          input.isPublic !== undefined ? !!input.isPublic : !!(existing as any).isPublic;
+
+        // ✅ Même logique que create : public => accessLevel PUBLIC, privé => INTERNAL_IFAC
+        const nextAccessLevel: AccessLevel = nextIsPublic ? "PUBLIC" : "INTERNAL_IFAC";
+
+        const updates: any = { updatedAt: new Date() };
+        if (input.name !== undefined) updates.name = input.name;
+        if (input.description !== undefined) updates.description = input.description ?? null;
+        if (input.isPublic !== undefined) updates.isPublic = nextIsPublic ? 1 : 0;
+
+        // 🔒 gouvernance pro (cohérence anti-fuite)
+        updates.accessLevel = nextAccessLevel;
+
+        await dbConn.update(table).set(updates).where(eq(table.id, input.id));
+
+        return { success: true };
+      }),
+
+    // Supprimer (owner/admin)
+    delete: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input, ctx }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const schema = await import("../drizzle/schema");
+        const table =
+          (schema as any).collectionsTable ||
+          (schema as any).collections ||
+          (schema as any).collections_table;
+
+        const joinTable =
+          (schema as any).collectionResources ||
+          (schema as any).collection_resources ||
+          (schema as any).collectionResourcesTable ||
+          (schema as any).collection_resources_table;
+
+        if (!table) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Collections table not found in schema" });
+        }
+
+        const { eq, and } = await import("drizzle-orm");
+
+        const rows = (await dbConn.select().from(table).where(eq(table.id, input.id)).limit(1)) as any[];
+        const existing = rows?.[0];
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+
+        const isAdmin = ctx.user?.role === "admin";
+        const isOwner = Number((existing as any).userId) === Number(ctx.user.id);
+        if (!isAdmin && !isOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+
+        // delete join first (si existe)
+        if (joinTable) {
+          await dbConn.delete(joinTable).where(eq((joinTable as any).collectionId, input.id));
+        }
+
+        await dbConn.delete(table).where(eq(table.id, input.id));
+        return { success: true };
+      }),
+
+    // Ajouter ressource (owner/admin)
+    addResource: protectedProcedure
+      .input(z.object({ collectionId: z.number().int(), resourceId: z.number().int() }))
+      .mutation(async ({ input, ctx }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const schema = await import("../drizzle/schema");
+
+        const collectionsTable =
+          (schema as any).collectionsTable ||
+          (schema as any).collections ||
+          (schema as any).collections_table;
+
+        const joinTable =
+          (schema as any).collectionResources ||
+          (schema as any).collection_resources ||
+          (schema as any).collectionResourcesTable ||
+          (schema as any).collection_resources_table;
+
+        if (!collectionsTable || !joinTable) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Schema tables missing (collections/join)" });
+        }
+
+        const { eq, and } = await import("drizzle-orm");
+
+        const col = (await dbConn
+          .select()
+          .from(collectionsTable)
+          .where(eq(collectionsTable.id, input.collectionId))
+          .limit(1)) as any[];
+
+        const existing = col?.[0];
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+
+        const isAdmin = ctx.user?.role === "admin";
+        const isOwner = Number((existing as any).userId) === Number(ctx.user.id);
+        if (!isAdmin && !isOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+
+        try {
+          await dbConn.insert(joinTable).values({
+            collectionId: input.collectionId,
+            resourceId: input.resourceId,
+          } as any);
+        } catch (e: any) {
+          const msg = String(e?.message ?? "").toLowerCase();
+          if (msg.includes("duplicate") || msg.includes("unique")) {
+            return { success: true, alreadyExists: true };
+          }
+          throw e;
+        }
+
+        return { success: true };
+      }),
+
+    // Retirer ressource (owner/admin)
+    removeResource: protectedProcedure
+      .input(z.object({ collectionId: z.number().int(), resourceId: z.number().int() }))
+      .mutation(async ({ input, ctx }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const schema = await import("../drizzle/schema");
+
+        const collectionsTable =
+          (schema as any).collectionsTable ||
+          (schema as any).collections ||
+          (schema as any).collections_table;
+
+        const joinTable =
+          (schema as any).collectionResources ||
+          (schema as any).collection_resources ||
+          (schema as any).collectionResourcesTable ||
+          (schema as any).collection_resources_table;
+
+        if (!collectionsTable || !joinTable) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Schema tables missing (collections/join)" });
+        }
+
+        const { eq, and } = await import("drizzle-orm");
+
+        const col = (await dbConn
+          .select()
+          .from(collectionsTable)
+          .where(eq(collectionsTable.id, input.collectionId))
+          .limit(1)) as any[];
+
+        const existing = col?.[0];
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+
+        const isAdmin = ctx.user?.role === "admin";
+        const isOwner = Number((existing as any).userId) === Number(ctx.user.id);
+        if (!isAdmin && !isOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+
+        await dbConn
+          .delete(joinTable)
+          .where(
+            and(
+              eq((joinTable as any).collectionId, input.collectionId),
+              eq((joinTable as any).resourceId, input.resourceId)
+            )
+          );
+
+        return { success: true };
+      }),
+
+    // Lister ressources d’une collection (owner/admin)
+    getResources: protectedProcedure
+      .input(z.object({ collectionId: z.number().int() }))
+      .query(async ({ input, ctx }) => {
+        const isAdmin = ctx.user?.role === "admin";
+        const isPremium = await resolveIsPremium(ctx.user.id);
+
+        // ownership check via getById logic
+        const collection = await db.getCollectionById(input.collectionId);
+        if (!collection) throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+
+        const isOwner = Number((collection as any).userId) === Number(ctx.user.id);
+        if (!isAdmin && !isOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+
+        const allowed = allowedAccessLevels(true, !!isPremium);
+
+        let resources = await db.getCollectionResources(input.collectionId, {
+          includeInternal: true,
+          includePremium: isAdmin || !!isPremium,
+          isAdmin,
+        } as any);
+
+        if (!isAdmin) {
+          resources = filterByAccessLevel(resources || [], allowed);
+        }
+
+        return resources || [];
+      }),
+
+    // Vérifier si une ressource est dans une collection (owner/admin)
+    checkResource: protectedProcedure
+      .input(z.object({ collectionId: z.number().int(), resourceId: z.number().int() }))
+      .query(async ({ input, ctx }) => {
+        const dbConn = await db.getDb();
+        if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+        const schema = await import("../drizzle/schema");
+
+        const collectionsTable =
+          (schema as any).collectionsTable ||
+          (schema as any).collections ||
+          (schema as any).collections_table;
+
+        const joinTable =
+          (schema as any).collectionResources ||
+          (schema as any).collection_resources ||
+          (schema as any).collectionResourcesTable ||
+          (schema as any).collection_resources_table;
+
+        if (!collectionsTable || !joinTable) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Schema tables missing (collections/join)" });
+        }
+
+        const { eq, and } = await import("drizzle-orm");
+
+        const col = (await dbConn
+          .select()
+          .from(collectionsTable)
+          .where(eq(collectionsTable.id, input.collectionId))
+          .limit(1)) as any[];
+
+        const existing = col?.[0];
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+
+        const isAdmin = ctx.user?.role === "admin";
+        const isOwner = Number((existing as any).userId) === Number(ctx.user.id);
+        if (!isAdmin && !isOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Action interdite" });
+
+        const rows = (await dbConn
+          .select({ collectionId: (joinTable as any).collectionId })
+          .from(joinTable)
+          .where(
+            and(
+              eq((joinTable as any).collectionId, input.collectionId),
+              eq((joinTable as any).resourceId, input.resourceId)
+            )
+          )
+          .limit(1)) as any[];
+
+        return { isInCollection: (rows?.length ?? 0) > 0 };
+      }),
   }),
 
   comments: router({
