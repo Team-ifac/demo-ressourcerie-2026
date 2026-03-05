@@ -172,7 +172,7 @@ export class ResourceImporter {
         status: "draft" as any, // IMPORTANT: review admin après import
         category: data.thematic ? JSON.stringify([data.thematic]) : JSON.stringify(["Général"]),
         thumbnailUrl: "",
-        fileUrl: data.fileUrl || "",
+        fileUrl: data.fileUrl && data.fileUrl.trim() !== "" ? data.fileUrl : null,
         accessLevel,
       });
 
