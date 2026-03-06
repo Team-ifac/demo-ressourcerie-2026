@@ -1,6 +1,9 @@
 import { getDb } from "./db";
 import { resources } from "../drizzle/schema";
 import Papa from "papaparse";
+import { parseZipContent, type AccessLevel, type ResourceStatus } from "./importZip";
+
+type Visibility = "PUBLIC" | "INTERNAL_IFAC";
 
 export interface ResourceImportData {
   title: string;
@@ -13,6 +16,19 @@ export interface ResourceImportData {
   authorName?: string;
   tags?: string[];
   isPublic?: boolean;
+
+  /**
+   * ZIP intelligent (optionnel)
+   * - accessLevel / status peuvent être fournis par l’arborescence
+   * - visibility est un ENUM limité (PUBLIC | INTERNAL_IFAC)
+   */
+  accessLevel?: AccessLevel;
+  visibility?: Visibility;
+  status?: ResourceStatus;
+
+  /** Métadonnées utiles (optionnel) */
+  profileKey?: string;
+  zipPath?: string;
 }
 
 export class ResourceImporter {
@@ -43,22 +59,20 @@ export class ResourceImporter {
     });
 
     if (parsed.errors?.length) {
-      // Erreurs de parsing CSV (format cassé)
       for (const e of parsed.errors) {
         failed++;
         errors.push({
-          row: (e.row ?? 0) + 1, // PapaParse: 0-based
+          row: (e.row ?? 0) + 1,
           error: e.message || "CSV parsing error",
         });
       }
-      // On continue quand même sur les lignes valides si possible
     }
 
     const rows = parsed.data ?? [];
-    // ✅ Si CSV vide (ou seulement header), on ne compte rien en failed.
     if (!rows.length) {
       return { success: 0, failed: 0, errors: [] };
     }
+
     for (let i = 0; i < rows.length; i++) {
       try {
         const row = rows[i] || {};
@@ -77,16 +91,14 @@ export class ResourceImporter {
         };
 
         const vErrors = this.validateData(importData);
-        if (vErrors.length) {
-          throw new Error(vErrors.join(" | "));
-        }
+        if (vErrors.length) throw new Error(vErrors.join(" | "));
 
         await this.importResource(importData);
         success++;
       } catch (error) {
         failed++;
         errors.push({
-          row: i + 2, // +1 header, +1 0-based
+          row: i + 2,
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
@@ -108,7 +120,7 @@ export class ResourceImporter {
     try {
       const parsed = JSON.parse(jsonContent);
       resourceList = Array.isArray(parsed) ? parsed : [parsed];
-    } catch (error) {
+    } catch {
       throw new Error("Invalid JSON format");
     }
 
@@ -131,10 +143,7 @@ export class ResourceImporter {
           isPublic: resourceList[i].isPublic !== false,
         };
 
-        // Validate required fields
-        if (!importData.title) {
-          throw new Error("Title is required");
-        }
+        if (!importData.title) throw new Error("Title is required");
 
         await this.importResource(importData);
         success++;
@@ -151,35 +160,107 @@ export class ResourceImporter {
   }
 
   /**
+   * PILIER 2 — Import ZIP intelligent
+   */
+  static async importFromZip(
+    zipBuffer: Buffer,
+    opts?: { allowedProfiles?: string[] }
+  ): Promise<{
+    success: number;
+    failed: number;
+    errors: Array<{ path: string; error: string }>;
+  }> {
+    const errors: Array<{ path: string; error: string }> = [];
+    let success = 0;
+    let failed = 0;
+
+    const parsed = parseZipContent(zipBuffer, { allowedProfiles: opts?.allowedProfiles });
+
+    for (const e of parsed.errors) {
+      failed++;
+      errors.push({ path: e.zipPath, error: e.error });
+    }
+
+    if (!parsed.entries.length) {
+      return { success, failed, errors };
+    }
+
+    for (const entry of parsed.entries) {
+      try {
+        const baseTitle = entry.fileName.replace(/\.[^.]+$/, "");
+
+        // ✅ visibility ne peut pas être PREMIUM (ENUM DB)
+        const visibility: Visibility =
+          entry.accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
+
+        const importData: ResourceImportData = {
+          title: baseTitle,
+          description: "",
+          content: "",
+          fileName: entry.fileName,
+          fileType: entry.fileType,
+          fileUrl: "", // stockage réel: pilier Multi-formats / Storage
+          isPublic: entry.accessLevel === "PUBLIC",
+
+          accessLevel: entry.accessLevel,
+          visibility,
+          status: entry.status,
+
+          profileKey: entry.profileKey,
+          zipPath: entry.zipPath,
+        };
+
+        const vErrors = this.validateData(importData);
+        if (vErrors.length) throw new Error(vErrors.join(" | "));
+
+        await this.importResource(importData);
+        success++;
+      } catch (error) {
+        failed++;
+        errors.push({
+          path: entry.zipPath,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    return { success, failed, errors };
+  }
+
+  /**
    * Import a single resource
    */
   static async importResource(data: ResourceImportData): Promise<number> {
     const db = await this.getDatabase();
-    
+
     try {
-      // Create resource with correct schema
       const isPublic = data.isPublic !== false;
-      const visibility = (isPublic ? "PUBLIC" : "INTERNAL_IFAC") as any;
-      const accessLevel = (isPublic ? "PUBLIC" : "INTERNAL_IFAC") as any;
+
+      const accessLevel = (data.accessLevel ?? (isPublic ? "PUBLIC" : "INTERNAL_IFAC")) as any;
+
+      // ✅ visibility doit rester PUBLIC | INTERNAL_IFAC
+      const visibility: Visibility =
+        data.visibility ?? (accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC");
+
+      const status = (data.status ?? ("draft" as any)) as any;
 
       const result = await db.insert(resources).values({
         title: data.title,
         summary: data.description || "",
         content: data.content || data.description || "",
-        type: "Fiche", // Default type (à faire évoluer plus tard)
+        type: "Fiche",
         ageRange: "",
         duration: "",
         level: "",
         prepTime: "",
-        visibility,
-        status: "draft" as any, // IMPORTANT: review admin après import
+        visibility: visibility as any,
+        status,
         category: data.thematic ? JSON.stringify([data.thematic]) : JSON.stringify(["Général"]),
         thumbnailUrl: "",
         fileUrl: data.fileUrl && data.fileUrl.trim() !== "" ? data.fileUrl : null,
         accessLevel,
       });
 
-      // Normalisation du retour d'insert (selon driver/adaptateur)
       const insertId =
         (result as any)?.insertId ??
         (Array.isArray(result) ? (result as any)[0]?.insertId : undefined) ??
@@ -206,22 +287,16 @@ export class ResourceImporter {
     const description = (data.description ?? "").trim();
     const fileType = (data.fileType ?? "").trim().toLowerCase();
 
-    if (!title) {
-      errors.push("Title is required");
-    }
+    if (!title) errors.push("Title is required");
 
-    // ✅ Tests attendent 255
     if (title && title.length > 255) {
       errors.push("Title must be less than 255 characters");
     }
 
-    // ✅ Tests attendent 1000
     if (description && description.length > 1000) {
       errors.push("Description must be less than 1000 characters");
     }
 
-    // ✅ Tests attendent "Invalid file type"
-    // On autorise vide (optionnel), sinon on valide une whitelist
     if (fileType) {
       const allowed = new Set([
         "pdf",
@@ -243,22 +318,16 @@ export class ResourceImporter {
         "mov",
         "zip",
       ]);
-
-      if (!allowed.has(fileType)) {
-        errors.push("Invalid file type");
-      }
+      if (!allowed.has(fileType)) errors.push("Invalid file type");
     }
 
-    if (data.fileUrl && !this.isValidUrl(data.fileUrl)) {
+    if (data.fileUrl && data.fileUrl.trim() !== "" && !this.isValidUrl(data.fileUrl)) {
       errors.push("Invalid file URL");
     }
 
     return errors;
   }
 
-  /**
-   * Check if URL is valid
-   */
   private static isValidUrl(url: string): boolean {
     try {
       new URL(url);
@@ -268,18 +337,12 @@ export class ResourceImporter {
     }
   }
 
-  /**
-   * Generate sample CSV template
-   */
   static generateCSVTemplate(): string {
     return `title,description,content,thematic,file_url,file_name,file_type,author_name,tags,is_public
 "Animation pour tous","Description de la ressource","Contenu détaillé","Animation","https://example.com/file.pdf","file.pdf","pdf","John Doe","animation;enfants;jeux","true"
 "Formation développement","Ressource de formation","Contenu détaillé","Formation","https://example.com/file2.pdf","file2.pdf","pdf","Jane Smith","formation;développement","true"`;
   }
 
-  /**
-   * Generate sample JSON template
-   */
   static generateJSONTemplate(): string {
     return JSON.stringify(
       [
