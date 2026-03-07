@@ -5,6 +5,7 @@ import { getDb } from "./db";
 import { users, userProfiles } from "../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { sendPasswordResetEmail } from "./emailService";
+import { ResourceImporter } from "./import";
 
 /**
  * Admin guard (canon)
@@ -67,8 +68,6 @@ const importsRouter = router({
     )
     .query(async ({ input, ctx }) => {
       try {
-        // TODO (prochaine étape): table import_jobs + select order by createdAt desc
-        // On renvoie un tableau vide pour commencer, afin d’intégrer l’UI sans risque.
         const _userId = ctx.user.id;
         void _userId;
 
@@ -77,6 +76,31 @@ const importsRouter = router({
       } catch (error) {
         console.error("[Admin][Imports] Error listing import jobs:", error);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      }
+    }),
+
+  importZip: adminProcedure
+    .input(
+      z.object({
+        zipBase64: z.string(),
+        allowedProfiles: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const buffer = Buffer.from(input.zipBase64, "base64");
+
+        const result = await ResourceImporter.importFromZip(buffer, {
+          allowedProfiles: input.allowedProfiles,
+        });
+
+        return result;
+      } catch (error) {
+        console.error("[Admin][Imports] ZIP import error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erreur lors de l'import ZIP",
+        });
       }
     }),
 });

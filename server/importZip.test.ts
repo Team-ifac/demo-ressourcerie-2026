@@ -70,7 +70,7 @@ describe("importZip parser", () => {
     const byZipPath = new Map(res.errors.map((e) => [e.zipPath, e.error]));
 
     expect(byZipPath.get("fiche1.pdf")).toContain("Invalid ZIP path");
-    expect(byZipPath.get("animateur/toto/fiche2.pdf")).toContain("Unknown folder");
+    expect(byZipPath.get("animateur/toto/fiche2.pdf")).toContain("No access folder found");
 
     // et aucune entrée importable
     expect(res.entries.length).toBe(0);

@@ -4,31 +4,17 @@ import path from "node:path";
 export type AccessLevel = "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM";
 export type ResourceStatus = "approved" | "draft";
 
-export type ZipFolderKey = "public" | "interne" | "premium" | "brouillon";
+export type ZipFolderKey = "public" | "interne" | "premium" | "brouillon" | "connecte";
+export type ZipPublishKey = "publie" | "brouillon";
 
 export interface ZipMappedEntry {
-  /** Chemin complet dans le ZIP (normalisé en /) */
   zipPath: string;
-
-  /** Nom de fichier (sans dossier) */
   fileName: string;
-
-  /** Extension sans point (ex: pdf) */
   fileType: string;
-
-  /** Données du fichier */
   buffer: Buffer;
-
-  /** Profil (ex: animateur, formateur, directeur) */
   profileKey: string;
-
-  /** AccessLevel déduit de l’arborescence */
   accessLevel: AccessLevel;
-
-  /** Status déduit de l’arborescence */
   status: ResourceStatus;
-
-  /** Dossier clé de mapping (public/interne/premium/brouillon) */
   folderKey: ZipFolderKey;
 }
 
@@ -37,18 +23,6 @@ export interface ZipParseResult {
   errors: Array<{ zipPath: string; error: string }>;
 }
 
-/**
- * Règles de mapping arborescence ZIP -> accessLevel + status
- *
- * Attendu:
- *  <profileKey>/<folderKey>/.../<file>
- *
- * folderKey:
- *  - public   -> accessLevel PUBLIC,        status approved
- *  - interne  -> accessLevel INTERNAL_IFAC, status approved
- *  - premium  -> accessLevel PREMIUM,       status approved
- *  - brouillon-> accessLevel INTERNAL_IFAC, status draft
- */
 export function parseZipContent(
   zipBuffer: Buffer,
   opts?: { allowedProfiles?: string[] }
@@ -62,54 +36,83 @@ export function parseZipContent(
   const result: ZipParseResult = { entries: [], errors: [] };
 
   for (const e of zipEntries) {
-    // adm-zip renvoie entryName avec / même sur Windows, mais on normalise au cas où.
     const raw = (e.entryName ?? "").replace(/\\/g, "/").trim();
 
-    // Ignore les entrées vides / dossiers / artefacts Mac
     if (!raw) continue;
     if (e.isDirectory) continue;
     if (raw.startsWith("__MACOSX/") || raw.includes("/.DS_Store")) continue;
 
-    const parts = raw.split("/").filter(Boolean);
+    let parts = raw.split("/").filter(Boolean);
+
+    // Ignore un dossier racine générique comme "ressources/"
+    if ((parts[0] ?? "").trim().toLowerCase() === "ressources") {
+      parts = parts.slice(1);
+    }
+
     if (parts.length < 3) {
       result.errors.push({
         zipPath: raw,
-        error: "Invalid ZIP path. Expected: <profile>/<folder>/<file>",
-      });
-      continue;
-    }
-
-    const profileKey = (parts[0] ?? "").trim();
-    const folderKeyRaw = (parts[1] ?? "").trim().toLowerCase();
-
-    if (!profileKey) {
-      result.errors.push({ zipPath: raw, error: "Missing profile folder" });
-      continue;
-    }
-
-    if (allowedProfiles && !allowedProfiles.includes(profileKey.toLowerCase())) {
-      result.errors.push({
-        zipPath: raw,
-        error: `Unknown profile folder "${profileKey}"`,
-      });
-      continue;
-    }
-
-    const folderKey = folderKeyRaw as ZipFolderKey;
-    const mapping = mapFolderKey(folderKey);
-
-    if (!mapping) {
-      result.errors.push({
-        zipPath: raw,
-        error: `Unknown folder "${parts[1]}". Allowed: public, interne, premium, brouillon`,
+        error: "Invalid ZIP path. Expected a resource file inside a structured ZIP tree",
       });
       continue;
     }
 
     const fileName = parts[parts.length - 1] ?? "";
     const ext = path.extname(fileName).replace(".", "").toLowerCase();
+    const lowerParts = parts.map((p) => p.trim().toLowerCase());
 
-    // On laisse l’extension vide possible (cas rare), mais on la remonte.
+    const accessIndex = lowerParts.findIndex((p) =>
+      ["public", "interne", "premium", "brouillon", "connecte"].includes(p)
+    );
+
+    if (accessIndex === -1) {
+      result.errors.push({
+        zipPath: raw,
+        error: 'No access folder found. Allowed: public, interne, premium, brouillon, connecte',
+      });
+      continue;
+    }
+
+    if (accessIndex === 0) {
+      result.errors.push({
+        zipPath: raw,
+        error: "Missing profile folder before access folder",
+      });
+      continue;
+    }
+
+    const profileRaw = parts[0] ?? "";
+    const profileKey = normalizeProfileKey(profileRaw);
+
+    if (!profileKey) {
+      result.errors.push({
+        zipPath: raw,
+        error: `Unknown profile folder "${profileRaw}"`,
+      });
+      continue;
+    }
+
+    if (allowedProfiles && !allowedProfiles.includes(profileKey)) {
+      result.errors.push({
+        zipPath: raw,
+        error: `Unknown profile folder "${profileRaw}"`,
+      });
+      continue;
+    }
+
+    const folderKey = lowerParts[accessIndex] as ZipFolderKey;
+    const publishKeyRaw = lowerParts[accessIndex + 1] ?? null;
+
+    const mapping = mapFolderKey(folderKey, publishKeyRaw);
+
+    if (!mapping) {
+      result.errors.push({
+        zipPath: raw,
+        error: `Invalid access/status combination near "${parts[accessIndex]}"`,
+      });
+      continue;
+    }
+
     const buffer = e.getData();
 
     result.entries.push({
@@ -127,14 +130,34 @@ export function parseZipContent(
   return result;
 }
 
-function mapFolderKey(folderKey: ZipFolderKey): { accessLevel: AccessLevel; status: ResourceStatus } | null {
+function normalizeProfileKey(profileRaw: string): string | null {
+  const p = profileRaw.trim().toLowerCase();
+
+  if (["animateur", "animateur.trice", "animateur·trice"].includes(p)) return "animateur";
+  if (["formateur", "formateur.trice", "formateur·trice"].includes(p)) return "formateur";
+  if (["directeur", "directeur.trice", "directeur·trice"].includes(p)) return "directeur";
+  if (["stagiaire bafa", "stagiaire_bafa", "stagiaire-bafa"].includes(p)) return "stagiaire_bafa";
+
+  return null;
+}
+
+function mapFolderKey(
+  folderKey: ZipFolderKey,
+  publishKeyRaw?: string | null
+): { accessLevel: AccessLevel; status: ResourceStatus } | null {
+  const publishKey = (publishKeyRaw ?? "").trim().toLowerCase() as ZipPublishKey | "";
+
   switch (folderKey) {
     case "public":
-      return { accessLevel: "PUBLIC", status: "approved" };
-    case "interne":
-      return { accessLevel: "INTERNAL_IFAC", status: "approved" };
+      return { accessLevel: "PUBLIC", status: publishKey === "brouillon" ? "draft" : "approved" };
     case "premium":
-      return { accessLevel: "PREMIUM", status: "approved" };
+      return { accessLevel: "PREMIUM", status: publishKey === "brouillon" ? "draft" : "approved" };
+    case "interne":
+    case "connecte":
+      return {
+        accessLevel: "INTERNAL_IFAC",
+        status: publishKey === "brouillon" ? "draft" : "approved",
+      };
     case "brouillon":
       return { accessLevel: "INTERNAL_IFAC", status: "draft" };
     default:

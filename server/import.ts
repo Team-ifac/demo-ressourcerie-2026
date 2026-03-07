@@ -38,6 +38,50 @@ export class ResourceImporter {
     return db;
   }
 
+  private static escapeSql(value: string): string {
+    return String(value ?? "").replace(/'/g, "''");
+  }
+
+  private static async queryRows<T = any>(query: string): Promise<T[]> {
+    const db = await this.getDatabase();
+    const result = await db.execute(query as any);
+
+    // Selon le driver, db.execute peut renvoyer :
+    // 1) { rows: [...] }
+    // 2) [rows, fields]
+    // 3) rows direct
+    if (Array.isArray(result)) {
+      if (Array.isArray(result[0])) {
+        return result[0] as unknown as T[];
+      }
+      return result as unknown as T[];
+    }
+
+    return ((result as any)?.rows ?? []) as unknown as T[];
+  }
+
+  private static async getProfileTypeIdByKey(profileKey: string): Promise<number | null> {
+    const key = this.escapeSql(profileKey.trim().toLowerCase());
+
+    const rows = await this.queryRows<{ id: number }>(
+      `SELECT id FROM profile_types WHERE \`key\` = '${key}' AND isActive = 1 LIMIT 1`
+    );
+
+    const row = rows[0];
+    if (!row?.id) return null;
+
+    return Number(row.id);
+  }
+
+  private static async attachProfileToResource(resourceId: number, profileTypeId: number): Promise<void> {
+    const db = await this.getDatabase();
+
+    await db.execute(
+      `INSERT IGNORE INTO resource_profiles (resourceId, profileTypeId, addedAt)
+       VALUES (${Number(resourceId)}, ${Number(profileTypeId)}, NOW())` as any
+    );
+  }
+
   /**
    * Import resources from CSV format
    */
@@ -189,9 +233,13 @@ export class ResourceImporter {
       try {
         const baseTitle = entry.fileName.replace(/\.[^.]+$/, "");
 
-        // ✅ visibility ne peut pas être PREMIUM (ENUM DB)
         const visibility: Visibility =
           entry.accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
+
+        const profileTypeId = await this.getProfileTypeIdByKey(entry.profileKey);
+        if (!profileTypeId) {
+          throw new Error(`Unknown profile key in database: "${entry.profileKey}"`);
+        }
 
         const importData: ResourceImportData = {
           title: baseTitle,
@@ -199,7 +247,7 @@ export class ResourceImporter {
           content: "",
           fileName: entry.fileName,
           fileType: entry.fileType,
-          fileUrl: "", // stockage réel: pilier Multi-formats / Storage
+          fileUrl: "",
           isPublic: entry.accessLevel === "PUBLIC",
 
           accessLevel: entry.accessLevel,
@@ -213,7 +261,9 @@ export class ResourceImporter {
         const vErrors = this.validateData(importData);
         if (vErrors.length) throw new Error(vErrors.join(" | "));
 
-        await this.importResource(importData);
+        const resourceId = await this.importResource(importData);
+        await this.attachProfileToResource(resourceId, profileTypeId);
+
         success++;
       } catch (error) {
         failed++;
@@ -238,7 +288,6 @@ export class ResourceImporter {
 
       const accessLevel = (data.accessLevel ?? (isPublic ? "PUBLIC" : "INTERNAL_IFAC")) as any;
 
-      // ✅ visibility doit rester PUBLIC | INTERNAL_IFAC
       const visibility: Visibility =
         data.visibility ?? (accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC");
 
