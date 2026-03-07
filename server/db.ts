@@ -2018,7 +2018,7 @@ export async function setResourceProfiles(resourceId: number, profileTypesList: 
     cleaned.map((key) => ({
       resourceId,
       profileTypeId: idMap.get(key)!,
-      addedAt: new Date().toISOString() as any,
+      addedAt: sql`NOW()` as any,
     }))
   );
 }
