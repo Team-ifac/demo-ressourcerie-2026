@@ -502,13 +502,15 @@ async function ensureTaxonomyLink(
     await db2.insert(categoryNodes).values({
   profileType: profileType as any,
   parentId: parentId as any,
-  parentIdKey: parentId ? slugifySegment(title) : "",
+  parentIdKey: "",
   slug,
   title,
   description: null,
   sortOrder: 0,
   isActive: 1,
-} as any);
+} as any).onDuplicateKeyUpdate({
+  set: { slug }
+});
 
     // 3) relit l'id (robuste MySQL)
     const created: Array<{ id: number }> = (await db2
