@@ -500,14 +500,15 @@ async function ensureTaxonomyLink(
 
     // 2) crée le node
     await db2.insert(categoryNodes).values({
-      profileType: profileType as any,
-      parentId: parentId as any,
-      slug,
-      title,
-      description: null,
-      sortOrder: 0,
-      isActive: 1,
-    } as any);
+  profileType: profileType as any,
+  parentId: parentId as any,
+  parentIdKey: null,
+  slug,
+  title,
+  description: null,
+  sortOrder: 0,
+  isActive: 1,
+} as any);
 
     // 3) relit l'id (robuste MySQL)
     const created: Array<{ id: number }> = (await db2
