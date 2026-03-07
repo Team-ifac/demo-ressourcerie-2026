@@ -502,7 +502,7 @@ async function ensureTaxonomyLink(
     await db2.insert(categoryNodes).values({
   profileType: profileType as any,
   parentId: parentId as any,
-  parentIdKey: null,
+  parentIdKey: parentId ? slugifySegment(title) : "",
   slug,
   title,
   description: null,
