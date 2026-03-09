@@ -2696,7 +2696,6 @@ export async function listCategoryKeysWithCounts(filters?: {
   if (!db) return [];
 
   const conditions: any[] = [];
-
   const isAdminView = filters?.adminView === ADMIN_VIEW_TOKEN;
 
   if (!filters?.includeInternal && !isAdminView) {
@@ -2716,7 +2715,10 @@ export async function listCategoryKeysWithCounts(filters?: {
       );
     } else {
       conditions.push(
-        or(eq(resources.accessLevel, "PUBLIC"), eq(resources.accessLevel, "INTERNAL_IFAC"))
+        or(
+          eq(resources.accessLevel, "PUBLIC"),
+          eq(resources.accessLevel, "INTERNAL_IFAC")
+        )
       );
     }
   }
@@ -2725,7 +2727,14 @@ export async function listCategoryKeysWithCounts(filters?: {
     conditions.push(eq(resources.status, "approved"));
   }
 
-  let query: any = db.select({ category: resources.category }).from(resources);
+  let query: any = db
+    .select({
+      nodeId: categoryNodes.id,
+      resourceId: resourceCategoryNodes.resourceId,
+    })
+    .from(resourceCategoryNodes)
+    .innerJoin(resources, eq(resourceCategoryNodes.resourceId, resources.id))
+    .innerJoin(categoryNodes, eq(resourceCategoryNodes.categoryNodeId, categoryNodes.id));
 
   if (filters?.profileType) {
     query = query
@@ -2733,44 +2742,53 @@ export async function listCategoryKeysWithCounts(filters?: {
       .where(
         and(
           eq(resourceProfiles.profileTypeId, await resolveProfileTypeId(filters.profileType)),
+          eq(categoryNodes.isActive, 1),
           conditions.length > 0 ? and(...conditions) : undefined
         )
       );
-  } else if (conditions.length > 0) {
-    query = query.where(and(...conditions));
+  } else {
+    query = query.where(
+      and(
+        eq(categoryNodes.isActive, 1),
+        conditions.length > 0 ? and(...conditions) : undefined
+      )
+    );
   }
 
   const rows = await query;
 
-  const toCategoryKey = (raw: unknown): string | null => {
-    const s = (raw ?? "").toString().trim();
-    if (!s) return null;
+  const allNodes = await db
+    .select({
+      id: categoryNodes.id,
+      slug: categoryNodes.slug,
+      parentId: categoryNodes.parentId,
+    })
+    .from(categoryNodes);
 
-    if (!s.startsWith("[") && !s.endsWith("]")) return s;
+  const nodesById = new Map<number, any>();
+  for (const node of allNodes) {
+    nodesById.set(node.id, node);
+  }
 
-    try {
-      const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) {
-        const parts = parsed
-          .map((x) => (x ?? "").toString().trim())
-          .filter(Boolean);
+  const buildPath = (nodeId: number): string | null => {
+    const parts: string[] = [];
+    let current = nodesById.get(nodeId);
 
-        if (parts.length === 0) return null;
-        return parts.join("/");
-      }
-    } catch {
-      return null;
+    while (current) {
+      parts.unshift(current.slug);
+      if (current.parentId == null) break;
+      current = nodesById.get(current.parentId);
     }
 
-    return null;
+    if (parts.length === 0) return null;
+    return parts.join("/");
   };
 
   const counts = new Map<string, number>();
 
   for (const row of rows as any[]) {
-    const key = toCategoryKey(row?.category);
+    const key = buildPath(Number(row.nodeId));
     if (!key) continue;
-
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 

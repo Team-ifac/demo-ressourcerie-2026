@@ -1110,13 +1110,12 @@ const mapped = (results || []).map((r: any) => {
           };
         });
 
-        const availableCategories = Array.from(
-          new Set(
-            mapped
-              .map((r: any) => String(r?.category ?? "").trim())
-              .filter((x: string) => x.length > 0)
-          )
-        ).sort((a, b) => a.localeCompare(b));
+        const availableCategories = await db.listCategoryKeys({
+          includeInternal,
+          includePremium,
+          profileType: input?.profileType,
+          adminView: isAdmin ? db.ADMIN_VIEW_TOKEN : undefined,
+        });
 
         const total = mapped.length;
         const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
