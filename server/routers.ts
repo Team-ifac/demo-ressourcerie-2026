@@ -238,6 +238,79 @@ function filterByAccessLevel(rows: any[], allowed: AccessLevel[]) {
   });
 }
 
+function normalizeSearchText(value: unknown): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function computeSearchScore(resource: any, rawSearch?: string): number {
+  const search = normalizeSearchText(rawSearch);
+  if (!search) return 0;
+
+  const title = normalizeSearchText(resource?.title);
+  const summary = normalizeSearchText(resource?.summary);
+  const content = normalizeSearchText(resource?.content);
+  const category = normalizeSearchText(resource?.category);
+  const type = normalizeSearchText(resource?.type);
+
+  let score = 0;
+
+  if (title === search) score += 1000;
+  else if (title.startsWith(search)) score += 700;
+  else if (title.includes(search)) score += 500;
+
+  if (summary.includes(search)) score += 200;
+  if (category.includes(search)) score += 120;
+  if (type.includes(search)) score += 80;
+  if (content.includes(search)) score += 40;
+
+  const words = search.split(/\s+/).filter(Boolean);
+
+  for (const word of words) {
+    if (word.length < 2) continue;
+
+    if (title === word) score += 400;
+    else if (title.startsWith(word)) score += 180;
+    else if (title.includes(word)) score += 100;
+
+    if (summary.includes(word)) score += 50;
+    if (category.includes(word)) score += 30;
+    if (type.includes(word)) score += 20;
+    if (content.includes(word)) score += 10;
+  }
+
+  return score;
+}
+
+function sortResourcesIntelligently(rows: any[], rawSearch?: string): any[] {
+  const hasSearch = normalizeSearchText(rawSearch).length > 0;
+
+  return [...(rows || [])].sort((a: any, b: any) => {
+    if (hasSearch) {
+      const scoreA = computeSearchScore(a, rawSearch);
+      const scoreB = computeSearchScore(b, rawSearch);
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+    }
+
+    const createdAtA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const createdAtB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+    if (createdAtB !== createdAtA) {
+      return createdAtB - createdAtA;
+    }
+
+    return String(a?.title ?? "").localeCompare(String(b?.title ?? ""), "fr", {
+      sensitivity: "base",
+    });
+  });
+}
+
 // =========================================================
 // Normalisation accès (canonique accessLevel -> miroir visibility)
 // =========================================================
@@ -858,15 +931,18 @@ if (!isEmailVerified) {
       delete filters.profileType;
     }
 
-    let results = (await db.getAllResources(filters)) as any[];
+  let results = (await db.getAllResources(filters)) as any[];
 
-    // ✅ Double-verrou : même si la DB fait une erreur de filtre,
-    // on coupe côté router (audit-proof).
-    if (!isAdmin) {
-      results = filterByAccessLevel(results, allowed);
-    }
+// ✅ Double-verrou : même si la DB fait une erreur de filtre,
+// on coupe côté router (audit-proof).
+if (!isAdmin) {
+  results = filterByAccessLevel(results, allowed);
+}
 
-    return (results || []).map((r: any) => {
+// ✅ Recherche intelligente : tri par pertinence
+results = sortResourcesIntelligently(results, input?.search);
+
+return (results || []).map((r: any) => {
       const visibility = (r?.visibility ?? "PUBLIC") as any;
       const accessLevel = (r?.accessLevel ?? "PUBLIC") as any;
 
@@ -953,12 +1029,15 @@ if (!isEmailVerified) {
         const page = Math.max(1, input?.page ?? 1);
         const limit = Math.max(1, Math.min(100, input?.limit ?? 24));
 
-        const filters: any = {
-          ...(input || {}),
-          includeInternal,
-          includePremium,
-          isAdmin: isAdmin,
-        };
+        const searchValue = input?.search?.trim();
+
+const filters: any = {
+  ...(input || {}),
+  search: searchValue || undefined,
+  includeInternal,
+  includePremium,
+  isAdmin: isAdmin,
+};
 
         delete filters.page;
         delete filters.limit;
@@ -972,11 +1051,14 @@ if (!isEmailVerified) {
 
         let results = (await db.getAllResources(filters)) as any[];
 
-        if (!isAdmin) {
-          results = filterByAccessLevel(results, allowed);
-        }
+if (!isAdmin) {
+  results = filterByAccessLevel(results, allowed);
+}
 
-        const mapped = (results || []).map((r: any) => {
+// ✅ Recherche intelligente avant pagination
+results = sortResourcesIntelligently(results, input?.search);
+
+const mapped = (results || []).map((r: any) => {
           const visibility = (r?.visibility ?? "PUBLIC") as any;
           const accessLevel = (r?.accessLevel ?? "PUBLIC") as any;
 

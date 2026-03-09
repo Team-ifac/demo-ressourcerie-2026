@@ -360,13 +360,25 @@ export async function getAllResources(filters?: {
       .toLowerCase();
 
   const rawSearch = filters.search.trim();
-  const normalizedSearch = normalize(rawSearch);
 
-  const searchVariants = Array.from(
-    new Set([rawSearch, normalizedSearch])
-  );
+const words = rawSearch
+  .split(/\s+/)
+  .map((w) => w.trim())
+  .filter((w) => w.length > 1);
 
-  const searchTerms = searchVariants.map((v) => `%${v}%`);
+const searchVariants = Array.from(
+  new Set([
+    ...words,
+    ...words.map((w) =>
+      w
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+    ),
+  ])
+);
+
+const searchTerms = searchVariants.map((v) => `%${v}%`);
 
   const themeMatches = await db
     .select({ resourceId: resourceThemes.resourceId })
