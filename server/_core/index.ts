@@ -425,12 +425,85 @@ app.use("/api", apiLimiter);
           "Import script ok"
         );
 
+        let auditResult: any = null;
+
+        if (audit) {
+          const startMarker = "AUDIT_RESULT_JSON_START";
+          const endMarker = "AUDIT_RESULT_JSON_END";
+
+          const stdout = String(importRes.stdout || "");
+          const startIndex = stdout.indexOf(startMarker);
+          const endIndex = stdout.indexOf(endMarker);
+
+          if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+            const jsonText = stdout
+              .slice(startIndex + startMarker.length, endIndex)
+              .trim();
+
+            try {
+              auditResult = JSON.parse(jsonText);
+            } catch (parseError: any) {
+              log.warn(
+                {
+                  event: "admin_import_zip_audit_json_parse_failed",
+                  actor: { id: me.id, role: me.role },
+                  details: String(parseError?.message ?? parseError),
+                },
+                "Audit JSON parse failed"
+              );
+            }
+          }
+        }
+
+        const stdoutText = String(importRes.stdout || "");
+
+        const extractCount = (label: string) => {
+          const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const match = stdoutText.match(new RegExp(`${escaped}\\s*:\\s*(\\d+)`, "i"));
+          return match ? Number(match[1]) : 0;
+        };
+
+        const actionType: "AUDIT" | "DRY_RUN" | "WRITE" = audit
+          ? "AUDIT"
+          : dryRun
+          ? "DRY_RUN"
+          : "WRITE";
+
+        try {
+          await db.addImportHistory({
+            userId: Number(me.id),
+            actionType,
+            zipFileName: path.basename(zipPath),
+            extractRoot,
+            detectedPdfs: auditResult?.detectedPdfs ?? extractCount("PDFs détectés"),
+            inDb: auditResult?.inDb ?? 0,
+            wouldImport: auditResult?.wouldImport ?? 0,
+            wouldUpdate: auditResult?.wouldUpdate ?? 0,
+            imported: extractCount("Importés (nouveaux)"),
+            updated: extractCount("Mis à jour (PDF remplacés)"),
+            skipped: extractCount("Skippés (inchangés)"),
+            failed: extractCount("Échecs"),
+            rawOutput: stdoutText,
+          });
+        } catch (historyError: any) {
+          log.warn(
+            {
+              event: "admin_import_zip_history_write_failed",
+              actor: { id: me.id, role: me.role },
+              details: String(historyError?.message ?? historyError),
+            },
+            "Import history write failed"
+          );
+        }
+
         log.info(
           {
             event: "admin_import_zip_completed",
             actor: { id: me.id, role: me.role },
             extractRoot,
             flags: { dryRun, audit },
+            auditJsonDetected: !!auditResult,
+            actionType,
           },
           "Import ZIP completed"
         );
@@ -439,6 +512,7 @@ app.use("/api", apiLimiter);
           ok: true,
           extractRoot,
           output: importRes.stdout,
+          auditResult,
         });
       } catch (err: any) {
         log.error(

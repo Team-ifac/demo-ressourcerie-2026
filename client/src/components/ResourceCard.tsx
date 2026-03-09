@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Lock, Star } from 'lucide-react';
+import { Lock, Star, Globe, User } from 'lucide-react';
 import { Link } from 'wouter';
 
 interface ResourceCardProps {
@@ -15,7 +15,6 @@ function getThumbnailUrl(resource: any): string {
   }
 
   // 2) Fallback par profil
-  // On essaie plusieurs champs possibles pour être robuste.
   const rawProfile =
     resource?.profileType ??
     resource?.profile ??
@@ -37,24 +36,54 @@ function getThumbnailUrl(resource: any): string {
   return '/thumbnails/default-document.png';
 }
 
-export function ResourceCard({ resource, hasSubscription = false }: ResourceCardProps) {
-  const isLocked = resource.accessLevel === 'PREMIUM' && !hasSubscription;
-  const requiresAuth = resource.accessLevel === 'AUTHENTICATED';
+function getAccessBadge(resource: any) {
+  const level = String(resource?.accessLevel ?? 'PUBLIC').toUpperCase();
 
-  const thumbnailSrc = getThumbnailUrl(resource);
+  if (level === 'PREMIUM') {
+    return (
+      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+        <Star className="w-3 h-3 mr-1" />
+        Premium
+      </Badge>
+    );
+  }
+
+  if (level === 'INTERNAL_IFAC' || level === 'AUTHENTICATED') {
+    return (
+      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        <User className="w-3 h-3 mr-1" />
+        Connectés ifac
+      </Badge>
+    );
+  }
 
   return (
-    <Link href={isLocked ? '#' : `/resources/${resource.id}`}>
+    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+      <Globe className="w-3 h-3 mr-1" />
+      Public
+    </Badge>
+  );
+}
+
+export function ResourceCard({ resource, hasSubscription = false }: ResourceCardProps) {
+  const accessLevel = String(resource?.accessLevel ?? 'PUBLIC').toUpperCase();
+  const isLocked = accessLevel === 'PREMIUM' && !hasSubscription;
+  const requiresAuth = accessLevel === 'INTERNAL_IFAC' || accessLevel === 'AUTHENTICATED';
+
+  const thumbnailSrc = getThumbnailUrl(resource);
+  const targetHref = isLocked ? '#' : `/resources/${resource.id}`;
+
+  return (
+    <Link href={targetHref}>
       <Card
         className={`h-full hover:shadow-lg transition-shadow cursor-pointer ${
-          isLocked ? 'opacity-75' : ''
+          isLocked ? 'opacity-80' : ''
         }`}
       >
-        {/* Thumbnail (toujours affiché avec fallback) */}
         <div className="relative h-48 bg-muted overflow-hidden rounded-t-lg">
           <img
             src={thumbnailSrc}
-            alt={resource.title}
+            alt={resource.title || 'Ressource'}
             className="w-full h-full object-cover"
             loading="lazy"
             onError={(e) => {
@@ -63,9 +92,15 @@ export function ResourceCard({ resource, hasSubscription = false }: ResourceCard
               img.src = '/thumbnails/default-document.png';
             }}
           />
+
           {isLocked && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <Lock className="w-8 h-8 text-white" />
+              <div className="flex flex-col items-center gap-2">
+                <Lock className="w-8 h-8 text-white" />
+                <span className="text-xs font-medium text-white bg-black/40 px-2 py-1 rounded">
+                  Accès premium
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -75,26 +110,13 @@ export function ResourceCard({ resource, hasSubscription = false }: ResourceCard
             <CardTitle className="text-lg line-clamp-2">{resource.title}</CardTitle>
 
             <div className="flex gap-1 flex-shrink-0">
-              {resource.accessLevel === 'PUBLIC' && (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  Gratuit
-                </Badge>
-              )}
-              {resource.accessLevel === 'AUTHENTICATED' && (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  Compte
-                </Badge>
-              )}
-              {resource.accessLevel === 'PREMIUM' && (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                  <Star className="w-3 h-3 mr-1" />
-                  Premium
-                </Badge>
-              )}
+              {getAccessBadge(resource)}
             </div>
           </div>
 
-          <CardDescription className="line-clamp-2">{resource.summary}</CardDescription>
+          <CardDescription className="line-clamp-2">
+            {resource.summary || 'Aucun résumé disponible'}
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -104,11 +126,13 @@ export function ResourceCard({ resource, hasSubscription = false }: ResourceCard
                 {resource.type}
               </Badge>
             )}
+
             {resource.ageRange && (
               <Badge variant="secondary" className="text-xs">
                 {resource.ageRange}
               </Badge>
             )}
+
             {resource.duration && (
               <Badge variant="secondary" className="text-xs">
                 {resource.duration}
@@ -119,15 +143,15 @@ export function ResourceCard({ resource, hasSubscription = false }: ResourceCard
           {isLocked && (
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
               <p className="text-sm text-amber-800">
-                <strong>Adhésion requise</strong> pour accéder à cette ressource premium
+                <strong>Adhésion premium requise</strong> pour ouvrir cette ressource.
               </p>
             </div>
           )}
 
-          {requiresAuth && !isLocked && (
+          {!isLocked && requiresAuth && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p className="text-sm text-blue-800">
-                <strong>Compte requis</strong> pour accéder à cette ressource
+                <strong>Connexion requise</strong> pour ouvrir cette ressource.
               </p>
             </div>
           )}

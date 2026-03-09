@@ -452,7 +452,7 @@ async function ensureTaxonomyLink(
   profileType: ProfileType,
   categoryPartsTitle: string[]
 ): Promise<void> {
-  // Pas de catégories -> on met "autre" pour avoir une leaf stable
+  // Pas de catégories -> on met "Autre" pour avoir une leaf stable
   const parts = categoryPartsTitle.length > 0 ? categoryPartsTitle : ["Autre"];
 
   const db2 = await (db as any).getDb?.();
@@ -462,14 +462,25 @@ async function ensureTaxonomyLink(
     import("../drizzle/schema" as any)
   );
 
-  const { eq, and } = await import("drizzle-orm");
+  const { eq, and, isNull } = await import("drizzle-orm");
 
   const categoryNodes =
     (schema as any).categoryNodes ?? (schema as any).category_nodes;
   const resourceCategoryNodes =
     (schema as any).resourceCategoryNodes ?? (schema as any).resource_category_nodes;
+  const profileTypes =
+    (schema as any).profileTypes ?? (schema as any).profile_types;
 
-  if (!categoryNodes || !resourceCategoryNodes) return;
+  if (!categoryNodes || !resourceCategoryNodes || !profileTypes) return;
+
+  const profileRows: Array<{ id: number }> = (await db2
+    .select({ id: profileTypes.id })
+    .from(profileTypes)
+    .where(eq(profileTypes.key, profileType as any))
+    .limit(1)) as any;
+
+  const profileTypeId = profileRows?.[0]?.id ? Number(profileRows[0].id) : null;
+  if (!profileTypeId) return;
 
   let parentId: number | null = null;
   let leafId: number | null = null;
@@ -477,19 +488,24 @@ async function ensureTaxonomyLink(
   for (const title of parts) {
     const slug = slugifySegment(title);
 
+    const whereClause =
+      parentId === null
+        ? and(
+            eq(categoryNodes.profileTypeId, profileTypeId as any),
+            isNull(categoryNodes.parentId),
+            eq(categoryNodes.slug, slug)
+          )
+        : and(
+            eq(categoryNodes.profileTypeId, profileTypeId as any),
+            eq(categoryNodes.parentId, parentId as any),
+            eq(categoryNodes.slug, slug)
+          );
+
     // 1) cherche si le node existe déjà
     const existing: Array<{ id: number }> = (await db2
       .select({ id: categoryNodes.id })
       .from(categoryNodes)
-      .where(
-        and(
-          eq(categoryNodes.profileType, profileType as any),
-          parentId === null
-            ? eq(categoryNodes.parentId, null as any)
-            : eq(categoryNodes.parentId, parentId as any),
-          eq(categoryNodes.slug, slug)
-        )
-      )
+      .where(whereClause)
       .limit(1)) as any;
 
     if (Array.isArray(existing) && existing.length > 0) {
@@ -499,32 +515,27 @@ async function ensureTaxonomyLink(
     }
 
     // 2) crée le node
-    await db2.insert(categoryNodes).values({
-  profileType: profileType as any,
-  parentId: parentId as any,
-  parentIdKey: "",
-  slug,
-  title,
-  description: null,
-  sortOrder: 0,
-  isActive: 1,
-} as any).onDuplicateKeyUpdate({
-  set: { slug }
-});
+    await db2
+      .insert(categoryNodes)
+      .values({
+        profileTypeId: profileTypeId as any,
+        parentId: parentId as any,
+        parentIdKey: parentId === null ? "__ROOT__" : String(parentId),
+        slug,
+        title,
+        description: null,
+        sortOrder: 0,
+        isActive: 1,
+      } as any)
+      .onDuplicateKeyUpdate({
+        set: { slug },
+      });
 
     // 3) relit l'id (robuste MySQL)
     const created: Array<{ id: number }> = (await db2
       .select({ id: categoryNodes.id })
       .from(categoryNodes)
-      .where(
-        and(
-          eq(categoryNodes.profileType, profileType as any),
-          parentId === null
-            ? eq(categoryNodes.parentId, null as any)
-            : eq(categoryNodes.parentId, parentId as any),
-          eq(categoryNodes.slug, slug)
-        )
-      )
+      .where(whereClause)
       .limit(1)) as any;
 
     if (Array.isArray(created) && created.length > 0) {
@@ -856,6 +867,203 @@ const resourceId = await db.createResource(
 
       await db.setResourceProfiles(resourceId, [profile]);
 
+      // ✅ Auto-thèmes — Option B
+      try {
+        const db2 = await (db as any).getDb?.();
+        if (db2) {
+          const schema = await import("../../drizzle/schema").catch(() =>
+            import("../drizzle/schema" as any)
+          );
+
+          const themesTable = (schema as any).themes;
+          const resourceThemesTable =
+            (schema as any).resourceThemes ?? (schema as any).resource_themes;
+
+          if (themesTable && resourceThemesTable) {
+            const normalizeForThemeMatch = (value: string): string =>
+              String(value ?? "")
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, " ");
+
+            const detectThemeNamesFromText = (text: string): string[] => {
+              const normalized = normalizeForThemeMatch(text);
+
+              const rules: Array<{ themeName: string; keywords: string[] }> = [
+                {
+                  themeName: "Harcèlement et prévention",
+                  keywords: [
+                    "harcelement",
+                    "harceler",
+                    "intimidation",
+                    "moquerie",
+                    "moqueries",
+                    "racket",
+                    "exclusion",
+                    "violence verbale",
+                    "violences verbales",
+                  ],
+                },
+                {
+                  themeName: "Vivre ensemble",
+                  keywords: [
+                    "vivre ensemble",
+                    "respect",
+                    "regles de vie",
+                    "regle de vie",
+                    "vie collective",
+                    "groupe",
+                    "cohesion",
+                  ],
+                },
+                {
+                  themeName: "Inclusion et handicap",
+                  keywords: [
+                    "inclusion",
+                    "handicap",
+                    "accessibilite",
+                    "difference",
+                    "differences",
+                  ],
+                },
+                {
+                  themeName: "Émotions et expression",
+                  keywords: [
+                    "emotion",
+                    "emotions",
+                    "colere",
+                    "peur",
+                    "joie",
+                    "tristesse",
+                    "expression",
+                    "ressenti",
+                  ],
+                },
+                {
+                  themeName: "Coopération et entraide",
+                  keywords: [
+                    "cooperation",
+                    "coopération",
+                    "entraide",
+                    "ensemble",
+                    "solidaire",
+                    "solidarite",
+                    "defi collectif",
+                  ],
+                },
+                {
+                  themeName: "Citoyenneté",
+                  keywords: [
+                    "citoyennete",
+                    "citoyenneté",
+                    "citoyen",
+                    "citoyens",
+                    "droits",
+                    "devoirs",
+                    "republique",
+                    "democratie",
+                  ],
+                },
+                {
+                  themeName: "Environnement",
+                  keywords: [
+                    "environnement",
+                    "nature",
+                    "ecologie",
+                    "écologie",
+                    "recyclage",
+                    "developpement durable",
+                    "développement durable",
+                  ],
+                },
+                {
+                  themeName: "Jeux et dynamisation",
+                  keywords: [
+                    "jeu",
+                    "jeux",
+                    "dynamique",
+                    "energizer",
+                    "brise glace",
+                    "icebreaker",
+                    "animation",
+                  ],
+                },
+                {
+                  themeName: "Activités artistiques",
+                  keywords: [
+                    "artistique",
+                    "art",
+                    "peinture",
+                    "dessin",
+                    "theatre",
+                    "théâtre",
+                    "musique",
+                    "creation",
+                    "création",
+                  ],
+                },
+                {
+                  themeName: "Activités sportives",
+                  keywords: [
+                    "sport",
+                    "sports",
+                    "sportif",
+                    "sportive",
+                    "motricite",
+                    "motricité",
+                    "physique",
+                  ],
+                },
+              ];
+
+              const detected = new Set<string>();
+
+              for (const rule of rules) {
+                const hasMatch = rule.keywords.some((keyword) =>
+                  normalized.includes(normalizeForThemeMatch(keyword))
+                );
+
+                if (hasMatch) {
+                  detected.add(rule.themeName);
+                }
+              }
+
+              return Array.from(detected);
+            };
+
+            const detectedThemeNames = detectThemeNamesFromText(
+              [title, filename, rel, categoryKey].filter(Boolean).join(" ")
+            );
+
+            if (detectedThemeNames.length > 0) {
+              const themeRows = (await db2
+                .select({
+                  id: themesTable.id,
+                  name: themesTable.name,
+                })
+                .from(themesTable)) as Array<{ id: number; name: string }>;
+
+              const matchingThemeIds = themeRows
+                .filter((row) => detectedThemeNames.includes(String(row.name ?? "").trim()))
+                .map((row) => Number(row.id));
+
+              for (const themeId of matchingThemeIds) {
+                try {
+                  await db2.insert(resourceThemesTable).values({
+                    resourceId,
+                    themeId,
+                  } as any);
+                } catch {
+                  // ignore doublon éventuel
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("⚠️  [THEMES] auto-association non bloquante:", (e as any)?.message ?? e);
+      }
+
       // ✅ PILIER 3 — branchement taxonomy DB (idempotent)
       const categoryPartsForTaxonomy = buildCategoryPartsForTaxonomy(relParts);
       await ensureTaxonomyLink(resourceId, profile, categoryPartsForTaxonomy);
@@ -920,6 +1128,25 @@ const resourceId = await db.createResource(
       "/",
       auditWouldImport + auditWouldUpdate
     );
+
+    const auditPayload = {
+      mode: "AUDIT",
+      extractRoot: EXTRACT_ROOT,
+      ressourcesRoot: RESSOURCES_ROOT,
+      detectedPdfs: pdfFilesAbs.length,
+      inDb: auditInDb,
+      wouldImport: auditWouldImport,
+      wouldUpdate: auditWouldUpdate,
+      detailsShown: auditDetails.length,
+      detailsTotal: auditWouldImport + auditWouldUpdate,
+      details: auditDetails,
+    };
+
+    // Marqueur stable pour lecture machine côté API / UI
+    console.log("AUDIT_RESULT_JSON_START");
+    console.log(JSON.stringify(auditPayload, null, 2));
+    console.log("AUDIT_RESULT_JSON_END");
+
     // Export audit log (pour historique / debug / future UI admin)
     try {
       const outDir = path.join(PROJECT_ROOT, "import_tmp");
@@ -928,17 +1155,7 @@ const resourceId = await db.createResource(
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const outPath = path.join(outDir, `audit_import_optionB_${stamp}.json`);
 
-      const payload = {
-        extractRoot: EXTRACT_ROOT,
-        ressourcesRoot: RESSOURCES_ROOT,
-        detectedPdfs: pdfFilesAbs.length,
-        inDb: auditInDb,
-        wouldImport: auditWouldImport,
-        wouldUpdate: auditWouldUpdate,
-        details: auditDetails,
-      };
-
-      fs.writeFileSync(outPath, JSON.stringify(payload, null, 2), "utf-8");
+      fs.writeFileSync(outPath, JSON.stringify(auditPayload, null, 2), "utf-8");
       console.log("AUDIT_LOG_WRITTEN:", outPath);
     } catch (e) {
       console.warn("AUDIT_LOG_WRITE_FAILED:", (e as any)?.message ?? e);

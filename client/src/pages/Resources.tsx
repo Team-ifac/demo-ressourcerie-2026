@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { Search, Filter, Download } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { readingLabel } from "@/lib/resourcePolicy";
@@ -29,11 +29,13 @@ import { AccessDeniedModal } from "@/components/AccessDeniedModal";
 
 export default function Resources() {
   const [search, setSearch] = useState("");
-  const [selectedCollections, setSelectedCollections] = useState<number[]>([]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>("");
   const [selectedDuration, setSelectedDuration] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // ✅ Modal "accès refusé" (catalogue)
   const [accessDenied, setAccessDenied] = useState<{
@@ -60,40 +62,62 @@ export default function Resources() {
   useEffect(() => {
     if (categoryFromUrl) {
       setSelectedCategory(categoryFromUrl);
+      setSelectedCategoryKey(categoryFromUrl);
     } else {
       setSelectedCategory("");
+      setSelectedCategoryKey("");
     }
-    // Invalidate the query cache to force refetch with new parameters
-    utils.resources.list.invalidate();
-  }, [location, utils]); // Depend on location
+    setCurrentPage(1);
+    utils.resources.listPaginated.invalidate();
+    utils.resources.listCategories.invalidate();
+  }, [location, utils, categoryFromUrl]);
 
-  const { data: resources = [], isLoading } = trpc.resources.list.useQuery({
-    search: search || undefined,
-    collectionIds: selectedCollections.length > 0 ? selectedCollections : undefined,
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [search]);
+
+  const { data: paginatedResources, isLoading } = trpc.resources.listPaginated.useQuery({
+    search: debouncedSearch || undefined,
     type: selectedType || params.get("type") || undefined,
     ageRange: selectedAgeRange || undefined,
     duration: selectedDuration || undefined,
-    category: categoryFromUrl || undefined, // Use categoryFromUrl directly
+    category: selectedCategoryKey || undefined,
+    page: currentPage,
+    limit: 24,
   });
 
-  const { data: collections = [] } = trpc.collections.listPublic.useQuery();
+  const resources = paginatedResources?.items ?? [];
+  const categories = Array.from(
+  new Set(
+    resources
+      .map((resource: any) => String(resource?.category ?? "").trim())
+      .filter((category) => category.length > 0)
+  )
+).sort((a, b) => a.localeCompare(b));
+  const pagination = paginatedResources?.pagination;
 
   const clearFilters = () => {
     setSearch("");
-    setSelectedCollections([]);
     setSelectedType("");
     setSelectedAgeRange("");
     setSelectedDuration("");
     setSelectedCategory("");
+    setSelectedCategoryKey("");
+    setCurrentPage(1);
   };
 
   const hasFilters =
     search ||
-    selectedCollections.length > 0 ||
     selectedType ||
     selectedAgeRange ||
     selectedDuration ||
-    selectedCategory;
+    selectedCategoryKey;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -131,13 +155,22 @@ export default function Resources() {
                     <Input
                       placeholder="Rechercher par mots-clés..."
                       value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setCurrentPage(1);
+                      }}
                       className="pl-10"
                     />
                   </div>
                 </div>
 
-                <Select value={selectedType} onValueChange={setSelectedType}>
+                <Select
+                  value={selectedType}
+                  onValueChange={(value) => {
+                    setSelectedType(value);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Type de ressource" />
                   </SelectTrigger>
@@ -150,7 +183,13 @@ export default function Resources() {
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedAgeRange} onValueChange={setSelectedAgeRange}>
+                <Select
+                  value={selectedAgeRange}
+                  onValueChange={(value) => {
+                    setSelectedAgeRange(value);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Tranche d'âge" />
                   </SelectTrigger>
@@ -163,7 +202,13 @@ export default function Resources() {
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedDuration} onValueChange={setSelectedDuration}>
+                <Select
+                  value={selectedDuration}
+                  onValueChange={(value) => {
+                    setSelectedDuration(value);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Durée" />
                   </SelectTrigger>
@@ -177,26 +222,43 @@ export default function Resources() {
                 </Select>
               </div>
 
-              {collections.length > 0 && (
+              {categories.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Thématiques</p>
+                  <p className="text-sm font-medium">Catégories pédagogiques</p>
                   <div className="flex flex-wrap gap-2">
-                    {collections.map((collection) => (
-                      <Badge
-                        key={collection.id}
-                        variant={selectedCollections.includes(collection.id) ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setSelectedCollections((prev) =>
-                            prev.includes(collection.id)
-                              ? prev.filter((id) => id !== collection.id)
-                              : [...prev, collection.id]
-                          );
-                        }}
-                      >
-                        {collection.name}
-                      </Badge>
-                    ))}
+                    {categories.map((category) => {
+  const isSelected = selectedCategoryKey === category;
+
+  const label = category
+    .split("/")
+    .map((part) =>
+      part
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    )
+    .join(" / ");
+
+  const count = resources.filter((resource: any) => {
+    const resourceCategory = String(resource?.category ?? "").trim();
+    return resourceCategory === category;
+  }).length;
+
+  return (
+    <Badge
+      key={category}
+      variant={isSelected ? "default" : "outline"}
+      className="cursor-pointer transition-colors"
+      onClick={() => {
+        const nextValue = selectedCategoryKey === category ? "" : category;
+        setSelectedCategoryKey(nextValue);
+        setSelectedCategory(nextValue);
+        setCurrentPage(1);
+      }}
+    >
+      {label} ({count})
+    </Badge>
+  );
+})}
                   </div>
                 </div>
               )}
@@ -215,9 +277,9 @@ export default function Resources() {
               <p className="text-sm text-muted-foreground">
                 {isLoading
                   ? "Chargement..."
-                  : `${resources.length} ressource${resources.length > 1 ? "s" : ""} trouvée${
-                      resources.length > 1 ? "s" : ""
-                    }`}
+                  : `${pagination?.total ?? resources.length} ressource${
+                      (pagination?.total ?? resources.length) > 1 ? "s" : ""
+                    } trouvée${(pagination?.total ?? resources.length) > 1 ? "s" : ""}`}
               </p>
             </div>
 
@@ -405,6 +467,42 @@ export default function Resources() {
   </Card>
 );
                 })}
+              </div>
+            )}
+
+            {!isLoading && (pagination?.totalPages ?? 0) > 1 && (
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-2">
+                <p className="text-sm text-muted-foreground">
+                  Page {pagination?.page ?? 1} sur {pagination?.totalPages ?? 1}
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!pagination?.hasPreviousPage}
+                    onClick={() => {
+                      if (pagination?.hasPreviousPage) {
+                        setCurrentPage((prev) => Math.max(1, prev - 1));
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    }}
+                  >
+                    Précédent
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    disabled={!pagination?.hasNextPage}
+                    onClick={() => {
+                      if (pagination?.hasNextPage) {
+                        setCurrentPage((prev) => prev + 1);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    }}
+                  >
+                    Suivant
+                  </Button>
+                </div>
               </div>
             )}
           </div>

@@ -15,6 +15,9 @@ import {
   comments,
   resourceHistory,
   profileTypes,
+  importHistory,
+  categoryNodes,
+  resourceCategoryNodes,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import bcrypt from "bcryptjs";
@@ -349,16 +352,67 @@ export async function getAllResources(filters?: {
   const conditions: any[] = [];
 
   if (filters?.search) {
-    conditions.push(
+
+  const normalize = (v: string) =>
+    v
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  const rawSearch = filters.search.trim();
+  const normalizedSearch = normalize(rawSearch);
+
+  const searchVariants = Array.from(
+    new Set([rawSearch, normalizedSearch])
+  );
+
+  const searchTerms = searchVariants.map((v) => `%${v}%`);
+
+  const themeMatches = await db
+    .select({ resourceId: resourceThemes.resourceId })
+    .from(resourceThemes)
+    .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
+    .where(
       or(
-        like(resources.title, `%${filters.search}%`),
-        like(resources.summary, `%${filters.search}%`),
-        like(resources.content, `%${filters.search}%`)
+        ...searchTerms.map((term) => like(themes.name, term))
       )
     );
+
+  const themeResourceIds = themeMatches.map((t) => Number(t.resourceId));
+
+  const categoryNodeMatches = await db
+    .select({
+      resourceId: resourceCategoryNodes.resourceId,
+    })
+    .from(resourceCategoryNodes)
+    .innerJoin(
+      categoryNodes,
+      eq(resourceCategoryNodes.categoryNodeId, categoryNodes.id)
+    )
+    .where(
+      or(
+        ...searchTerms.map((term) => like(categoryNodes.slug, term))
+      )
+    );
+
+  const categoryResourceIds = categoryNodeMatches.map((row) => Number(row.resourceId));
+
+  const allSearchResourceIds = Array.from(
+    new Set([...themeResourceIds, ...categoryResourceIds])
+  );
+
+  const searchConditions = [
+    ...searchTerms.map((term) => like(resources.title, term)),
+    ...searchTerms.map((term) => like(resources.summary, term)),
+    ...searchTerms.map((term) => like(resources.content, term)),
+  ];
+
+  if (allSearchResourceIds.length > 0) {
+    searchConditions.push(inArray(resources.id, allSearchResourceIds));
   }
 
-  if (filters?.type) conditions.push(eq(resources.type, filters.type));
+  conditions.push(or(...searchConditions));
+}
   if (filters?.ageRange) conditions.push(eq(resources.ageRange, filters.ageRange));
   if (filters?.duration) conditions.push(eq(resources.duration, filters.duration));
 
@@ -371,11 +425,86 @@ export async function getAllResources(filters?: {
   }
   // includeInternal = true : PUBLIC + INTERNAL_IFAC
 
-  // ===== Category (Phase 1) =====
-  // category est désormais une clé string canonique => filtre exact ok
+  // ===== Category (transition legacy -> taxonomie relationnelle) =====
+  // Objectif :
+  // - continuer à supporter l'ancien champ resources.category
+  // - commencer à supporter la nouvelle taxonomie via resource_category_nodes
+  //
+  // Règle :
+  // - si filters.category est fourni, on résout les resourceIds liés à la taxonomie
+  // - puis on accepte une ressource si :
+  //   1) resources.category = filters.category
+  //   OU
+  //   2) resources.id est relié à un category_node correspondant
   if (filters?.category) {
-    if (debugSql) console.log("[DEBUG] Adding category filter:", filters.category);
-    conditions.push(eq(resources.category, filters.category));
+    if (debugSql) {
+      console.log("[DEBUG] Adding category filter:", filters.category);
+    }
+
+    const categoryKey = filters.category.trim();
+
+    const allCategoryNodesRows = await db
+      .select({
+        id: categoryNodes.id,
+        profileTypeId: categoryNodes.profileTypeId,
+        slug: categoryNodes.slug,
+        parentId: categoryNodes.parentId,
+        isActive: categoryNodes.isActive,
+      })
+      .from(categoryNodes);
+
+    const nodesById = new Map<number, any>();
+    for (const node of allCategoryNodesRows) {
+      nodesById.set(node.id, node);
+    }
+
+    const buildPath = (nodeId: number): string | null => {
+      const parts: string[] = [];
+      let current = nodesById.get(nodeId);
+
+      while (current) {
+        parts.unshift(current.slug);
+        if (current.parentId == null) break;
+        current = nodesById.get(current.parentId);
+      }
+
+      if (parts.length === 0) return null;
+      return parts.join("/");
+    };
+
+    const matchingCategoryNodeIds = allCategoryNodesRows
+      .filter((node) => node.isActive === 1)
+      .filter((node) => {
+        const path = buildPath(node.id);
+        return path === categoryKey;
+      })
+      .map((node) => node.id);
+
+    let taxonomyResourceIds: number[] = [];
+
+    if (matchingCategoryNodeIds.length > 0) {
+      const linkedRows = await db
+        .select({
+          resourceId: resourceCategoryNodes.resourceId,
+        })
+        .from(resourceCategoryNodes)
+        .where(inArray(resourceCategoryNodes.categoryNodeId, matchingCategoryNodeIds));
+
+      taxonomyResourceIds = Array.from(
+        new Set(linkedRows.map((row) => Number(row.resourceId)))
+      );
+    }
+
+    if (taxonomyResourceIds.length > 0) {
+      conditions.push(
+        or(
+          eq(resources.category, categoryKey),
+          inArray(resources.id, taxonomyResourceIds)
+        )
+      );
+    } else {
+      conditions.push(eq(resources.category, categoryKey));
+    }
   }
 
   // ===== Access level (SAFE-BY-DEFAULT — plateforme nationale) =====
@@ -423,38 +552,34 @@ export async function getAllResources(filters?: {
 
   if (filters?.profileType) {
     const profileTypeId = await resolveProfileTypeId(filters.profileType);
+    query = query.innerJoin(
+      resourceProfiles,
+      eq(resources.id, resourceProfiles.resourceId)
+    );
+    conditions.push(eq(resourceProfiles.profileTypeId, profileTypeId));
+  }
 
-    query = query
-      .innerJoin(resourceProfiles, eq(resources.id, resourceProfiles.resourceId))
-      .where(
-        and(
-          eq(resourceProfiles.profileTypeId, profileTypeId),
-          conditions.length > 0 ? and(...conditions) : undefined
-        )
-      );
-  } else if (filters?.collectionIds && filters.collectionIds.length > 0) {
-    query = query
-      .innerJoin(collectionResources, eq(resources.id, collectionResources.resourceId))
-      .where(
-        and(
-          inArray(collectionResources.collectionId, filters.collectionIds),
-          conditions.length > 0 ? and(...conditions) : undefined
-        )
-      );
-  } else if (filters?.themeIds && filters.themeIds.length > 0) {
-    query = query
-      .innerJoin(resourceThemes, eq(resources.id, resourceThemes.resourceId))
-      .where(
-        and(
-          inArray(resourceThemes.themeId, filters.themeIds),
-          conditions.length > 0 ? and(...conditions) : undefined
-        )
-      );
-  } else if (conditions.length > 0) {
+  if (filters?.collectionIds && filters.collectionIds.length > 0) {
+    query = query.innerJoin(
+      collectionResources,
+      eq(resources.id, collectionResources.resourceId)
+    );
+    conditions.push(inArray(collectionResources.collectionId, filters.collectionIds));
+  }
+
+  if (filters?.themeIds && filters.themeIds.length > 0) {
+    query = query.innerJoin(
+      resourceThemes,
+      eq(resources.id, resourceThemes.resourceId)
+    );
+    conditions.push(inArray(resourceThemes.themeId, filters.themeIds));
+  }
+
+  if (conditions.length > 0) {
     query = query.where(and(...conditions));
   }
 
-  // ✅ PRO: plus récent d’abord (meilleure lisibilité + démo)
+  // ✅ Base SQL : plus récent d’abord
   const result = await query.orderBy(desc(resources.createdAt));
 
   // Extract only resource data if joined and deduplicate
@@ -466,8 +591,8 @@ export async function getAllResources(filters?: {
     }
   });
 
-  // Récupérer les collections associées à chaque ressource
-  const resourcesWithCollections = await Promise.all(
+  // Enrichissement : collections + thèmes
+  const resourcesWithMeta = await Promise.all(
     Array.from(resourcesMap.values()).map(async (resource: any) => {
       const collectionRows = await db
         .select()
@@ -475,14 +600,67 @@ export async function getAllResources(filters?: {
         .innerJoin(collections, eq(collectionResources.collectionId, collections.id))
         .where(eq(collectionResources.resourceId, resource.id));
 
+      const themeRows = await db
+        .select({ theme: themes })
+        .from(resourceThemes)
+        .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
+        .where(eq(resourceThemes.resourceId, resource.id));
+
       return {
         ...resource,
         collections: collectionRows.map((row: any) => row.collections),
+        themes: themeRows.map((row: any) => row.theme),
       };
     })
   );
 
-  return resourcesWithCollections;
+  // ✅ Tri de pertinence simple si recherche active
+  if (filters?.search) {
+    const normalizeSearchText = (value: unknown): string =>
+      String(value ?? "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    const normalizedSearch = normalizeSearchText(filters.search);
+
+    const scoredResources = resourcesWithMeta.map((resource: any) => {
+      const titleText = normalizeSearchText(resource.title);
+      const summaryText = normalizeSearchText(resource.summary);
+      const contentText = normalizeSearchText(resource.content);
+      const categoryText = normalizeSearchText(resource.category);
+      const themeTexts = Array.isArray(resource.themes)
+        ? resource.themes.map((theme: any) => normalizeSearchText(theme?.name))
+        : [];
+
+      let score = 0;
+
+      if (titleText.includes(normalizedSearch)) score += 50;
+      if (themeTexts.some((themeName: string) => themeName.includes(normalizedSearch))) score += 40;
+      if (summaryText.includes(normalizedSearch)) score += 30;
+      if (categoryText.includes(normalizedSearch)) score += 20;
+      if (contentText.includes(normalizedSearch)) score += 10;
+
+      return {
+        ...resource,
+        _searchScore: score,
+      };
+    });
+
+    scoredResources.sort((a: any, b: any) => {
+      if (b._searchScore !== a._searchScore) {
+        return b._searchScore - a._searchScore;
+      }
+
+      return (
+        new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+      );
+    });
+
+    return scoredResources.map(({ _searchScore, ...resource }: any) => resource);
+  }
+
+  return resourcesWithMeta;
 }
 
 export async function getRecentResources(limit: number, includeInternal: boolean) {
@@ -1650,6 +1828,80 @@ export async function getAllResourceHistory(limit: number = 50) {
   return result;
 }
 
+export async function addImportHistory(data: {
+  userId: number;
+  actionType: "AUDIT" | "DRY_RUN" | "WRITE";
+  zipFileName?: string | null;
+  extractRoot?: string | null;
+  detectedPdfs?: number;
+  inDb?: number;
+  wouldImport?: number;
+  wouldUpdate?: number;
+  imported?: number;
+  updated?: number;
+  skipped?: number;
+  failed?: number;
+  logPath?: string | null;
+  rawOutput?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(importHistory).values({
+    userId: data.userId,
+    actionType: data.actionType,
+    zipFileName: data.zipFileName ?? null,
+    extractRoot: data.extractRoot ?? null,
+    detectedPdfs: data.detectedPdfs ?? 0,
+    inDb: data.inDb ?? 0,
+    wouldImport: data.wouldImport ?? 0,
+    wouldUpdate: data.wouldUpdate ?? 0,
+    imported: data.imported ?? 0,
+    updated: data.updated ?? 0,
+    skipped: data.skipped ?? 0,
+    failed: data.failed ?? 0,
+    logPath: data.logPath ?? null,
+    rawOutput: data.rawOutput ?? null,
+  });
+
+  return Number((result as any).insertId || 0);
+}
+
+export async function getImportHistory(limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const { users: usersTable } = await import("../drizzle/schema");
+
+  const result = await db
+    .select({
+      id: importHistory.id,
+      userId: importHistory.userId,
+      actionType: importHistory.actionType,
+      zipFileName: importHistory.zipFileName,
+      extractRoot: importHistory.extractRoot,
+      detectedPdfs: importHistory.detectedPdfs,
+      inDb: importHistory.inDb,
+      wouldImport: importHistory.wouldImport,
+      wouldUpdate: importHistory.wouldUpdate,
+      imported: importHistory.imported,
+      updated: importHistory.updated,
+      skipped: importHistory.skipped,
+      failed: importHistory.failed,
+      logPath: importHistory.logPath,
+      rawOutput: importHistory.rawOutput,
+      createdAt: importHistory.createdAt,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+    })
+    .from(importHistory)
+    .leftJoin(usersTable, eq(importHistory.userId, usersTable.id))
+    .orderBy(desc(importHistory.createdAt))
+    .limit(limit);
+
+  return result;
+}
+
 // Fonction pour lister les collections publiques
 export async function getPublicCollections() {
   const db = await getDb();
@@ -2300,16 +2552,127 @@ export async function listCategoryKeys(filters?: {
   const isAdminView = filters?.adminView === ADMIN_VIEW_TOKEN;
 
   // ===== Visibility (legacy) =====
-  // Même règle que getAllResources : si pas includeInternal => PUBLIC uniquement
   if (!filters?.includeInternal && !isAdminView) {
     conditions.push(eq(resources.visibility, "PUBLIC"));
   }
 
   // ===== Access level (SAFE-BY-DEFAULT) =====
-  // - Public : PUBLIC
-  // - Connecté non premium : PUBLIC + INTERNAL_IFAC
-  // - Premium : PUBLIC + INTERNAL_IFAC + PREMIUM
-  // - Admin view : pas de filtre
+  if (!isAdminView) {
+    if (!filters?.includeInternal) {
+      conditions.push(eq(resources.accessLevel, "PUBLIC"));
+    } else if (filters?.includePremium) {
+      conditions.push(
+        or(
+          eq(resources.accessLevel, "PUBLIC"),
+          eq(resources.accessLevel, "INTERNAL_IFAC"),
+          eq(resources.accessLevel, "PREMIUM")
+        )
+      );
+    } else {
+      conditions.push(
+        or(
+          eq(resources.accessLevel, "PUBLIC"),
+          eq(resources.accessLevel, "INTERNAL_IFAC")
+        )
+      );
+    }
+  }
+
+  // ===== Status (gouvernance) =====
+  if (!isAdminView) {
+    conditions.push(eq(resources.status, "approved"));
+  }
+
+  // =========================================================
+  // ✅ SOURCE DE VÉRITÉ : taxonomie relationnelle
+  // On part de resource_category_nodes + category_nodes
+  // et non plus de l'ancien champ resources.category.
+  // =========================================================
+  let query: any = db
+    .select({
+      slug: categoryNodes.slug,
+      parentId: categoryNodes.parentId,
+      nodeId: categoryNodes.id,
+    })
+    .from(resourceCategoryNodes)
+    .innerJoin(resources, eq(resourceCategoryNodes.resourceId, resources.id))
+    .innerJoin(categoryNodes, eq(resourceCategoryNodes.categoryNodeId, categoryNodes.id));
+
+  if (filters?.profileType) {
+    const profileTypeId = await resolveProfileTypeId(filters.profileType);
+
+    query = query.where(
+      and(
+        eq(categoryNodes.profileTypeId, profileTypeId),
+        eq(categoryNodes.isActive, 1),
+        conditions.length > 0 ? and(...conditions) : undefined
+      )
+    );
+  } else {
+    query = query.where(
+      and(
+        eq(categoryNodes.isActive, 1),
+        conditions.length > 0 ? and(...conditions) : undefined
+      )
+    );
+  }
+
+  const rows = await query;
+
+  // On recharge tous les category_nodes nécessaires pour reconstruire les chemins complets
+  const allNodes = await db
+    .select({
+      id: categoryNodes.id,
+      profileTypeId: categoryNodes.profileTypeId,
+      slug: categoryNodes.slug,
+      parentId: categoryNodes.parentId,
+      isActive: categoryNodes.isActive,
+    })
+    .from(categoryNodes);
+
+  const nodesById = new Map<number, any>();
+  for (const node of allNodes) {
+    nodesById.set(node.id, node);
+  }
+
+  const buildPath = (nodeId: number): string | null => {
+    const parts: string[] = [];
+    let current = nodesById.get(nodeId);
+
+    while (current) {
+      parts.unshift(current.slug);
+      if (current.parentId == null) break;
+      current = nodesById.get(current.parentId);
+    }
+
+    if (parts.length === 0) return null;
+    return parts.join("/");
+  };
+
+  const keys = (rows as any[])
+    .map((row) => buildPath(Number(row.nodeId)))
+    .filter((x): x is string => !!x && x.length > 0);
+
+  return Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
+}
+
+export async function listCategoryKeysWithCounts(filters?: {
+  includeInternal?: boolean;
+  includePremium?: boolean;
+  profileType?: "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+  adminView?: symbol;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions: any[] = [];
+
+  const isAdminView = filters?.adminView === ADMIN_VIEW_TOKEN;
+
+  if (!filters?.includeInternal && !isAdminView) {
+    conditions.push(eq(resources.visibility, "PUBLIC"));
+  }
+
   if (!isAdminView) {
     if (!filters?.includeInternal) {
       conditions.push(eq(resources.accessLevel, "PUBLIC"));
@@ -2328,16 +2691,12 @@ export async function listCategoryKeys(filters?: {
     }
   }
 
-  // ===== Status (gouvernance) =====
-  // Catalogue non-admin => seulement approved
   if (!isAdminView) {
     conditions.push(eq(resources.status, "approved"));
   }
 
-  // base query
   let query: any = db.select({ category: resources.category }).from(resources);
 
-  // si on filtre par profil, on join resourceProfiles
   if (filters?.profileType) {
     query = query
       .innerJoin(resourceProfiles, eq(resources.id, resourceProfiles.resourceId))
@@ -2353,15 +2712,58 @@ export async function listCategoryKeys(filters?: {
 
   const rows = await query;
 
-  // Convertit une category stockée (string "a/b" OU vieux JSON ["a","b"]) en key "a/b"
   const toCategoryKey = (raw: unknown): string | null => {
     const s = (raw ?? "").toString().trim();
     if (!s) return null;
 
-    // Cas 1: déjà une clé "a/b"
     if (!s.startsWith("[") && !s.endsWith("]")) return s;
 
-    // Cas 2: JSON ["a","b",...]
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        const parts = parsed
+          .map((x) => (x ?? "").toString().trim())
+          .filter(Boolean);
+
+        if (parts.length === 0) return null;
+        return parts.join("/");
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  };
+
+  const counts = new Map<string, number>();
+
+  for (const row of rows as any[]) {
+    const key = toCategoryKey(row?.category);
+    if (!key) continue;
+
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export async function rebuildResourceCategoryNodesFromLegacyCategory() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const allResources = await db.select({
+    id: resources.id,
+    category: resources.category,
+  }).from(resources);
+
+  const toCategoryKey = (raw: unknown): string | null => {
+    const s = (raw ?? "").toString().trim();
+    if (!s) return null;
+
+    if (!s.startsWith("[") && !s.endsWith("]")) return s;
+
     try {
       const parsed = JSON.parse(s);
       if (Array.isArray(parsed)) {
@@ -2372,17 +2774,95 @@ export async function listCategoryKeys(filters?: {
         return parts.join("/");
       }
     } catch {
-      // JSON invalide -> on ignore
+      return null;
     }
 
     return null;
   };
 
-  const keys = (rows as any[])
-    .map((r) => toCategoryKey(r?.category))
-    .filter((x): x is string => !!x && x.length > 0);
+  const allCategoryNodes = await db.select({
+    id: categoryNodes.id,
+    profileTypeId: categoryNodes.profileTypeId,
+    slug: categoryNodes.slug,
+    parentId: categoryNodes.parentId,
+    parentIdKey: categoryNodes.parentIdKey,
+    isActive: categoryNodes.isActive,
+  }).from(categoryNodes);
 
-  // distinct + tri
-  return Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
+  const byProfileAndPath = new Map<string, number>();
+
+  const nodesById = new Map<number, any>();
+  for (const node of allCategoryNodes) {
+    nodesById.set(node.id, node);
+  }
+
+  const buildPath = (nodeId: number): string | null => {
+    const parts: string[] = [];
+    let current = nodesById.get(nodeId);
+
+    while (current) {
+      parts.unshift(current.slug);
+      if (current.parentId == null) break;
+      current = nodesById.get(current.parentId);
+    }
+
+    if (parts.length === 0) return null;
+    return parts.join("/");
+  };
+
+  for (const node of allCategoryNodes) {
+    if (node.isActive !== 1) continue;
+    const path = buildPath(node.id);
+    if (!path) continue;
+    byProfileAndPath.set(`${node.profileTypeId}::${path}`, node.id);
+  }
+
+  const resourceProfileRows = await db.select({
+    resourceId: resourceProfiles.resourceId,
+    profileTypeId: resourceProfiles.profileTypeId,
+  }).from(resourceProfiles);
+
+  const profilesByResourceId = new Map<number, number[]>();
+  for (const row of resourceProfileRows) {
+    const list = profilesByResourceId.get(row.resourceId) ?? [];
+    list.push(row.profileTypeId);
+    profilesByResourceId.set(row.resourceId, list);
+  }
+
+  await db.delete(resourceCategoryNodes);
+
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const resource of allResources) {
+    const categoryKey = toCategoryKey(resource.category);
+    if (!categoryKey) {
+      skipped++;
+      continue;
+    }
+
+    const profileIds = profilesByResourceId.get(resource.id) ?? [];
+    if (profileIds.length === 0) {
+      skipped++;
+      continue;
+    }
+
+    for (const profileTypeId of profileIds) {
+      const categoryNodeId = byProfileAndPath.get(`${profileTypeId}::${categoryKey}`);
+      if (!categoryNodeId) continue;
+
+      await db.insert(resourceCategoryNodes).values({
+        resourceId: resource.id,
+        categoryNodeId,
+      });
+
+      inserted++;
+    }
+  }
+
+  return {
+    totalResources: allResources.length,
+    inserted,
+    skipped,
+  };
 }
-

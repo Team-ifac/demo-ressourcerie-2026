@@ -131,6 +131,42 @@ export const resourceHistory = mysqlTable("resource_history", {
   createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
 });
 
+export const importHistory = mysqlTable(
+  "import_history",
+  {
+    id: int().primaryKey().autoincrement().notNull(),
+
+    userId: int()
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+
+    actionType: mysqlEnum(["AUDIT", "DRY_RUN", "WRITE"]).notNull(),
+
+    zipFileName: varchar({ length: 255 }),
+    extractRoot: text(),
+
+    detectedPdfs: int().default(0).notNull(),
+    inDb: int().default(0).notNull(),
+    wouldImport: int().default(0).notNull(),
+    wouldUpdate: int().default(0).notNull(),
+
+    imported: int().default(0).notNull(),
+    updated: int().default(0).notNull(),
+    skipped: int().default(0).notNull(),
+    failed: int().default(0).notNull(),
+
+    logPath: text(),
+    rawOutput: text(),
+
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_import_history_user").on(table.userId),
+    index("idx_import_history_action_type").on(table.actionType),
+    index("idx_import_history_created_at").on(table.createdAt),
+  ]
+);
+
 export const resourceProfiles = mysqlTable(
   "resource_profiles",
   {
@@ -375,13 +411,9 @@ export const categoryNodes = mysqlTable(
   {
     id: int().primaryKey().autoincrement().notNull(),
 
-    profileType: mysqlEnum([
-  "public",
-  "animateur",
-  "formateur",
-  "directeur",
-  "stagiaire_bafa",
-]).notNull(),
+    profileTypeId: int()
+      .notNull()
+      .references(() => profileTypes.id, { onDelete: "restrict" }),
 
     parentId: int(), // peut être NULL
     parentIdKey: varchar({ length: 255 }).notNull(),
@@ -396,11 +428,11 @@ export const categoryNodes = mysqlTable(
     createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
   },
   (table) => [
-    index("idx_category_profile").on(table.profileType),
+    index("idx_category_profile_type_id").on(table.profileTypeId),
     index("idx_category_parent").on(table.parentId),
     index("idx_category_parent_key").on(table.parentIdKey),
     uniqueIndex("uniq_category_slug_per_parent_key").on(
-      table.profileType,
+      table.profileTypeId,
       table.parentIdKey,
       table.slug
     ),
@@ -410,8 +442,13 @@ export const categoryNodes = mysqlTable(
 export const resourceCategoryNodes = mysqlTable(
   "resource_category_nodes",
   {
-    resourceId: int().notNull(),
-    categoryNodeId: int().notNull(),
+    resourceId: int()
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+
+    categoryNodeId: int()
+      .notNull()
+      .references(() => categoryNodes.id, { onDelete: "cascade" }),
   },
   (table) => [
     primaryKey({ columns: [table.resourceId, table.categoryNodeId] }),

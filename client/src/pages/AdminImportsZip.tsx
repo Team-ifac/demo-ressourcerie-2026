@@ -1,12 +1,67 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Upload, Play, ShieldCheck, Terminal, AlertTriangle } from "lucide-react";
+import {
+  Loader2,
+  Upload,
+  Play,
+  ShieldCheck,
+  Terminal,
+  AlertTriangle,
+  FileSearch,
+  History,
+} from "lucide-react";
 import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 
 type RunMode = "audit" | "dry-run" | "import";
+
+type AuditResult = {
+  mode: "AUDIT";
+  extractRoot: string;
+  ressourcesRoot: string;
+  detectedPdfs: number;
+  inDb: number;
+  wouldImport: number;
+  wouldUpdate: number;
+  detailsShown: number;
+  detailsTotal: number;
+  details: string[];
+};
+
+type ImportHistoryItem = {
+  id: number;
+  userId: number;
+  actionType: "AUDIT" | "DRY_RUN" | "WRITE";
+  zipFileName: string | null;
+  extractRoot: string | null;
+  detectedPdfs: number;
+  inDb: number;
+  wouldImport: number;
+  wouldUpdate: number;
+  imported: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  logPath: string | null;
+  rawOutput: string | null;
+  createdAt: string;
+  userName?: string | null;
+  userEmail?: string | null;
+};
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "—";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+
+  return d.toLocaleString("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
 
 export default function AdminImportsZip() {
   const { user, loading } = useAuth();
@@ -14,9 +69,24 @@ export default function AdminImportsZip() {
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<RunMode>("audit");
   const [isRunning, setIsRunning] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; output?: string; error?: string; details?: string } | null>(null);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    output?: string;
+    error?: string;
+    details?: string;
+    auditResult?: AuditResult | null;
+  } | null>(null);
+
+  const [history, setHistory] = useState<ImportHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const canRun = useMemo(() => Boolean(file) && !isRunning, [file, isRunning]);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+    void loadHistory();
+  }, [user]);
 
   if (loading) {
     return (
@@ -28,6 +98,38 @@ export default function AdminImportsZip() {
 
   if (!user || user.role !== "admin") {
     return <Redirect to="/" />;
+  }
+
+  async function loadHistory() {
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      const input = encodeURIComponent(JSON.stringify({ limit: 10, offset: 0 }));
+      const resp = await fetch(`/api/trpc/admin.imports.list?input=${input}`, {
+        credentials: "include",
+      });
+
+      const payload = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(`Erreur HTTP ${resp.status}`);
+      }
+
+      const rows =
+        payload?.result?.data?.json ??
+        payload?.result?.data ??
+        payload?.json ??
+        payload ??
+        [];
+
+      setHistory(Array.isArray(rows) ? rows : []);
+    } catch (e: any) {
+      setHistoryError(String(e?.message ?? e ?? "Erreur de chargement"));
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
   }
 
   const run = async (runMode: RunMode) => {
@@ -64,17 +166,31 @@ export default function AdminImportsZip() {
           ok: false,
           error: data?.error ?? `Erreur HTTP ${resp.status}`,
           details: data?.details ? String(data.details) : undefined,
+          auditResult: null,
         });
         return;
       }
 
-      setResult({ ok: true, output: String(data.output ?? "") });
+      setResult({
+        ok: true,
+        output: String(data.output ?? ""),
+        auditResult: data?.auditResult ?? null,
+      });
+
+      await loadHistory();
     } catch (e: any) {
-      setResult({ ok: false, error: "Erreur lors de l’import", details: String(e?.message ?? e) });
+      setResult({
+        ok: false,
+        error: "Erreur lors de l’import",
+        details: String(e?.message ?? e),
+        auditResult: null,
+      });
     } finally {
       setIsRunning(false);
     }
   };
+
+  const audit = result?.auditResult ?? null;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -115,8 +231,7 @@ export default function AdminImportsZip() {
 
               {file ? (
                 <div className="text-sm text-muted-foreground">
-                  ZIP sélectionné : <span className="font-medium text-foreground">{file.name}</span> ({Math.round(file.size / 1024 / 1024)}{" "}
-                  MB)
+                  ZIP sélectionné : <span className="font-medium text-foreground">{file.name}</span> ({Math.round(file.size / 1024 / 1024)} MB)
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">Aucun ZIP sélectionné.</div>
@@ -176,13 +291,80 @@ export default function AdminImportsZip() {
             </CardContent>
           </Card>
 
+          {audit ? (
+            <Card className="shadow-elegant border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSearch className="h-4 w-4" />
+                  Résumé d’audit
+                </CardTitle>
+                <CardDescription>Lecture structurée de l’audit avant import.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">PDFs détectés</div>
+                    <div className="text-2xl font-bold">{audit.detectedPdfs}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Déjà en base</div>
+                    <div className="text-2xl font-bold">{audit.inDb}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Nouveaux à importer</div>
+                    <div className="text-2xl font-bold">{audit.wouldImport}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Fichiers à mettre à jour</div>
+                    <div className="text-2xl font-bold">{audit.wouldUpdate}</div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4">
+                  <div className="text-sm font-medium">Détails affichés</div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    {audit.detailsShown} sur {audit.detailsTotal}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="text-sm font-medium">Détails des changements</div>
+
+                  {audit.details.length === 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      Aucun changement détecté.
+                    </div>
+                  )}
+
+                  {audit.details.filter((d) => d.includes("[NEW]")).length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Nouveaux fichiers</div>
+                      <pre className="whitespace-pre-wrap text-xs bg-muted/40 border rounded-lg p-4 max-h-[200px] overflow-auto">
+{audit.details.filter((d) => d.includes("[NEW]")).join("\n")}
+                      </pre>
+                    </div>
+                  )}
+
+                  {audit.details.filter((d) => d.includes("[UPDATE]")).length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Fichiers à mettre à jour</div>
+                      <pre className="whitespace-pre-wrap text-xs bg-muted/40 border rounded-lg p-4 max-h-[200px] overflow-auto">
+{audit.details.filter((d) => d.includes("[UPDATE]")).join("\n")}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card className="shadow-elegant">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Terminal className="h-4 w-4" />
-                Résultat
+                Résultat brut
               </CardTitle>
-              <CardDescription>Sortie brute du moteur Option B (logs). On mettra ensuite un affichage “propre” NEW/UPDATED/SKIP.</CardDescription>
+              <CardDescription>Sortie complète du moteur Option B pour debug et historique.</CardDescription>
             </CardHeader>
             <CardContent>
               {!result ? (
@@ -207,14 +389,115 @@ export default function AdminImportsZip() {
             </CardContent>
           </Card>
 
+          <Card className="shadow-elegant">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Historique des imports
+              </CardTitle>
+              <CardDescription>
+                Journal des actions admin : audit, dry-run et import réel.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {historyLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Chargement de l’historique…
+                </div>
+              ) : historyError ? (
+                <div className="text-sm text-destructive">{historyError}</div>
+              ) : history.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  Aucun historique disponible pour le moment.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {history.map((item) => (
+                    <div key={item.id} className="rounded-lg border p-4 space-y-3">
+                      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                        <div className="font-medium">
+                          #{item.id} — {item.actionType}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {formatDateTime(item.createdAt)}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Utilisateur</div>
+                          <div>{item.userName || item.userEmail || `#${item.userId}`}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">ZIP</div>
+                          <div>{item.zipFileName || "—"}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">PDF détectés</div>
+                          <div>{item.detectedPdfs}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Erreurs</div>
+                          <div>{item.failed}</div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Déjà en base</div>
+                          <div>{item.inDb}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">À importer</div>
+                          <div>{item.wouldImport}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">À mettre à jour</div>
+                          <div>{item.wouldUpdate}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Skippés</div>
+                          <div>{item.skipped}</div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-3 text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Importés</div>
+                          <div>{item.imported}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Mis à jour</div>
+                          <div>{item.updated}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Dossier extrait</div>
+                          <div className="break-all">{item.extractRoot || "—"}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div>
+                <Button type="button" variant="outline" onClick={() => void loadHistory()} disabled={historyLoading}>
+                  {historyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Actualiser l’historique
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-muted/30">
             <CardContent className="py-6">
               <div className="space-y-2">
                 <p className="font-medium">Rappel</p>
                 <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-                  <li>Audit = vérifie disque vs base (utile avant import).</li>
+                  <li>Audit = vérifie disque vs base.</li>
                   <li>Dry-run = preview sans écrire en base.</li>
-                  <li>Import réel = écrit en base (idempotent : met à jour si nécessaire).</li>
+                  <li>Import réel = écrit en base de manière idempotente.</li>
                 </ul>
               </div>
             </CardContent>

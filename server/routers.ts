@@ -291,13 +291,27 @@ const adminCategoryNodes = router({
         });
       }
 
-      const { categoryNodes } = await import("../drizzle/schema");
+      const { categoryNodes, profileTypes } = await import("../drizzle/schema");
       const { eq, and } = await import("drizzle-orm");
 
+      const profileRows = await dbConn
+        .select()
+        .from(profileTypes)
+        .where(eq(profileTypes.key, input.profileType))
+        .limit(1);
+
+      const profile = profileRows[0];
+      if (!profile) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Profil introuvable : ${input.profileType}`,
+        });
+      }
+
       const whereClause = input.includeInactive
-        ? eq(categoryNodes.profileType, input.profileType)
+        ? eq(categoryNodes.profileTypeId, profile.id)
         : and(
-            eq(categoryNodes.profileType, input.profileType),
+            eq(categoryNodes.profileTypeId, profile.id),
             eq(categoryNodes.isActive, 1)
           );
 
@@ -351,7 +365,7 @@ const adminCategoryNodes = router({
         });
       }
 
-      const { categoryNodes } = await import("../drizzle/schema");
+      const { categoryNodes, profileTypes } = await import("../drizzle/schema");
       const { eq, and } = await import("drizzle-orm");
 
       const slugify = (s: string) =>
@@ -363,9 +377,24 @@ const adminCategoryNodes = router({
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "");
 
+      const profileRows = await dbConn
+        .select()
+        .from(profileTypes)
+        .where(eq(profileTypes.key, input.profileType))
+        .limit(1);
+
+      const profile = profileRows[0];
+      if (!profile) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Profil introuvable : ${input.profileType}`,
+        });
+      }
+
       const parentId = input.parentId ?? null;
       const parentIdKey = parentId == null ? "__ROOT__" : String(parentId);
-      const slug = (input.slug && input.slug.trim()) ? slugify(input.slug) : slugify(input.title);
+      const slug =
+        input.slug && input.slug.trim() ? slugify(input.slug) : slugify(input.title);
 
       // sortOrder auto si non fourni : (max + 1) pour ce parent
       let sortOrder = input.sortOrder;
@@ -375,11 +404,14 @@ const adminCategoryNodes = router({
           .from(categoryNodes)
           .where(
             and(
-              eq(categoryNodes.profileType, input.profileType),
+              eq(categoryNodes.profileTypeId, profile.id),
               eq(categoryNodes.parentIdKey, parentIdKey)
             )
           );
-        const max = rows.reduce((acc: number, r: any) => Math.max(acc, r.sortOrder ?? 0), 0);
+        const max = rows.reduce(
+          (acc: number, r: any) => Math.max(acc, r.sortOrder ?? 0),
+          0
+        );
         sortOrder = max + 1;
       }
 
@@ -387,11 +419,11 @@ const adminCategoryNodes = router({
       const inserted = await dbConn
         .insert(categoryNodes)
         .values({
-          profileType: input.profileType,
+          profileTypeId: profile.id,
           title: input.title,
           slug,
-          parentId,        // null OK
-          parentIdKey,     // "__ROOT__" ou "123"
+          parentId,
+          parentIdKey,
           description: input.description ?? null,
           isActive: input.isActive ?? 1,
           sortOrder,
@@ -799,9 +831,6 @@ if (!isEmailVerified) {
     const { isLogged, isAdmin, myProfileType, entitlements } =
       await getEntitlementsFromCtx(ctx);
 
-    const shouldForceProfileFilter =
-      isLogged && !isAdmin && myProfileType && myProfileType !== "formateur";
-
     // ✅ Anti-fuite (source de vérité) :
     // - Non connecté => PUBLIC uniquement
     // - Connecté non-premium => PUBLIC + INTERNAL_IFAC
@@ -822,16 +851,11 @@ if (!isEmailVerified) {
       isAdmin: isAdmin,
     };
 
-    if (isAdmin) {
-      if (!input?.profileType) {
-        delete filters.profileType;
-      }
-    } else {
-      if (shouldForceProfileFilter) {
-        filters.profileType = myProfileType;
-      } else {
-        if (!input?.profileType) delete filters.profileType;
-      }
+    // ✅ IMPORTANT :
+    // Le catalogue ne doit JAMAIS forcer le profil du compte connecté.
+    // On respecte uniquement un profileType explicitement demandé par l'écran.
+    if (!input?.profileType) {
+      delete filters.profileType;
     }
 
     let results = (await db.getAllResources(filters)) as any[];
@@ -894,6 +918,142 @@ if (!isEmailVerified) {
     });
   }),
 
+    listPaginated: publicProcedure
+      .input(
+        z
+          .object({
+            search: z.string().optional(),
+            themeIds: z.array(z.number()).optional(),
+            collectionIds: z.array(z.number()).optional(),
+            type: RESOURCE_TYPES_ENUM.optional(),
+            ageRange: z.string().optional(),
+            duration: z.string().optional(),
+            visibility: z.enum(["PUBLIC", "INTERNAL_IFAC"]).optional(),
+            category: z.string().optional(),
+            profileType: z
+              .enum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+              .optional(),
+            page: z.number().int().min(1).optional(),
+            limit: z.number().int().min(1).max(100).optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input, ctx }) => {
+        const { isLogged, isAdmin, myProfileType, entitlements } =
+          await getEntitlementsFromCtx(ctx);
+
+        const allowed = allowedAccessLevels(
+          entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        );
+
+        const includeInternal = isAdmin || entitlements.isAuthenticated;
+        const includePremium = isAdmin || !!entitlements.isPremium;
+
+        const page = Math.max(1, input?.page ?? 1);
+        const limit = Math.max(1, Math.min(100, input?.limit ?? 24));
+
+        const filters: any = {
+          ...(input || {}),
+          includeInternal,
+          includePremium,
+          isAdmin: isAdmin,
+        };
+
+        delete filters.page;
+        delete filters.limit;
+
+        // ✅ IMPORTANT :
+        // Le catalogue paginé ne doit JAMAIS forcer le profil du compte connecté.
+        // On respecte uniquement un profileType explicitement demandé par l'écran.
+        if (!input?.profileType) {
+          delete filters.profileType;
+        }
+
+        let results = (await db.getAllResources(filters)) as any[];
+
+        if (!isAdmin) {
+          results = filterByAccessLevel(results, allowed);
+        }
+
+        const mapped = (results || []).map((r: any) => {
+          const visibility = (r?.visibility ?? "PUBLIC") as any;
+          const accessLevel = (r?.accessLevel ?? "PUBLIC") as any;
+
+          const isStaff = !!entitlements?.isStaff;
+
+          const ent = isAdmin
+            ? { isAuthenticated: true, isPremium: true, isStaff: true }
+            : entitlements;
+
+          const canView =
+            isAdmin || isStaff || canViewResource({ visibility, entitlements: ent });
+
+          const canOpen =
+            isAdmin ||
+            isStaff ||
+            (canView && canOpenResource({ accessLevel, entitlements: ent }));
+
+          const storageKey = (r?.storageKey ? String(r.storageKey).trim() : "") || "";
+          const fileUrl = (r?.fileUrl ? String(r.fileUrl).trim() : "") || "";
+
+          const hasFile = storageKey.length > 0 || fileUrl.length > 0;
+
+          if (!canView) {
+            const { content, fileUrl: _fu, storageKey: _sk, ...safe } = r;
+            return {
+              ...safe,
+              hasFile,
+              canView,
+              canOpen: false,
+            };
+          }
+
+          if (!canOpen) {
+            const { fileUrl: _fu, storageKey: _sk, ...safe } = r;
+            return {
+              ...safe,
+              hasFile,
+              canView,
+              canOpen,
+            };
+          }
+
+          return {
+            ...r,
+            hasFile,
+            canView,
+            canOpen,
+          };
+        });
+
+        const availableCategories = Array.from(
+          new Set(
+            mapped
+              .map((r: any) => String(r?.category ?? "").trim())
+              .filter((x: string) => x.length > 0)
+          )
+        ).sort((a, b) => a.localeCompare(b));
+
+        const total = mapped.length;
+        const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+        const start = (page - 1) * limit;
+        const items = mapped.slice(start, start + limit);
+
+        return {
+          items,
+          availableCategories,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1,
+          },
+        };
+      }),
+
     listCategories: publicProcedure
       .input(
         z
@@ -945,10 +1105,66 @@ if (!isEmailVerified) {
         }
 
         const categories = await db.listCategoryKeys({
-  ...filters,
-  includePremium: isAdmin || allowed.includes("PREMIUM"),
-  adminView: isAdmin ? db.ADMIN_VIEW_TOKEN : undefined,
-});
+          ...filters,
+          includePremium: isAdmin || allowed.includes("PREMIUM"),
+          adminView: isAdmin ? db.ADMIN_VIEW_TOKEN : undefined,
+        });
+
+        return categories;
+      }),
+
+    listCategoriesWithCounts: publicProcedure
+      .input(
+        z
+          .object({
+            profileType: z
+              .enum(["animateur", "formateur", "directeur", "stagiaire_bafa"])
+              .optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input, ctx }) => {
+        const { isLogged, isAdmin, myProfileType, entitlements } =
+          await getEntitlementsFromCtx(ctx);
+
+        const allowed = allowedAccessLevels(
+          entitlements.isAuthenticated,
+          !!entitlements.isPremium
+        );
+
+        const includeInternal =
+          isAdmin || allowed.includes("INTERNAL_IFAC") || allowed.includes("PREMIUM");
+
+        const includePremium = isAdmin || allowed.includes("PREMIUM");
+
+        let requestedProfileType = input?.profileType;
+
+        if (!requestedProfileType && myProfileType) {
+          requestedProfileType = myProfileType as any;
+        }
+
+        if (requestedProfileType === "formateur" && !isAdmin) {
+          if (!isLogged || myProfileType !== "formateur") {
+            return [];
+          }
+        }
+
+        const filters: any = {
+          includeInternal,
+          includePremium,
+          isAdmin: isAdmin,
+        };
+
+        if (requestedProfileType) {
+          filters.profileType = requestedProfileType;
+        }
+
+        const categories = await db.listCategoryKeysWithCounts({
+          ...filters,
+          includePremium: isAdmin || allowed.includes("PREMIUM"),
+          adminView: isAdmin ? db.ADMIN_VIEW_TOKEN : undefined,
+        });
+
         return categories;
       }),
 
@@ -1805,6 +2021,48 @@ if (requestedStatus !== undefined) {
 
         return { success: true };
       }),
+
+    bulkDelete: adminProcedure
+      .input(
+        z.object({
+          ids: z.array(z.number()).min(1),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        let deleted = 0;
+        let notFound = 0;
+        let failed = 0;
+
+        for (const id of input.ids) {
+          try {
+            const resource = await db.getResourceById(id, {
+              includeInternal: true,
+              includePremium: true,
+              isAdmin: true,
+              adminView: db.ADMIN_VIEW_TOKEN,
+            } as any);
+
+            if (!resource) {
+              notFound++;
+              continue;
+            }
+
+            await db.deleteResource(id, ctx.user.id);
+            deleted++;
+          } catch (error) {
+            console.error(`[bulkDelete] Erreur suppression ressource ${id}:`, error);
+            failed++;
+          }
+        }
+
+        return {
+          success: failed === 0,
+          deleted,
+          notFound,
+          failed,
+        };
+      }),
+
 getAllResourcesForAdmin: adminProcedure.query(async () => {
   return await db.getAllResources({
     includeInternal: true,
@@ -1922,6 +2180,33 @@ getAllResourcesForAdmin: adminProcedure.query(async () => {
 
   // ============ ADMIN ============
   admin: router({
+    imports: router({
+      list: adminProcedure
+        .input(
+          z
+            .object({
+              limit: z.number().int().min(1).max(200).default(50),
+              offset: z.number().int().min(0).default(0),
+            })
+            .default({ limit: 50, offset: 0 })
+        )
+        .query(async ({ input }) => {
+          try {
+            const rows = await db.getImportHistory(input.limit + input.offset);
+            return rows.slice(input.offset, input.offset + input.limit);
+          } catch (error) {
+            console.error("[Admin][Imports] Error listing import history:", error);
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+          }
+        }),
+    }),
+
+    rebuildResourceCategoryNodes: adminProcedure
+      .mutation(async () => {
+        return await db.rebuildResourceCategoryNodesFromLegacyCategory();
+      }),
+
+
     users: router({
   // ✅ MODIF : renvoyer profileType (profil métier) avec les users
   list: adminProcedure.query(async () => {

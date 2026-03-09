@@ -1,7 +1,7 @@
 import { router, protectedProcedure } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getDb } from "./db";
+import { getDb, getImportHistory } from "./db";
 import { users, userProfiles } from "../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { sendPasswordResetEmail } from "./emailService";
@@ -54,8 +54,6 @@ type ImportJob = {
   notes?: string | null;
 };
 
-// ⚠️ Stub temporaire: on retournera des jobs DB plus tard.
-// Pour l’UI, on renvoie une liste vide stable.
 const importsRouter = router({
   list: adminProcedure
     .input(
@@ -66,16 +64,39 @@ const importsRouter = router({
         })
         .default({ limit: 50, offset: 0 })
     )
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input }) => {
       try {
-        const _userId = ctx.user.id;
-        void _userId;
+        const rows = await getImportHistory(input.limit + input.offset);
 
-        const rows: ImportJob[] = [];
-        return rows;
+        return rows.slice(input.offset, input.offset + input.limit);
       } catch (error) {
-        console.error("[Admin][Imports] Error listing import jobs:", error);
+        console.error("[Admin][Imports] Error listing import history:", error);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      }
+    }),
+
+  auditZip: adminProcedure
+    .input(
+      z.object({
+        zipBase64: z.string(),
+        allowedProfiles: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const buffer = Buffer.from(input.zipBase64, "base64");
+
+        const result = await ResourceImporter.auditZip(buffer, {
+          allowedProfiles: input.allowedProfiles,
+        });
+
+        return result;
+      } catch (error) {
+        console.error("[Admin][Imports] ZIP audit error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erreur lors de l'audit ZIP",
+        });
       }
     }),
 

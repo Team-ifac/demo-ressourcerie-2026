@@ -1,5 +1,5 @@
 import { getDb } from "./db";
-import { resources } from "../drizzle/schema";
+import { resourceThemes, resources, themes } from "../drizzle/schema";
 import Papa from "papaparse";
 import { parseZipContent, type AccessLevel, type ResourceStatus } from "./importZip";
 
@@ -29,6 +29,39 @@ export interface ResourceImportData {
   /** Métadonnées utiles (optionnel) */
   profileKey?: string;
   zipPath?: string;
+}
+
+export interface ImportAuditReport {
+  summary: {
+    totalFilesDetected: number;
+    validEntries: number;
+    parserErrors: number;
+    unknownProfilesInDb: number;
+    duplicatesInZip: number;
+    existingInDatabase: number;
+    toCreate: number;
+  };
+  breakdown: {
+    profiles: Record<string, number>;
+    accessLevels: Record<AccessLevel, number>;
+    statuses: Record<ResourceStatus, number>;
+    fileTypes: Record<string, number>;
+  };
+  entries: Array<{
+    zipPath: string;
+    fileName: string;
+    title: string;
+    fileType: string;
+    profileKey: string;
+    accessLevel: AccessLevel;
+    visibility: Visibility;
+    status: ResourceStatus;
+    existsInDatabase: boolean;
+    duplicateInZip: boolean;
+    profileExistsInDb: boolean;
+    warnings: string[];
+  }>;
+  errors: Array<{ path: string; error: string }>;
 }
 
 export class ResourceImporter {
@@ -73,6 +106,50 @@ export class ResourceImporter {
     return Number(row.id);
   }
 
+  private static async getExistingProfileKeys(profileKeys: string[]): Promise<Set<string>> {
+    const normalized = Array.from(
+      new Set(profileKeys.map((k) => (k ?? "").trim().toLowerCase()).filter(Boolean))
+    );
+
+    if (!normalized.length) {
+      return new Set<string>();
+    }
+
+    const inClause = normalized.map((k) => `'${this.escapeSql(k)}'`).join(", ");
+
+    const rows = await this.queryRows<{ key: string }>(
+      `SELECT \`key\` FROM profile_types WHERE isActive = 1 AND \`key\` IN (${inClause})`
+    );
+
+    return new Set(
+      rows
+        .map((r) => String(r.key ?? "").trim().toLowerCase())
+        .filter(Boolean)
+    );
+  }
+
+  private static async getExistingResourceTitles(titles: string[]): Promise<Set<string>> {
+    const normalized = Array.from(
+      new Set(titles.map((t) => (t ?? "").trim()).filter(Boolean))
+    );
+
+    if (!normalized.length) {
+      return new Set<string>();
+    }
+
+    const inClause = normalized.map((t) => `'${this.escapeSql(t)}'`).join(", ");
+
+    const rows = await this.queryRows<{ title: string }>(
+      `SELECT title FROM resources WHERE title IN (${inClause})`
+    );
+
+    return new Set(
+      rows
+        .map((r) => String(r.title ?? "").trim())
+        .filter(Boolean)
+    );
+  }
+
   private static async attachProfileToResource(resourceId: number, profileTypeId: number): Promise<void> {
     const db = await this.getDatabase();
 
@@ -80,6 +157,193 @@ export class ResourceImporter {
       `INSERT IGNORE INTO resource_profiles (resourceId, profileTypeId, addedAt)
        VALUES (${Number(resourceId)}, ${Number(profileTypeId)}, NOW())` as any
     );
+  }
+
+  private static detectThemeNamesFromText(text: string): string[] {
+    const normalized = String(text ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, " ");
+
+    const rules: Array<{ themeName: string; keywords: string[] }> = [
+      {
+        themeName: "Harcèlement et prévention",
+        keywords: [
+          "harcelement",
+          "harceler",
+          "intimidation",
+          "moquerie",
+          "moqueries",
+          "racket",
+          "exclusion",
+          "violence verbale",
+          "violences verbales",
+        ],
+      },
+      {
+        themeName: "Vivre ensemble",
+        keywords: [
+          "vivre ensemble",
+          "respect",
+          "regles de vie",
+          "regle de vie",
+          "vie collective",
+          "groupe",
+          "cohesion",
+        ],
+      },
+      {
+        themeName: "Inclusion et handicap",
+        keywords: [
+          "inclusion",
+          "handicap",
+          "accessibilite",
+          "difference",
+          "differences",
+        ],
+      },
+      {
+        themeName: "Émotions et expression",
+        keywords: [
+          "emotion",
+          "emotions",
+          "colere",
+          "peur",
+          "joie",
+          "tristesse",
+          "expression",
+          "ressenti",
+        ],
+      },
+      {
+        themeName: "Coopération et entraide",
+        keywords: [
+          "cooperation",
+          "coopération",
+          "entraide",
+          "ensemble",
+          "solidaire",
+          "solidarite",
+          "defi collectif",
+        ],
+      },
+      {
+        themeName: "Citoyenneté",
+        keywords: [
+          "citoyennete",
+          "citoyenneté",
+          "citoyen",
+          "citoyens",
+          "droits",
+          "devoirs",
+          "republique",
+          "democratie",
+        ],
+      },
+      {
+        themeName: "Environnement",
+        keywords: [
+          "environnement",
+          "nature",
+          "ecologie",
+          "écologie",
+          "recyclage",
+          "developpement durable",
+          "développement durable",
+        ],
+      },
+      {
+        themeName: "Jeux et dynamisation",
+        keywords: [
+          "jeu",
+          "jeux",
+          "dynamique",
+          "energizer",
+          "brise glace",
+          "icebreaker",
+          "animation",
+        ],
+      },
+      {
+        themeName: "Activités artistiques",
+        keywords: [
+          "artistique",
+          "art",
+          "peinture",
+          "dessin",
+          "theatre",
+          "théâtre",
+          "musique",
+          "creation",
+          "création",
+        ],
+      },
+      {
+        themeName: "Activités sportives",
+        keywords: [
+          "sport",
+          "sports",
+          "sportif",
+          "sportive",
+          "motricite",
+          "motricité",
+          "physique",
+        ],
+      },
+    ];
+
+    const detected = new Set<string>();
+
+    for (const rule of rules) {
+      const hasMatch = rule.keywords.some((keyword) =>
+        normalized.includes(
+          keyword
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, " ")
+        )
+      );
+
+      if (hasMatch) {
+        detected.add(rule.themeName);
+      }
+    }
+
+    return Array.from(detected);
+  }
+
+  private static async attachThemesToResource(resourceId: number, themeNames: string[]): Promise<void> {
+    const db = await this.getDatabase();
+
+    const normalizedNames = Array.from(
+      new Set(themeNames.map((name) => String(name ?? "").trim()).filter(Boolean))
+    );
+
+    if (!normalizedNames.length) return;
+
+    const rows = await db
+      .select({
+        id: themes.id,
+        name: themes.name,
+      })
+      .from(themes);
+
+    const themeIds = rows
+      .filter((row) => normalizedNames.includes(String(row.name ?? "").trim()))
+      .map((row) => Number(row.id));
+
+    if (!themeIds.length) return;
+
+    for (const themeId of themeIds) {
+      try {
+        await db.insert(resourceThemes).values({
+          resourceId: Number(resourceId),
+          themeId: Number(themeId),
+        } as any);
+      } catch {
+        // ignore doublon éventuel
+      }
+    }
   }
 
   /**
@@ -204,6 +468,120 @@ export class ResourceImporter {
   }
 
   /**
+   * PILIER 3 — Audit / prévisualisation avant import ZIP
+   * Ne modifie pas la base.
+   * Produit un rapport professionnel avant écriture.
+   */
+  static async auditZip(
+    zipBuffer: Buffer,
+    opts?: { allowedProfiles?: string[] }
+  ): Promise<ImportAuditReport> {
+    const parsed = parseZipContent(zipBuffer, { allowedProfiles: opts?.allowedProfiles });
+
+    const titles = parsed.entries.map((entry) => entry.fileName.replace(/\.[^.]+$/, ""));
+    const profileKeys = parsed.entries.map((entry) => entry.profileKey);
+
+    const existingTitles = await this.getExistingResourceTitles(titles);
+    const existingProfileKeys = await this.getExistingProfileKeys(profileKeys);
+
+    const titleOccurrences = new Map<string, number>();
+    for (const title of titles) {
+      titleOccurrences.set(title, (titleOccurrences.get(title) ?? 0) + 1);
+    }
+
+    const profileCounts: Record<string, number> = {};
+    const accessLevelCounts: Record<AccessLevel, number> = {
+      PUBLIC: 0,
+      PREMIUM: 0,
+      INTERNAL_IFAC: 0,
+    };
+    const statusCounts: Record<ResourceStatus, number> = {
+      approved: 0,
+      draft: 0,
+    };
+    const fileTypeCounts: Record<string, number> = {};
+
+    let unknownProfilesInDb = 0;
+    let duplicatesInZip = 0;
+    let existingInDatabase = 0;
+    let toCreate = 0;
+
+    const entries: ImportAuditReport["entries"] = parsed.entries.map((entry) => {
+      const title = entry.fileName.replace(/\.[^.]+$/, "");
+      const visibility: Visibility =
+        entry.accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
+
+      const existsInDatabase = existingTitles.has(title);
+      const duplicateInZip = (titleOccurrences.get(title) ?? 0) > 1;
+      const profileExistsInDb = existingProfileKeys.has(entry.profileKey);
+
+      profileCounts[entry.profileKey] = (profileCounts[entry.profileKey] ?? 0) + 1;
+      accessLevelCounts[entry.accessLevel] = (accessLevelCounts[entry.accessLevel] ?? 0) + 1;
+      statusCounts[entry.status] = (statusCounts[entry.status] ?? 0) + 1;
+
+      const normalizedFileType = String(entry.fileType ?? "").trim().toLowerCase() || "unknown";
+      fileTypeCounts[normalizedFileType] = (fileTypeCounts[normalizedFileType] ?? 0) + 1;
+
+      const warnings: string[] = [];
+
+      if (existsInDatabase) {
+        warnings.push("Resource title already exists in database");
+        existingInDatabase++;
+      } else {
+        toCreate++;
+      }
+
+      if (duplicateInZip) {
+        warnings.push("Duplicate title detected inside ZIP");
+        duplicatesInZip++;
+      }
+
+      if (!profileExistsInDb) {
+        warnings.push("Profile key not found in database");
+        unknownProfilesInDb++;
+      }
+
+      return {
+        zipPath: entry.zipPath,
+        fileName: entry.fileName,
+        title,
+        fileType: entry.fileType,
+        profileKey: entry.profileKey,
+        accessLevel: entry.accessLevel,
+        visibility,
+        status: entry.status,
+        existsInDatabase,
+        duplicateInZip,
+        profileExistsInDb,
+        warnings,
+      };
+    });
+
+    return {
+      summary: {
+        totalFilesDetected: parsed.entries.length + parsed.errors.length,
+        validEntries: parsed.entries.length,
+        parserErrors: parsed.errors.length,
+        unknownProfilesInDb,
+        duplicatesInZip,
+        existingInDatabase,
+        toCreate,
+      },
+      breakdown: {
+        profiles: profileCounts,
+        accessLevels: accessLevelCounts,
+        statuses: statusCounts,
+        fileTypes: fileTypeCounts,
+      },
+      entries,
+      errors: parsed.errors.map((e) => ({
+        path: e.zipPath,
+        error: e.error,
+      })),
+    };
+  }
+
+  /**
    * PILIER 2 — Import ZIP intelligent
    */
   static async importFromZip(
@@ -263,6 +641,12 @@ export class ResourceImporter {
 
         const resourceId = await this.importResource(importData);
         await this.attachProfileToResource(resourceId, profileTypeId);
+
+        const autoDetectedThemeNames = this.detectThemeNamesFromText(
+          [baseTitle, entry.fileName, entry.zipPath].filter(Boolean).join(" ")
+        );
+
+        await this.attachThemesToResource(resourceId, autoDetectedThemeNames);
 
         success++;
       } catch (error) {

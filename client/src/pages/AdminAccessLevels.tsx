@@ -79,6 +79,7 @@ export default function AdminAccessLevels() {
 
 
   const updateOneMutation = trpc.resources.update.useMutation();
+  const bulkDeleteMutation = trpc.resources.bulkDelete.useMutation();
 
   const [search, setSearch] = useState("");
   const [filterLevel, setFilterLevel] = useState<AccessLevel | "ALL">("ALL");
@@ -475,28 +476,65 @@ try {
 
       {selectedIds.length > 0 && (
         <Card className="p-4 bg-blue-50 border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <strong>{selectedIds.length}</strong> sélectionnée(s)
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <strong>{selectedIds.length}</strong> sélectionnée(s)
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="destructive"
+                  disabled={isUpdating || bulkDeleteMutation.isPending}
+                  onClick={async () => {
+                    const confirmed = window.confirm(
+                      `Confirmer la suppression de ${selectedIds.length} ressource(s) ? Cette action est irréversible.`
+                    );
+
+                    if (!confirmed) return;
+
+                    try {
+                      const result = await bulkDeleteMutation.mutateAsync({
+                        ids: selectedIds,
+                      });
+
+                      clearSelection();
+                      await refresh();
+
+                      toast.success(
+                        `Suppression terminée : ${result.deleted} supprimée(s), ${result.notFound} introuvable(s), ${result.failed} en erreur.`
+                      );
+                    } catch (error) {
+                      console.error("[AdminAccessLevels] bulk delete error", error);
+                      toast.error("Erreur lors de la suppression multiple.");
+                    }
+                  }}
+                >
+                  {bulkDeleteMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "🗑️ Supprimer la sélection"
+                  )}
+                </Button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2">
                 <Select
-  value={bulkLevel}
-  onValueChange={(v) => setBulkLevel(v as AccessLevel | "KEEP")}
->
-  <SelectTrigger className="w-48">
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="KEEP">⏭️ Accès : ne pas changer</SelectItem>
-    <SelectItem value="PUBLIC">🌍 Public</SelectItem>
-    <SelectItem value="INTERNAL_IFAC">👤 Connectés</SelectItem>
-    <SelectItem value="PREMIUM">⭐ Premium</SelectItem>
-  </SelectContent>
-</Select>
-
+                  value={bulkLevel}
+                  onValueChange={(v) => setBulkLevel(v as AccessLevel | "KEEP")}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="KEEP">⏭️ Accès : ne pas changer</SelectItem>
+                    <SelectItem value="PUBLIC">🌍 Public</SelectItem>
+                    <SelectItem value="INTERNAL_IFAC">👤 Connectés</SelectItem>
+                    <SelectItem value="PREMIUM">⭐ Premium</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 <Select
                   value={bulkStatus}
@@ -515,7 +553,7 @@ try {
                   </SelectContent>
                 </Select>
 
-                                <Select
+                <Select
                   value={bulkAgeRange}
                   onValueChange={(v) =>
                     setBulkAgeRange(
@@ -568,24 +606,24 @@ try {
                     <SelectItem value="Journée">Journée</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select
-  value={bulkPrepTime}
-  onValueChange={(v) => setBulkPrepTime(v as "KEEP" | "CLEAR" | PrepTime)}
->
-  <SelectTrigger className="w-44">
-    <SelectValue />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="KEEP">⏭️ Prépa : ne pas changer</SelectItem>
-    <SelectItem value="CLEAR">🧹 Prépa : effacer</SelectItem>
-    {PREP_TIMES.map((t) => (
-      <SelectItem key={t} value={t}>
-        {t}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
 
+                <Select
+                  value={bulkPrepTime}
+                  onValueChange={(v) => setBulkPrepTime(v as "KEEP" | "CLEAR" | PrepTime)}
+                >
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="KEEP">⏭️ Prépa : ne pas changer</SelectItem>
+                    <SelectItem value="CLEAR">🧹 Prépa : effacer</SelectItem>
+                    {PREP_TIMES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
                 <Select
                   value={bulkResourceType}
@@ -608,7 +646,7 @@ try {
                 </Select>
               </div>
 
-              <Button onClick={handleBulkUpdate} disabled={isUpdating}>
+              <Button onClick={handleBulkUpdate} disabled={isUpdating || bulkDeleteMutation.isPending}>
                 {isUpdating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

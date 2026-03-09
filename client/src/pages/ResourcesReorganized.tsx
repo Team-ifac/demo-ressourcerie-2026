@@ -19,6 +19,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { useFilterPreferences } from "@/hooks/useFilterPreferences";
 import { readingLabel } from "@/lib/resourcePolicy";
+import { AGE_RANGES, DURATIONS, RESOURCE_TYPES } from "@shared/resourceMeta";
 
 type ProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
 type ProfileFilter = "" | ProfileType;
@@ -27,6 +28,8 @@ type CategoryGroup = {
   groupLabel: string;
   items: { value: string; label: string }[];
 };
+
+const PAGE_SIZE = 24;
 
 function humanizeCategoryLabel(slug: string): string {
   return slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -70,25 +73,25 @@ const PROFILE_LABELS: Record<ProfileType, string> = {
 
 export default function ResourcesReorganized() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedThemes, setSelectedThemes] = useState<number[]>([]);
   const [selectedType, setSelectedType] = useState("");
   const [selectedAgeRange, setSelectedAgeRange] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-
-  // Nouveau: filtre Profil (pour voir Stagiaire BAFA, etc.)
   const [selectedProfile, setSelectedProfile] = useState<ProfileFilter>("");
+  const [page, setPage] = useState(1);
 
   const { user } = useAuth();
   const { data: userProfile } = trpc.profiles.getUserProfile.useQuery(undefined, {
     enabled: !!user,
   });
 
-  // Initialisation pro: si l’utilisateur a un profil, on le sélectionne par défaut,
-  // mais l’utilisateur peut ensuite changer manuellement.
   const didInitProfile = useRef(false);
+
   useEffect(() => {
     if (didInitProfile.current) return;
+
     const p = (userProfile?.profileType ?? "") as ProfileFilter;
     if (p) {
       setSelectedProfile(p);
@@ -97,7 +100,6 @@ export default function ResourcesReorganized() {
   }, [userProfile]);
 
   const [location] = useLocation();
-  const utils = trpc.useUtils();
 
   const categoryFromUrl = useMemo(() => {
     const params = new URLSearchParams(location.split("?")[1] || "");
@@ -107,23 +109,46 @@ export default function ResourcesReorganized() {
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl || "");
-    utils.resources.list.invalidate();
-  }, [categoryFromUrl, utils]);
+    setPage(1);
+  }, [categoryFromUrl]);
 
-  const { data: categories = [] } = trpc.resources.listCategories.useQuery(undefined, {
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [search]);
+
+  const { data: categories = [] } = trpc.resources.listCategories.useQuery(
+    {
+      profileType: selectedProfile || undefined,
+    },
+    {
+      staleTime: 60_000,
+    }
+  );
+
+  const { data: themes = [] } = trpc.themes.list.useQuery(undefined, {
     staleTime: 60_000,
   });
 
-  const { data: resources = [], isLoading } = trpc.resources.list.useQuery({
-    search: search || undefined,
+  const { data: paginatedData, isLoading } = trpc.resources.listPaginated.useQuery({
+    search: debouncedSearch || undefined,
     themeIds: selectedThemes.length > 0 ? selectedThemes : undefined,
     type: selectedType || undefined,
     ageRange: selectedAgeRange || undefined,
     duration: selectedDuration || undefined,
     category: selectedCategory || undefined,
-    // IMPORTANT: on utilise le filtre choisi (si vide => pas de filtre profil)
     profileType: selectedProfile || undefined,
+    page,
+    limit: PAGE_SIZE,
   });
+
+  const resources = paginatedData?.items ?? [];
+  const pagination = paginatedData?.pagination;
 
   const { savePreferences, resetPreferences } = useFilterPreferences();
 
@@ -137,6 +162,7 @@ export default function ResourcesReorganized() {
     setSelectedDuration("");
     setSelectedCategory("");
     setSelectedProfile(defaultProfile);
+    setPage(1);
     resetPreferences();
   };
 
@@ -149,24 +175,18 @@ export default function ResourcesReorganized() {
     !!selectedCategory ||
     selectedProfile !== defaultProfile;
 
-  /* =====================================================
-     VIGNETTES – VERSION SIMPLE ET ROBUSTE
-     ===================================================== */
-
   function getResourceThumbnail(resource: any): string {
     const accessLevel = (resource?.accessLevel ?? "PUBLIC") as
       | "PUBLIC"
       | "INTERNAL_IFAC"
       | "PREMIUM";
 
-    // 🔒 Anti-fuite visuelle : pas de vignette pour PREMIUM
     if (accessLevel === "PREMIUM") {
       return "/thumbnails/default-document.png";
     }
 
     const thumbnailUrl = resource?.thumbnailUrl;
 
-    // ✅ On n’utilise JAMAIS fileUrl pour fabriquer une vignette
     if (typeof thumbnailUrl === "string" && thumbnailUrl.trim() !== "") {
       return thumbnailUrl;
     }
@@ -263,16 +283,25 @@ export default function ResourcesReorganized() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <Input placeholder="Rechercher…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input
+                placeholder="Rechercher…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
 
-              {/* Nouveau: Profil */}
               <div className="grid gap-2">
                 <label className="text-sm text-muted-foreground">Profil</label>
 
                 <select
                   className="h-10 rounded-md border bg-background px-3 text-sm"
                   value={selectedProfile}
-                  onChange={(e) => setSelectedProfile(e.target.value as ProfileFilter)}
+                  onChange={(e) => {
+                    setSelectedProfile(e.target.value as ProfileFilter);
+                    setPage(1);
+                  }}
                 >
                   <option value="">Tous les profils</option>
                   <option value="animateur">{PROFILE_LABELS.animateur}</option>
@@ -286,14 +315,101 @@ export default function ResourcesReorganized() {
                 </p>
               </div>
 
-              {/* Catégorie */}
+              <div className="grid gap-2">
+                <label className="text-sm text-muted-foreground">Thème</label>
+
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={selectedThemes[0] ? String(selectedThemes[0]) : ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedThemes(value ? [Number(value)] : []);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Tous les thèmes</option>
+
+                  {themes.map((theme: any) => (
+                    <option key={theme.id} value={theme.id}>
+                      {theme.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-sm text-muted-foreground">Type de ressource</label>
+
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={selectedType}
+                  onChange={(e) => {
+                    setSelectedType(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Tous les types</option>
+
+                  {RESOURCE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-sm text-muted-foreground">Tranche d’âge</label>
+
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={selectedAgeRange}
+                  onChange={(e) => {
+                    setSelectedAgeRange(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Toutes les tranches d’âge</option>
+
+                  {AGE_RANGES.map((ageRange) => (
+                    <option key={ageRange} value={ageRange}>
+                      {ageRange}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-sm text-muted-foreground">Durée</label>
+
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={selectedDuration}
+                  onChange={(e) => {
+                    setSelectedDuration(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Toutes les durées</option>
+
+                  {DURATIONS.map((duration) => (
+                    <option key={duration} value={duration}>
+                      {duration}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid gap-2">
                 <label className="text-sm text-muted-foreground">Catégorie</label>
 
                 <select
                   className="h-10 rounded-md border bg-background px-3 text-sm"
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setPage(1);
+                  }}
                 >
                   <option value="">Toutes les catégories</option>
 
@@ -344,9 +460,48 @@ export default function ResourcesReorganized() {
           {isLoading ? (
             <p>Chargement…</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {resources.map(renderResourceCard)}
-            </div>
+            <>
+              {resources.length === 0 ? (
+                <p className="text-muted-foreground">Aucune ressource trouvée.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {resources.map(renderResourceCard)}
+                </div>
+              )}
+
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex flex-col items-center gap-3 pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    Page {pagination.page} sur {pagination.totalPages} — {pagination.total} ressource
+                    {pagination.total > 1 ? "s" : ""}
+                  </p>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      disabled={!pagination.hasPreviousPage}
+                    >
+                      Précédent
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setPage((current) =>
+                          pagination.totalPages > 0
+                            ? Math.min(pagination.totalPages, current + 1)
+                            : current
+                        )
+                      }
+                      disabled={!pagination.hasNextPage}
+                    >
+                      Suivant
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
