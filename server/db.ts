@@ -363,8 +363,16 @@ export async function getAllResources(filters?: {
 
 const words = rawSearch
   .split(/\s+/)
-  .map((w) => w.trim())
-  .filter((w) => w.length > 1);
+  .map((w) => w.trim().toLowerCase())
+  .filter((w) => w.length > 1)
+  .flatMap((w) => {
+    const variants = [w];
+
+    if (w.endsWith("s")) variants.push(w.slice(0, -1));
+    else variants.push(w + "s");
+
+    return variants;
+  });
 
 const searchVariants = Array.from(
   new Set([
@@ -647,11 +655,21 @@ const searchTerms = searchVariants.map((v) => `%${v}%`);
 
       let score = 0;
 
-      if (titleText.includes(normalizedSearch)) score += 50;
-      if (themeTexts.some((themeName: string) => themeName.includes(normalizedSearch))) score += 40;
-      if (summaryText.includes(normalizedSearch)) score += 30;
-      if (categoryText.includes(normalizedSearch)) score += 20;
-      if (contentText.includes(normalizedSearch)) score += 10;
+// 🎯 priorité maximale : titre
+if (titleText.startsWith(normalizedSearch)) score += 120;
+else if (titleText.includes(normalizedSearch)) score += 90;
+
+// 🎯 thèmes très importants
+if (themeTexts.some((themeName: string) => themeName.includes(normalizedSearch))) score += 70;
+
+// 🎯 catégorie
+if (categoryText.includes(normalizedSearch)) score += 50;
+
+// 🎯 résumé
+if (summaryText.includes(normalizedSearch)) score += 30;
+
+// 🎯 contenu
+if (contentText.includes(normalizedSearch)) score += 10;
 
       return {
         ...resource,

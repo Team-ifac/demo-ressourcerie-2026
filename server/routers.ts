@@ -490,17 +490,18 @@ const adminCategoryNodes = router({
 
       // Insert MySQL (pas de returning())
       const inserted = await dbConn
-        .insert(categoryNodes)
-        .values({
-          profileTypeId: profile.id,
-          title: input.title,
-          slug,
-          parentId,
-          parentIdKey,
-          description: input.description ?? null,
-          isActive: input.isActive ?? 1,
-          sortOrder,
-        })
+  .insert(categoryNodes)
+  .values({
+    profileTypeId: profile.id,
+    title: input.title,
+    slug,
+    path: parentIdKey === "__ROOT__" ? slug : `${parentIdKey}/${slug}`,
+    parentId,
+    parentIdKey,
+    description: input.description ?? null,
+    isActive: input.isActive ?? 1,
+    sortOrder,
+  })
         .$returningId();
 
       const insertedId = Array.isArray(inserted) ? inserted[0]?.id : (inserted as any)?.id;

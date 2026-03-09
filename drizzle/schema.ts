@@ -419,6 +419,7 @@ export const categoryNodes = mysqlTable(
     parentIdKey: varchar({ length: 255 }).notNull(),
 
     slug: varchar({ length: 255 }).notNull(),
+    path: varchar({ length: 500 }).notNull(),
     title: varchar({ length: 255 }).notNull(),
     description: text(),
 
