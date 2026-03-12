@@ -135,32 +135,47 @@ export default function AdminResourceForm() {
     else setUploadingFile(true);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target?.result?.toString().split(",")[1];
-        if (!base64) throw new Error("Erreur de lecture du fichier");
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
 
-        const result = await uploadFileMutation.mutateAsync({
+        reader.onload = (e) => {
+          const result = e.target?.result?.toString() || "";
+          const encoded = result.split(",")[1];
+
+          if (!encoded) {
+            reject(new Error("Erreur de lecture du fichier"));
+            return;
+          }
+
+          resolve(encoded);
+        };
+
+        reader.onerror = () => {
+          reject(new Error("Erreur de lecture du fichier"));
+        };
+
+        reader.readAsDataURL(file);
+      });
+
+              const result = await uploadFileMutation.mutateAsync({
           fileName: file.name,
           fileData: base64,
           contentType: file.type,
+          target: isThumbnail ? "thumbnail" : "resource",
         });
 
-        if (isThumbnail) {
-          setThumbnailUrl(result.url);
-          setThumbnailKey((result as any).storageKey || (result as any).fileKey || "");
-          toast.success("Vignette uploadée");
-        } else {
-
-          // ✅ Pilier 12 bis : url pour affichage, storageKey pour DB
-          setFileUrl(result.url);
-          setStorageKey((result as any).storageKey || (result as any).fileKey || "");
-          toast.success("Fichier uploadé");
-        }
-
-      };
-      reader.readAsDataURL(file);
+      if (isThumbnail) {
+        setThumbnailUrl(result.url);
+        setThumbnailKey((result as any).storageKey || (result as any).fileKey || "");
+        toast.success("Vignette uploadée");
+      } else {
+        // ✅ Pilier 12 bis : url pour affichage, storageKey pour DB
+        setFileUrl(result.url);
+        setStorageKey((result as any).storageKey || (result as any).fileKey || "");
+        toast.success("Fichier uploadé");
+      }
     } catch (error) {
+      console.error("[AdminResourceForm] upload error =", error);
       toast.error("Erreur lors de l'upload");
     } finally {
       if (isThumbnail) setUploadingThumbnail(false);

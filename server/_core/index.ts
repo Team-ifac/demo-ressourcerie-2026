@@ -20,6 +20,12 @@ import cookieParser from "cookie-parser";
 
 import { logger, httpLogger } from "./logger";
 import { errorHandler } from "./errorHandler";
+import * as StripeSDK from "stripe";
+import {
+  handleCheckoutSessionCompleted,
+  handleSubscriptionDeleted,
+  handleSubscriptionUpdated,
+} from "../stripe";
 
 // ✅ FIX ESM : __dirname / __filename
 const __filename = fileURLToPath(import.meta.url);
@@ -73,45 +79,55 @@ async function resolveDownloadTarget(fileUrlRaw: string): Promise<
     return { kind: "redirect", url: fileUrl };
   }
 
-  // 2) Cas local imported (Option B legacy)
-  // accepte "imported/xxx.pdf" ou "/imported/xxx.pdf"
-  const asPath = normalizeLeadingSlash(decodeURIComponent(fileUrl));
-  const isImported =
-    asPath === "/imported" ||
-    asPath.startsWith("/imported/") ||
-    asPath.startsWith("/client/public/imported/"); // tolérance
+  const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
+  const publicRoot = path.join(PROJECT_ROOT, "client", "public");
 
-  if (isImported) {
-    const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
-    const importedDirAbs = path.join(PROJECT_ROOT, "client", "public", "imported");
+  // 2) Cas local public (multi-formats)
+  // Accepte par exemple :
+  // - /imported/xxx.pdf
+  // - /imported/xxx.zip
+  // - /documents/xxx.pptx
+  // - /media/xxx.mp3
+  // - /images/xxx.png
+  // - /client/public/imported/xxx.pdf (tolérance legacy)
+  const decodedPath = normalizeLeadingSlash(decodeURIComponent(fileUrl));
 
-    // on veut un chemin RELATIF à importedDirAbs
-    let rel = asPath;
+  const isLocalPublicPath =
+    decodedPath.startsWith("/imported/") ||
+    decodedPath.startsWith("/documents/") ||
+    decodedPath.startsWith("/media/") ||
+    decodedPath.startsWith("/images/") ||
+    decodedPath.startsWith("/client/public/");
 
-    // "/imported/xxx" => "/xxx"
-    if (rel.startsWith("/imported/")) rel = rel.slice("/imported".length);
+  if (isLocalPublicPath) {
+    let rel = decodedPath;
 
-    // "/imported" tout court => pas de fichier
-    if (rel === "/imported" || rel === "/") {
-      throw new Error("EMPTY_IMPORTED_PATH");
+    if (rel.startsWith("/client/public/")) {
+      rel = rel.slice("/client/public".length);
     }
 
-    const absPath = path.resolve(importedDirAbs, "." + rel);
+    if (rel === "/" || rel.trim() === "") {
+      throw new Error("EMPTY_LOCAL_PUBLIC_PATH");
+    }
 
-    // sécurité : doit rester dans /client/public/imported
-    const importedRoot = path.resolve(importedDirAbs) + path.sep;
+    const absPath = path.resolve(publicRoot, "." + rel);
+    const publicRootResolved = path.resolve(publicRoot) + path.sep;
     const resolvedAbsPath = path.resolve(absPath);
 
-    if (!resolvedAbsPath.startsWith(importedRoot)) {
+    if (!resolvedAbsPath.startsWith(publicRootResolved)) {
       throw new Error("INVALID_PATH_TRAVERSAL");
     }
 
     const filename = path.basename(resolvedAbsPath);
+    if (!filename) {
+      throw new Error("EMPTY_LOCAL_PUBLIC_FILENAME");
+    }
+
     return { kind: "localFile", absPath: resolvedAbsPath, filename };
   }
 
   // 3) Sinon => on traite comme "storage key"
-  // ex: "resources/xxx.pdf" ou "uploads/..."
+  // ex: "resources/xxx.pdf" ou "uploads/xxx.pptx"
   const key = fileUrl.replace(/^\/+/, "");
   const { url } = await storageGet(key);
   return { kind: "redirect", url };
@@ -187,9 +203,122 @@ if (process.env.NODE_ENV !== "development") {
     })
   );
 
-  // ✅ Body parser (réduit : 50mb trop permissif)
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ limit: "10mb", extended: true }));
+  // =========================================================
+  // ✅ Stripe webhook (PRO)
+  // IMPORTANT :
+  // - doit être AVANT express.json()
+  // - Stripe exige le body brut pour vérifier la signature
+  // =========================================================
+  const StripeWebhookCtor: any = (StripeSDK as any).default ?? StripeSDK;
+  const stripeWebhookClient = process.env.STRIPE_SECRET_KEY?.trim()
+    ? new StripeWebhookCtor(process.env.STRIPE_SECRET_KEY.trim(), {
+        apiVersion: "2025-12-15.clover",
+      })
+    : null;
+
+  const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+
+  app.post(
+    "/api/stripe/webhook",
+    express.raw({ type: "application/json" }),
+    async (req, res) => {
+      const requestId = (req as any)?.id;
+      const log = logger.child({ requestId, route: "POST /api/stripe/webhook" });
+
+      if (!stripeWebhookClient || !STRIPE_WEBHOOK_SECRET) {
+        log.warn(
+          { event: "stripe_webhook_disabled" },
+          "Stripe webhook disabled: missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET"
+        );
+        return res.status(503).send("Stripe webhook not configured");
+      }
+
+      const signature = req.headers["stripe-signature"];
+      if (!signature || typeof signature !== "string") {
+        log.warn(
+          { event: "stripe_webhook_missing_signature" },
+          "Missing Stripe signature"
+        );
+        return res.status(400).send("Missing stripe-signature header");
+      }
+
+      let event: StripeSDK.Stripe.Event;
+
+      try {
+        event = stripeWebhookClient.webhooks.constructEvent(
+          req.body,
+          signature,
+          STRIPE_WEBHOOK_SECRET
+        );
+      } catch (err: any) {
+        log.warn(
+          {
+            event: "stripe_webhook_invalid_signature",
+            details: String(err?.message ?? err),
+          },
+          "Invalid Stripe webhook signature"
+        );
+        return res.status(400).send(`Webhook Error: ${String(err?.message ?? err)}`);
+      }
+
+      try {
+        switch (event.type) {
+          case "checkout.session.completed":
+            await handleCheckoutSessionCompleted(
+              event.data.object as StripeSDK.Stripe.Checkout.Session
+            );
+            break;
+
+          case "customer.subscription.updated":
+            await handleSubscriptionUpdated(
+              event.data.object as StripeSDK.Stripe.Subscription
+            );
+            break;
+
+          case "customer.subscription.deleted":
+            await handleSubscriptionDeleted(
+              event.data.object as StripeSDK.Stripe.Subscription
+            );
+            break;
+
+          default:
+            log.info(
+              { event: "stripe_webhook_ignored", stripeEventType: event.type },
+              "Unhandled Stripe event ignored"
+            );
+            break;
+        }
+
+        log.info(
+          {
+            event: "stripe_webhook_processed",
+            stripeEventType: event.type,
+            stripeEventId: event.id,
+          },
+          "Stripe webhook processed"
+        );
+
+        return res.json({ received: true });
+      } catch (err: any) {
+        log.error(
+          {
+            event: "stripe_webhook_handler_failed",
+            stripeEventType: event.type,
+            stripeEventId: event.id,
+            err,
+          },
+          "Stripe webhook handler failed"
+        );
+        return res.status(500).send("Webhook handler failed");
+      }
+    }
+  );
+
+  // ✅ Body parser
+  // Important : les uploads admin passent en base64 dans tRPC JSON,
+  // donc il faut une limite plus haute que 10mb.
+  app.use(express.json({ limit: "120mb" }));
+  app.use(express.urlencoded({ limit: "120mb", extended: true }));
 
   // Long URL warning
     // =========================================================
@@ -664,11 +793,61 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
       }
 
       const filename = target.filename;
-      const isPdf = filename.toLowerCase().endsWith(".pdf");
+      const lowerFilename = filename.toLowerCase();
 
-      // ✅ Headers explicites (Chrome-friendly)
-      res.setHeader("Content-Disposition", `${isPdf ? "inline" : "attachment"}; filename="${filename}"`);
-      res.setHeader("Content-Type", isPdf ? "application/pdf" : "application/octet-stream");
+      const getContentType = (name: string): string => {
+        if (name.endsWith(".pdf")) return "application/pdf";
+        if (name.endsWith(".zip")) return "application/zip";
+        if (name.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
+        if (name.endsWith(".pptx")) {
+          return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        }
+        if (name.endsWith(".xls")) return "application/vnd.ms-excel";
+        if (name.endsWith(".xlsx")) {
+          return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        }
+        if (name.endsWith(".doc")) return "application/msword";
+        if (name.endsWith(".docx")) {
+          return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        }
+        if (name.endsWith(".png")) return "image/png";
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        if (name.endsWith(".webp")) return "image/webp";
+        if (name.endsWith(".gif")) return "image/gif";
+        if (name.endsWith(".svg")) return "image/svg+xml";
+        if (name.endsWith(".mp3")) return "audio/mpeg";
+        if (name.endsWith(".wav")) return "audio/wav";
+        if (name.endsWith(".ogg")) return "audio/ogg";
+        if (name.endsWith(".mp4")) return "video/mp4";
+        if (name.endsWith(".webm")) return "video/webm";
+        if (name.endsWith(".txt")) return "text/plain; charset=utf-8";
+        return "application/octet-stream";
+      };
+
+      const canInline = (name: string): boolean => {
+        return (
+          name.endsWith(".pdf") ||
+          name.endsWith(".png") ||
+          name.endsWith(".jpg") ||
+          name.endsWith(".jpeg") ||
+          name.endsWith(".webp") ||
+          name.endsWith(".gif") ||
+          name.endsWith(".svg") ||
+          name.endsWith(".mp3") ||
+          name.endsWith(".wav") ||
+          name.endsWith(".ogg") ||
+          name.endsWith(".mp4") ||
+          name.endsWith(".webm") ||
+          name.endsWith(".txt")
+        );
+      };
+
+      const contentType = getContentType(lowerFilename);
+      const disposition = canInline(lowerFilename) ? "inline" : "attachment";
+
+      // ✅ Headers explicites multi-formats
+      res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
+      res.setHeader("Content-Type", contentType);
       res.setHeader("X-Content-Type-Options", "nosniff");
 
       const stream = fs.createReadStream(resolvedAbsPath);
@@ -682,7 +861,14 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
 
       stream.on("close", () => {
         log.info(
-          { event: "resource_download_completed", resourceId: id, outcome: isPdf ? "stream_inline_pdf" : "stream_attachment", actor: me ? { id: me.id, role: me.role } : null },
+          {
+            event: "resource_download_completed",
+            resourceId: id,
+            outcome: disposition === "inline" ? "stream_inline" : "stream_attachment",
+            contentType,
+            filename,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
           "Download completed"
         );
       });

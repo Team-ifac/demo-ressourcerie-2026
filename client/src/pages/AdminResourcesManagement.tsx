@@ -119,6 +119,29 @@ function statusBadgeClass(v: StatusValue) {
   return "bg-gray-100 text-gray-800";
 }
 
+function getAdminThumbnailSrc(r: AnyResource) {
+  const thumbnailUrl = normalizeUrl(r.thumbnailUrl ?? "");
+  const fileUrl = normalizeUrl(r.fileUrl ?? r.url ?? "");
+
+  // 1) vignette explicite enregistrée en base
+  if (thumbnailUrl) {
+    return thumbnailUrl;
+  }
+
+  // 2) fallback PDF importé -> image générée dans /imported_thumbs
+  if (
+    fileUrl &&
+    fileUrl.startsWith("/imported/") &&
+    fileUrl.toLowerCase().endsWith(".pdf")
+  ) {
+    return fileUrl
+      .replace("/imported/", "/imported_thumbs/")
+      .replace(/\.pdf$/i, ".png");
+  }
+
+  return "";
+}
+
 export default function AdminResourcesManagement() {
   const [, navigate] = useLocation();
 
@@ -1061,39 +1084,7 @@ const hasFile =
 <div className="flex items-center gap-3">
 <div className="h-10 w-10 rounded-md border overflow-hidden bg-gray-100 flex items-center justify-center">
   {(() => {
-    const thumbnailUrl = r.thumbnailUrl;
-    const fileUrl = r.fileUrl;
-
-    let src = "";
-
-    // 1) thumbnailUrl prioritaire
-    if (typeof thumbnailUrl === "string" && thumbnailUrl.trim() !== "") {
-      if (thumbnailUrl.startsWith("data:image/")) {
-        src = thumbnailUrl;
-      } else if (
-        thumbnailUrl.startsWith("http://") ||
-        thumbnailUrl.startsWith("https://") ||
-        thumbnailUrl.startsWith("/imported_thumbs/")
-      ) {
-        src = thumbnailUrl;
-      } else if (
-        thumbnailUrl.startsWith("/imported/") &&
-        thumbnailUrl.toLowerCase().endsWith(".pdf")
-      ) {
-        src = thumbnailUrl
-          .replace("/imported/", "/imported_thumbs/")
-          .replace(/\.pdf$/i, ".png");
-      }
-    }
-
-    // 2) fallback pdf -> png via fileUrl
-    if (!src && typeof fileUrl === "string") {
-      if (fileUrl.startsWith("/imported/") && fileUrl.toLowerCase().endsWith(".pdf")) {
-        src = fileUrl
-          .replace("/imported/", "/imported_thumbs/")
-          .replace(/\.pdf$/i, ".png");
-      }
-    }
+    const src = getAdminThumbnailSrc(r);
 
     if (!src) {
       return <div className="text-[10px] text-gray-400">IMG</div>;
@@ -1107,7 +1098,6 @@ const hasFile =
         onError={(e) => {
           const img = e.currentTarget;
 
-          // Déjà tenté une alternative -> placeholder neutre (plus de logo ifac)
           if (img.dataset.fallbackApplied === "2") {
             img.style.display = "none";
             const parent = img.parentElement;
@@ -1121,48 +1111,23 @@ const hasFile =
             return;
           }
 
-          // 1er échec -> on tente une URL "slugifiée" (dossiers/fichier)
           if (img.dataset.fallbackApplied !== "1") {
             img.dataset.fallbackApplied = "1";
 
-            const slugify = (s: string) =>
-              s
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-zA-Z0-9]+/g, "-")
-                .replace(/^-+|-+$/g, "")
-                .toLowerCase();
-
-            try {
-              const raw = decodeURIComponent(img.src);
-              const u = new URL(raw, window.location.origin);
-
-              // si ce n’est pas /imported_thumbs/... on ne tente rien
-              if (!u.pathname.startsWith("/imported_thumbs/")) {
-                img.dataset.fallbackApplied = "2";
-                img.style.display = "none";
-                return;
-              }
-
-              // slugifier chaque segment (sauf le préfixe vide)
-              const parts = u.pathname.split("/").filter(Boolean);
-              const slugged = parts.map((p) => slugify(p));
-
-              // on reconstruit une URL candidate
-              const candidatePath = "/" + slugged.join("/");
-              const candidate = candidatePath + (u.search || "") + (u.hash || "");
-
+            const fileFallback = normalizeUrl(r.fileUrl ?? r.url ?? "");
+            if (
+              fileFallback &&
+              fileFallback.startsWith("/imported/") &&
+              fileFallback.toLowerCase().endsWith(".pdf")
+            ) {
               img.dataset.fallbackApplied = "2";
-              img.src = candidate;
-              return;
-            } catch {
-              img.dataset.fallbackApplied = "2";
-              img.style.display = "none";
+              img.src = fileFallback
+                .replace("/imported/", "/imported_thumbs/")
+                .replace(/\.pdf$/i, ".png");
               return;
             }
           }
 
-          // sécurité
           img.dataset.fallbackApplied = "2";
           img.style.display = "none";
         }}

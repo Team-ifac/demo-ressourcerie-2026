@@ -75,13 +75,111 @@ function ensureDir(p: string) {
   fs.mkdirSync(p, { recursive: true });
 }
 
+const SUPPORTED_IMPORT_EXTENSIONS = new Set([
+  ".pdf",
+  ".zip",
+  ".ppt",
+  ".pptx",
+  ".xls",
+  ".xlsx",
+  ".csv",
+  ".mp3",
+  ".wav",
+  ".m4a",
+  ".aac",
+  ".ogg",
+  ".mp4",
+  ".mov",
+  ".avi",
+  ".webm",
+  ".mkv",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+]);
+
+function getFileExtensionLower(filePath: string): string {
+  return path.extname(filePath ?? "").toLowerCase();
+}
+
+function isPdfFile(filePath: string): boolean {
+  return getFileExtensionLower(filePath) === ".pdf";
+}
+
+function isOfficePreviewConvertible(filePath: string): boolean {
+  const ext = getFileExtensionLower(filePath);
+
+  return [
+    ".ppt",
+    ".pptx",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".odt",
+    ".ods",
+    ".odp",
+  ].includes(ext);
+}
+function tryGenerateOfficePreviewPdf(
+  sourceFile: string,
+  options: { enabled: boolean }
+): { previewPdfPath: string | null; written: boolean } {
+  if (!options.enabled) return { previewPdfPath: null, written: false };
+
+  if (!isOfficePreviewConvertible(sourceFile)) {
+    return { previewPdfPath: null, written: false };
+  }
+
+  try {
+    const dir = path.dirname(sourceFile);
+    const base = path.basename(sourceFile);
+    const nameWithoutExt = base.replace(/\.[^/.]+$/, "");
+    const previewPdf = path.join(dir, `${nameWithoutExt}.preview.pdf`);
+
+    // LibreOffice headless conversion
+    execFileSync("soffice", [
+      "--headless",
+      "--convert-to",
+      "pdf",
+      "--outdir",
+      dir,
+      sourceFile,
+    ]);
+
+    const producedPdf = path.join(dir, `${nameWithoutExt}.pdf`);
+
+    if (!fs.existsSync(producedPdf)) {
+      console.warn(`⚠️  preview PDF non généré pour: ${sourceFile}`);
+      return { previewPdfPath: null, written: false };
+    }
+
+    fs.renameSync(producedPdf, previewPdf);
+
+    return { previewPdfPath: previewPdf, written: true };
+  } catch (e: any) {
+    console.warn(
+      `⚠️  conversion office->pdf impossible pour ${sourceFile}: ${
+        e?.message ?? e
+      }`
+    );
+
+    return { previewPdfPath: null, written: false };
+  }
+}
+function isSupportedImportFile(filePath: string): boolean {
+  return SUPPORTED_IMPORT_EXTENSIONS.has(getFileExtensionLower(filePath));
+}
+
 function isIgnoredFsPath(absPath: string): boolean {
   const base = path.basename(absPath);
   if (!absPath) return true;
   if (absPath.includes(`${path.sep}__MACOSX${path.sep}`)) return true;
   if (base.startsWith("._")) return true;
   if (base === ".DS_Store") return true;
-  if (!base.toLowerCase().endsWith(".pdf")) return true;
+  if (!isSupportedImportFile(absPath)) return true;
   return false;
 }
 
@@ -135,7 +233,7 @@ function slugifySegment(input: string): string {
   return s || "autre";
 }
 
-function walkPdfs(dir: string): string[] {
+function walkImportableFiles(dir: string): string[] {
   const results: string[] = [];
   const stack: string[] = [dir];
 
@@ -262,7 +360,8 @@ function buildCategoryKey(relParts: string[]): string {
 }
 
 function buildTitleFromFilename(filename: string): string {
-  const raw = filename.replace(/\.pdf$/i, "").trim();
+  const ext = path.extname(filename);
+  const raw = filename.slice(0, filename.length - ext.length).trim();
   const cleaned = cleanText(raw);
   return cleaned || "Sans titre";
 }
@@ -665,21 +764,25 @@ async function main() {
     process.exit(1);
   }
 
-  const allPdfsAbs = walkPdfs(RESSOURCES_ROOT);
-  console.log(`PDFs détectés: ${allPdfsAbs.length}`);
+  const allFilesAbs = walkImportableFiles(RESSOURCES_ROOT);
+  const detectedPdfCount = allFilesAbs.filter((p) => isPdfFile(p)).length;
 
-  const pdfFilesAbs = max && Number.isFinite(max) && max > 0 ? allPdfsAbs.slice(0, max) : allPdfsAbs;
+  console.log(`Fichiers importables détectés: ${allFilesAbs.length}`);
+  console.log(`Dont PDF: ${detectedPdfCount}`);
+
+  const importFilesAbs =
+    max && Number.isFinite(max) && max > 0 ? allFilesAbs.slice(0, max) : allFilesAbs;
 
   if (max && Number.isFinite(max) && max > 0) {
-    console.log("MAX actif:", max, `(traités: ${pdfFilesAbs.length})`);
+    console.log("MAX actif:", max, `(traités: ${importFilesAbs.length})`);
   }
 
   if (thumbsOnly) {
     console.log("THUMBS_ONLY:", "ENABLED");
   }
 
-  if (pdfFilesAbs.length === 0) {
-    console.error("ERREUR: aucun PDF détecté dans le dossier extrait.");
+  if (importFilesAbs.length === 0) {
+    console.error("ERREUR: aucun fichier importable détecté dans le dossier extrait.");
     process.exit(1);
   }
 
@@ -701,15 +804,16 @@ async function main() {
 
   const auditDetails: string[] = [];
 
-  for (const absPdf of pdfFilesAbs) {
+  for (const absFile of importFilesAbs) {
     try {
       const rel = path
-        .relative(RESSOURCES_ROOT, absPdf)
+        .relative(RESSOURCES_ROOT, absFile)
         .split(path.sep)
         .join("/");
       const relParts = rel.split("/").filter(Boolean);
 
       const filename = relParts[relParts.length - 1];
+      const fileExt = getFileExtensionLower(filename);
       const profile = detectProfileFromParts(relParts);
       const status = detectStatusFromParts(relParts);
       const accessLevel = detectAccessLevelFromParts(relParts);
@@ -735,7 +839,7 @@ async function main() {
       )}`;
 
       const title = buildTitleFromFilename(filename);
-      const summary = `Import (Option B) (${profile})`;
+      const summary = `Import (Option B) (${profile}) - ${fileExt.replace(".", "").toUpperCase()}`;
 
       // Anti-doublons historique : si une ressource existe déjà en /AUTHENTICATED/, on migre son fileUrl
       await migrateAuthenticatedFileUrlIfNeeded(fileUrl);
@@ -744,14 +848,18 @@ async function main() {
       if (thumbsOnly) {
         ensureDir(destDir);
 
-        // Si le PDF n'existe pas encore dans client/public/imported, on le copie (idempotent)
+        // Si le fichier n'existe pas encore dans client/public/imported, on le copie (idempotent)
         if (!fs.existsSync(destAbs)) {
-          fs.copyFileSync(absPdf, destAbs);
+          fs.copyFileSync(absFile, destAbs);
         }
 
-        const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, { enabled: true });
-        if (gen.written) thumbsWritten++;
-        else thumbsSkipped++;
+        if (isPdfFile(destAbs)) {
+          const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, { enabled: true });
+          if (gen.written) thumbsWritten++;
+          else thumbsSkipped++;
+        } else {
+          thumbsSkipped++;
+        }
 
         skipped++;
         continue;
@@ -788,7 +896,7 @@ async function main() {
           auditInDb++;
 
           // Si le fichier disque existe et diffère du ZIP => on "devrait" mettre à jour
-          const same = filesAreIdentical(absPdf, destAbs);
+          const same = filesAreIdentical(absFile, destAbs);
           if (!same) {
             auditWouldUpdate++;
             if (auditDetails.length < auditLimit) {
@@ -812,7 +920,7 @@ async function main() {
         } else {
           imported++;
           console.log(
-            `✅ [${imported}/${pdfFilesAbs.length}] ${title} (${profile}, ${accessLevel}, ${status}) -> categoryKey=${categoryKey}`
+            `✅ [${imported}/${importFilesAbs.length}] ${title} (${profile}, ${accessLevel}, ${status}) -> categoryKey=${categoryKey}`
           );
         }
         continue;
@@ -824,18 +932,22 @@ async function main() {
         // si le contenu du fichier a changé => on remplace le fichier sur disque
         ensureDir(destDir);
 
-        const identical = filesAreIdentical(absPdf, destAbs);
+        const identical = filesAreIdentical(absFile, destAbs);
         if (!identical) {
-          fs.copyFileSync(absPdf, destAbs);
+          fs.copyFileSync(absFile, destAbs);
           updated++;
           console.log(`🔁 [UPDATE] ${title} -> fichier remplacé (fileUrl identique)`);
 
           // ✅ PILIER 2 béton : (re)génère la vignette canonique si possible
-          const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, {
-            enabled: thumbsEnabled,
-          });
-          if (gen.written) thumbsWritten++;
-          else thumbsSkipped++;
+          if (isPdfFile(destAbs)) {
+            const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, {
+              enabled: thumbsEnabled,
+            });
+            if (gen.written) thumbsWritten++;
+            else thumbsSkipped++;
+          } else {
+            thumbsSkipped++;
+          }
         } else {
           skipped++;
         }
@@ -844,7 +956,7 @@ async function main() {
 
       // Nouveau fichier => import complet (copie + DB)
       ensureDir(destDir);
-      fs.copyFileSync(absPdf, destAbs);
+      fs.copyFileSync(absFile, destAbs);
 
       // thumbnailUrl / storageKey / canonicalVisibility déjà calculés plus haut
 
@@ -1069,19 +1181,32 @@ const resourceId = await db.createResource(
       await ensureTaxonomyLink(resourceId, profile, categoryPartsForTaxonomy);
 
       // ✅ PILIER 2 béton : génère la vignette canonique si possible
-      const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, {
-        enabled: thumbsEnabled,
-      });
-      if (gen.written) thumbsWritten++;
-      else thumbsSkipped++;
+if (isPdfFile(destAbs)) {
+  const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, {
+    enabled: thumbsEnabled,
+  });
+  if (gen.written) thumbsWritten++;
+  else thumbsSkipped++;
+}
+
+// 🆕 PILIER PREVIEW BUREAUTIQUE
+if (isOfficePreviewConvertible(destAbs)) {
+  const preview = tryGenerateOfficePreviewPdf(destAbs, {
+    enabled: thumbsEnabled,
+  });
+
+  if (preview.written) {
+    console.log(`🧾 preview PDF généré pour ${destAbs}`);
+  }
+}
 
       imported++;
       console.log(
-        `✅ [${imported}/${pdfFilesAbs.length}] ${title} (${profile}, ${accessLevel}, ${status}) -> categoryKey=${categoryKey}`
+        `✅ [${imported}/${importFilesAbs.length}] ${title} (${profile}, ${accessLevel}, ${status}) -> categoryKey=${categoryKey}`
       );
     } catch (err: any) {
       failed++;
-      console.error("❌ Erreur import sur:", absPdf);
+      console.error("❌ Erreur import sur:", absFile);
 
       // Log lisible
       console.error("[ERR message]", err?.message ?? err);
@@ -1118,7 +1243,7 @@ const resourceId = await db.createResource(
     for (const line of auditDetails) console.log(line);
 
     console.log("=== AUDIT SUMMARY ===");
-    console.log("PDFs détectés:", pdfFilesAbs.length);
+    console.log("Fichiers importables détectés:", importFilesAbs.length);
     console.log("Déjà en base (fileUrl):", auditInDb);
     console.log("Nouveaux (seraient importés):", auditWouldImport);
     console.log("Modifiés (seraient remplacés):", auditWouldUpdate);
@@ -1133,7 +1258,8 @@ const resourceId = await db.createResource(
       mode: "AUDIT",
       extractRoot: EXTRACT_ROOT,
       ressourcesRoot: RESSOURCES_ROOT,
-      detectedPdfs: pdfFilesAbs.length,
+      detectedFiles: importFilesAbs.length,
+      detectedPdfs: importFilesAbs.filter((p) => isPdfFile(p)).length,
       inDb: auditInDb,
       wouldImport: auditWouldImport,
       wouldUpdate: auditWouldUpdate,
@@ -1182,7 +1308,8 @@ const resourceId = await db.createResource(
     const payload = {
       extractRoot: EXTRACT_ROOT,
       ressourcesRoot: RESSOURCES_ROOT,
-      detectedPdfs: pdfFilesAbs.length,
+      detectedFiles: importFilesAbs.length,
+      detectedPdfs: importFilesAbs.filter((p) => isPdfFile(p)).length,
       mode,
       imported,
       updated,

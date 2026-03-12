@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { Search, Filter, Download } from "lucide-react";
+import { Search, Filter, Download, ExternalLink, Lock } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { FavoriteButton } from "@/components/FavoriteButton";
@@ -49,6 +49,7 @@ export default function Resources() {
   });
 
   const { user } = useAuth();
+  const { data: me } = trpc.auth.me.useQuery();
   const [location, setLocation] = useLocation();
   const utils = trpc.useUtils();
 
@@ -93,13 +94,14 @@ export default function Resources() {
   });
 
   const resources = paginatedResources?.items ?? [];
-  const categories = Array.from(
-  new Set(
-    resources
-      .map((resource: any) => String(resource?.category ?? "").trim())
-      .filter((category) => category.length > 0)
-  )
-).sort((a, b) => a.localeCompare(b));
+  const isSearchCapped = !!paginatedResources?.isSearchCapped;
+  const searchPrefetchLimit = paginatedResources?.searchPrefetchLimit ?? null;
+
+  const { data: categoryCounts = [] } =
+    trpc.resources.listCategoriesWithCounts.useQuery();
+
+  const categories = categoryCounts.map((item) => item.key);
+
   const pagination = paginatedResources?.pagination;
 
   const clearFilters = () => {
@@ -226,7 +228,8 @@ export default function Resources() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Catégories pédagogiques</p>
                   <div className="flex flex-wrap gap-2">
-                    {categories.map((category) => {
+                    {categoryCounts.map((item) => {
+  const category = item.key;
   const isSelected = selectedCategoryKey === category;
 
   const label = category
@@ -237,11 +240,6 @@ export default function Resources() {
         .replace(/\b\w/g, (c) => c.toUpperCase())
     )
     .join(" / ");
-
-  const count = resources.filter((resource: any) => {
-    const resourceCategory = String(resource?.category ?? "").trim();
-    return resourceCategory === category;
-  }).length;
 
   return (
     <Badge
@@ -255,7 +253,7 @@ export default function Resources() {
         setCurrentPage(1);
       }}
     >
-      {label} ({count})
+      {label} ({item.count})
     </Badge>
   );
 })}
@@ -273,14 +271,28 @@ export default function Resources() {
 
           {/* Résultats */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {isLoading
-                  ? "Chargement..."
-                  : `${pagination?.total ?? resources.length} ressource${
-                      (pagination?.total ?? resources.length) > 1 ? "s" : ""
-                    } trouvée${(pagination?.total ?? resources.length) > 1 ? "s" : ""}`}
-              </p>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {isLoading
+                    ? "Chargement..."
+                    : `${pagination?.total ?? resources.length} ressource${
+                        (pagination?.total ?? resources.length) > 1 ? "s" : ""
+                      } trouvée${(pagination?.total ?? resources.length) > 1 ? "s" : ""}`}
+                </p>
+              </div>
+
+              {!isLoading && isSearchCapped && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-sm text-amber-900">
+                    La recherche a été limitée aux{" "}
+                    <span className="font-semibold">
+                      {searchPrefetchLimit ?? 300} premiers résultats pertinents
+                    </span>{" "}
+                    pour garantir de bonnes performances. Affine votre recherche pour obtenir des résultats plus précis.
+                  </p>
+                </div>
+              )}
             </div>
 
             {isLoading ? (
@@ -331,9 +343,6 @@ export default function Resources() {
 
                   const canOpen = Boolean((resource as any).canOpen);
 
-                  const shouldShowModalInsteadOfNavigate =
-                    isLockedByAccess && !canOpen; // si le serveur dit "tu ne peux pas ouvrir", on ne navigue pas
-
                   const openDeniedModal = () => {
                     const needed: "INTERNAL_IFAC" | "PREMIUM" =
                       accessLevel === "PREMIUM" ? "PREMIUM" : "INTERNAL_IFAC";
@@ -345,6 +354,9 @@ export default function Resources() {
                     });
                   };
 
+                  const isPremiumLocked =
+                    (resource as any).accessLevel === "PREMIUM" && !(resource as any).canOpen;
+
                   const CardClickableContent = (
                     <>
                       {resource.thumbnailUrl && (resource as any).accessLevel !== "PREMIUM" && (
@@ -354,6 +366,29 @@ export default function Resources() {
                             alt={resource.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
+                        </div>
+                      )}
+
+                      {(resource as any).accessLevel === "PREMIUM" && (
+                        <div className="aspect-video w-full overflow-hidden rounded-t-lg bg-muted relative">
+                          {resource.thumbnailUrl ? (
+                            <img
+                              src={resource.thumbnailUrl}
+                              alt={resource.title}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted" />
+                          )}
+
+                          <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-2">
+                              <Lock className="h-8 w-8 text-white" />
+                              <span className="text-xs font-medium text-white bg-black/50 px-2 py-1 rounded">
+                                Ressource premium
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -376,7 +411,9 @@ export default function Resources() {
                           </div>
                         </div>
 
-                        <CardDescription className="line-clamp-2">{resource.summary}</CardDescription>
+                        <CardDescription className="line-clamp-2">
+                          {resource.summary}
+                        </CardDescription>
                       </CardHeader>
 
                       <CardContent>
@@ -385,6 +422,36 @@ export default function Resources() {
                           {resource.ageRange && <Badge variant="outline">{resource.ageRange}</Badge>}
                           {resource.duration && <Badge variant="outline">{resource.duration}</Badge>}
                         </div>
+
+                        {isPremiumLocked && (
+                          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                            <p className="text-sm font-medium text-amber-900">
+                              Ressource réservée aux adhérents ifac.
+                            </p>
+
+                            <p className="text-sm text-amber-800">
+                              Adhérez pour débloquer l’accès aux contenus premium de la ressourcerie.
+                            </p>
+
+                            <a
+                              href="https://adhesion.ifac.asso.fr/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex"
+                            >
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Adhérer à ifac
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          </div>
+                        )}
                       </CardContent>
                     </>
                   );
@@ -397,26 +464,32 @@ export default function Resources() {
     <button
       type="button"
       className="block w-full text-left cursor-pointer bg-transparent p-0 border-0 appearance-none"
-        onClick={(e) => {
-    console.log("[CATALOG CLICK]", {
-      id: resource.id,
-      title: resource.title,
-      accessLevel,
-      visibility,
-    });
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
 
-    e.preventDefault();
-    e.stopPropagation();
+        const needsPremium = accessLevel === "PREMIUM";
+        const needsInternal =
+          accessLevel === "INTERNAL_IFAC" || visibility === "INTERNAL_IFAC";
 
-        // ✅ Règle catalogue : on ne navigue QUE si la ressource est vraiment “catalogue-public”
-        // (si tu veux encore plus strict : on ajoutera status/canOpen après, mais d’abord on stoppe la navigation)
-        const isCatalogPublic = accessLevel === "PUBLIC" && visibility !== "INTERNAL_IFAC";
-
-        if (!isCatalogPublic) {
+        // ✅ Règle produit retenue :
+        // - depuis le catalogue, une ressource premium ouvre toujours la modale premium
+        // - une ressource interne non ouvrable ouvre la modale d'accès refusé
+        // - seules les ressources réellement ouvrables naviguent vers la fiche
+        if (needsPremium) {
           setAccessDenied({
             isOpen: true,
             resourceTitle: resource.title,
-            accessLevel: accessLevel === "PREMIUM" ? "PREMIUM" : "INTERNAL_IFAC",
+            accessLevel: "PREMIUM",
+          });
+          return;
+        }
+
+        if (needsInternal && !canOpen) {
+          setAccessDenied({
+            isOpen: true,
+            resourceTitle: resource.title,
+            accessLevel: "INTERNAL_IFAC",
           });
           return;
         }
@@ -470,7 +543,7 @@ export default function Resources() {
               </div>
             )}
 
-            {!isLoading && (pagination?.totalPages ?? 0) > 1 && (
+            {!isLoading && (pagination?.totalPages ?? 0) > 1 && !isSearchCapped && (
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-2">
                 <p className="text-sm text-muted-foreground">
                   Page {pagination?.page ?? 1} sur {pagination?.totalPages ?? 1}

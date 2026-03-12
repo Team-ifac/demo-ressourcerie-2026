@@ -3,6 +3,9 @@
 // - Local dev: fallback -> return a directly usable URL (no proxy needed)
 
 import { ENV } from "./_core/env";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 type StorageConfig =
   | { mode: "forge"; baseUrl: string; apiKey: string }
@@ -96,11 +99,36 @@ export async function storagePut(
   const cfg = getStorageConfig();
   const key = normalizeKey(relKey);
 
-  // Local dev: we don't upload anywhere (no proxy). Keep it explicit.
+  // ✅ Local dev: écrire le fichier dans client/public pour obtenir une vraie URL exploitable
   if (cfg.mode === "local") {
-    throw new Error(
-      `storagePut disabled in local dev (missing BUILT_IN_FORGE_API_URL/KEY). Tried to store key="${key}".`
-    );
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const projectRoot = path.resolve(__dirname, "..");
+    const publicRoot = path.join(projectRoot, "client", "public");
+    const absPath = path.join(publicRoot, key);
+
+    const normalizedAbsPath = path.normalize(absPath);
+    const normalizedPublicRoot = path.normalize(publicRoot + path.sep);
+
+    if (!normalizedAbsPath.startsWith(normalizedPublicRoot)) {
+      throw new Error(`Invalid storage path traversal for key="${key}"`);
+    }
+
+    fs.mkdirSync(path.dirname(normalizedAbsPath), { recursive: true });
+
+    const buffer =
+      typeof data === "string"
+        ? Buffer.from(data)
+        : Buffer.isBuffer(data)
+        ? data
+        : Buffer.from(data);
+
+    fs.writeFileSync(normalizedAbsPath, buffer);
+
+    return {
+      key,
+      url: ensureLeadingSlash(key),
+    };
   }
 
   const uploadUrl = buildUploadUrl(cfg.baseUrl, key);

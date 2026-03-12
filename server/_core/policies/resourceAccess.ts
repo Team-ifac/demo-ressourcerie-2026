@@ -1,6 +1,6 @@
 // server/_core/policies/resourceAccess.ts
 
-export type AccessLevel = "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM";
+export type AccessLevel = "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM" | "AUTHENTICATED";
 
 export type MeLike = {
   // rôles/flags possibles (on accepte plusieurs formats pour être robuste)
@@ -66,6 +66,21 @@ function buildEntitlements(me: MeLike): CanonicalEntitlements {
   };
 }
 
+function normalizeAccessLevel(
+  accessLevel: ResourceLike["accessLevel"]
+): "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM" | null {
+  const raw = String(accessLevel ?? "")
+    .trim()
+    .toUpperCase();
+
+  if (raw === "PUBLIC") return "PUBLIC";
+  if (raw === "INTERNAL_IFAC") return "INTERNAL_IFAC";
+  if (raw === "AUTHENTICATED") return "INTERNAL_IFAC"; // compat legacy
+  if (raw === "PREMIUM") return "PREMIUM";
+
+  return null;
+}
+
 /**
  * Règle canonique "download/open"
  * - bypass staff/admin/formateur : OK
@@ -81,7 +96,7 @@ export function canDownloadResource(args: { resource: ResourceLike; me: MeLike }
   // ✅ Bypass staff/admin/formateur (règle métier)
   if (ent.isStaff) return true;
 
-  const accessLevel = resource?.accessLevel as AccessLevel | undefined;
+  const accessLevel = normalizeAccessLevel(resource?.accessLevel);
   const status = (resource as any)?.status as string | undefined;
 
   // ✅ Verrou "outil national" :

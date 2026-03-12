@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Heart, LogOut, Settings, User, Moon, Sun, Search } from "lucide-react";
+import { Heart, LogOut, Settings, User, Moon, Sun, Search, ExternalLink } from "lucide-react";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { Link, useLocation } from "wouter";
 import {
@@ -88,6 +88,19 @@ export function Header() {
                 Parcours
               </Button>
             </Link>
+
+            <a
+              href="https://adhesion.ifac.asso.fr/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-2"
+            >
+              <Button size="sm" className="text-base gap-2">
+                Adhérer à ifac
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </a>
+
             <form onSubmit={handleSearch} className="ml-4 flex items-center">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />

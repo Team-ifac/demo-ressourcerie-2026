@@ -20,26 +20,13 @@ export function AdvancedSearch() {
   const searchRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
 
-  // Récupérer les tags et thématiques pour les suggestions
+  // Récupérer les tags, thématiques et catégories réelles pour les suggestions
   const { data: tags } = trpc.tags.list.useQuery();
   const { data: themes } = trpc.themes.list.useQuery();
+  const { data: categoryCounts = [] } =
+    trpc.resources.listCategoriesWithCounts.useQuery();
 
-  // Catégories prédéfinies
-  const categories = [
-    "Jeux et activités ludiques",
-    "Outils pédagogiques",
-    "Guides pratiques",
-    "Fiches techniques",
-    "Supports de formation",
-    "Recettes de cuisine",
-    "Activités manuelles",
-    "Jeux de société",
-    "Activités sportives",
-    "Sorties et découvertes",
-    "Gestion d'équipe",
-    "Développement professionnel",
-    "Outils de planification",
-  ];
+  const categories = categoryCounts.map((item) => item.key);
 
   // Générer les suggestions en fonction de la recherche
   useEffect(() => {
@@ -140,7 +127,7 @@ export function AdvancedSearch() {
       } else if (filter.type === "theme") {
         params.append("theme", filter.value);
       } else if (filter.type === "category") {
-        params.append("category", filter.value);
+        params.append("categorie", filter.value);
       }
     });
 

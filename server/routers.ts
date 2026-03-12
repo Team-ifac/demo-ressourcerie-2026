@@ -73,7 +73,7 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
     if (!dbConn) return false;
 
     // =========================================================
-    // 1) ✅ PREMIUM OVERRIDE (users.premiumOverride) — SQL direct (DEBUG)
+    // 1) ✅ PRIORITÉ ABSOLUE : premiumOverride admin
     // =========================================================
     try {
       const { sql } = await import("drizzle-orm");
@@ -82,16 +82,12 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
         sql`SELECT premiumOverride AS premiumOverride FROM users WHERE id = ${userId} LIMIT 1`
       );
 
-      // Drizzle/MySQL peut renvoyer plusieurs formes :
-      // - { rows: [...] }
-      // - [rows, fields]
-      // - rows directement
       let row: any = null;
 
       if (res && Array.isArray(res.rows)) {
         row = res.rows[0] ?? null;
       } else if (Array.isArray(res) && Array.isArray(res[0])) {
-        row = res[0][0] ?? null; // mysql2: [rows, fields]
+        row = res[0][0] ?? null;
       } else if (Array.isArray(res)) {
         row = res[0] ?? null;
       } else if (res && typeof res === "object") {
@@ -99,12 +95,6 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
       }
 
       const overrideVal = row?.premiumOverride ?? null;
-
-      console.log("[resolveIsPremium] OVERRIDE DEBUG", {
-        userId,
-        row,
-        overrideVal,
-      });
 
       if (
         overrideVal === 1 ||
@@ -119,8 +109,37 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
     }
 
     // =========================================================
-    // 2) ✅ SOURCE DE VÉRITÉ ACTUELLE EN DB (legacy) : user_entitlements
-    //    (c’est ce que TU as vérifié en MySQL)
+    // 2) ✅ SOURCE CANONIQUE : entitlements
+    // =========================================================
+    try {
+      const { entitlements } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+
+      if (entitlements) {
+        const rows = await dbConn
+          .select()
+          .from(entitlements)
+          .where(eq((entitlements as any).userId, userId));
+
+        const now = new Date();
+
+        const valid = (rows || []).find((r: any) => {
+          if (r.type !== "PREMIUM") return false;
+          if (r.isActive !== 1 && r.isActive !== true) return false;
+          if (!r.endsAt) return true;
+          return new Date(r.endsAt) > now;
+        });
+
+        if (valid) {
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn("[resolveIsPremium] entitlements table check skipped:", e);
+    }
+
+    // =========================================================
+    // 3) ✅ COMPAT LEGACY : user_entitlements
     // =========================================================
     try {
       const schema = await import("../drizzle/schema");
@@ -141,9 +160,6 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
 
         const ue = (row?.[0] as any) || null;
 
-        // premium=1 => premium
-        // premiumUntil null => premium actif
-        // premiumUntil dans le futur => premium actif
         if (ue && (ue.premium === 1 || ue.premium === true)) {
           const until = ue.premiumUntil ? new Date(ue.premiumUntil) : null;
           if (!until) return true;
@@ -152,34 +168,6 @@ export async function resolveIsPremium(userId: number): Promise<boolean> {
       }
     } catch (e) {
       console.warn("[resolveIsPremium] user_entitlements check skipped:", e);
-    }
-
-    // =========================================================
-    // 3) ✅ ENTITLEMENTS "Stripe / droits datés" (nouveau système) — si présent
-    // =========================================================
-    try {
-      const { entitlements } = await import("../drizzle/schema");
-      const { eq } = await import("drizzle-orm");
-
-      if (entitlements) {
-        const rows = await dbConn
-          .select()
-          .from(entitlements)
-          .where(eq((entitlements as any).userId, userId));
-
-        const now = new Date();
-
-        const valid = (rows || []).find((r: any) => {
-          if (r.type !== "PREMIUM") return false;
-          if (r.isActive !== 1) return false;
-          if (!r.endsAt) return true;
-          return new Date(r.endsAt) > now;
-        });
-
-        return !!valid;
-      }
-    } catch (e) {
-      console.warn("[resolveIsPremium] entitlements table check skipped:", e);
     }
 
     return false;
@@ -655,21 +643,26 @@ export const appRouter = router({
   }),
 
   auth: router({
-    me: publicProcedure.query((opts) => {
-  const u: any = opts.ctx.user;
-  if (!u) return null;
-  if (u.emailVerified === 0 || u.emailVerified === false) return null;
+    me: publicProcedure.query(async (opts) => {
+      const u: any = opts.ctx.user;
+      if (!u) return null;
+      if (u.emailVerified === 0 || u.emailVerified === false) return null;
 
-  // ✅ Réponse safe (whitelist) — évite toute fuite de champs internes
-  return {
-    id: u.id,
-    email: u.email,
-    firstName: u.firstName ?? null,
-    lastName: u.lastName ?? null,
-    role: u.role ?? "user",
-    emailVerified: !!u.emailVerified,
-  };
-}),
+      const isPremium = await resolveIsPremium(u.id);
+      const profileType = await resolveProfileType(u.id);
+
+      // ✅ Réponse safe (whitelist) — évite toute fuite de champs internes
+      return {
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName ?? null,
+        lastName: u.lastName ?? null,
+        role: u.role ?? "user",
+        emailVerified: !!u.emailVerified,
+        isPremium,
+        profileType,
+      };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -1025,7 +1018,16 @@ return (results || []).map((r: any) => {
         );
 
         const includeInternal = isAdmin || entitlements.isAuthenticated;
-        const includePremium = isAdmin || !!entitlements.isPremium;
+
+        // ✅ Choix produit validé (sans casser la sécurité) :
+        // - visiteur : pas de premium dans le catalogue
+        // - connecté non premium : premium visible dans le catalogue, mais verrouillé
+        // - premium/admin : premium visible et ouvrable selon droits
+        //
+        // IMPORTANT :
+        // ceci n’ouvre AUCUN accès supplémentaire :
+        // getById / getFileUrl gardent leur verrou serveur.
+        const includePremium = isAdmin || entitlements.isAuthenticated;
 
         const page = Math.max(1, input?.page ?? 1);
         const limit = Math.max(1, Math.min(100, input?.limit ?? 24));
@@ -1038,10 +1040,9 @@ const filters: any = {
   includeInternal,
   includePremium,
   isAdmin: isAdmin,
+  page,
+  limit,
 };
-
-        delete filters.page;
-        delete filters.limit;
 
         // ✅ IMPORTANT :
         // Le catalogue paginé ne doit JAMAIS forcer le profil du compte connecté.
@@ -1050,16 +1051,29 @@ const filters: any = {
           delete filters.profileType;
         }
 
-        let results = (await db.getAllResources(filters)) as any[];
+        const paginatedResult = await db.getPaginatedResources(filters);
 
-if (!isAdmin) {
-  results = filterByAccessLevel(results, allowed);
-}
+        let results = (paginatedResult.items || []) as any[];
 
-// ✅ Recherche intelligente avant pagination
-results = sortResourcesIntelligently(results, input?.search);
+        // ✅ Anti-régression :
+        // on ne filtre plus le PREMIUM dans le catalogue paginé pour les comptes connectés,
+        // afin d’afficher les ressources premium en mode verrouillé.
+        //
+        // Sécurité conservée :
+        // - visiteur : le backend DB n’a déjà pas chargé le PREMIUM
+        // - connecté non premium : voit la carte mais canOpen restera false
+        // - getById / getFileUrl restent le verrou final
+        //
+        // Donc ici, on ne coupe plus par accessLevel.
 
-const mapped = (results || []).map((r: any) => {
+        // ✅ Recherche intelligente avant mapping
+        // - avec recherche : déjà triée dans le backend paginé
+        // - sans recherche : ordre DB conservé
+        if (searchValue) {
+          results = sortResourcesIntelligently(results, input?.search);
+        }
+
+        const mapped = (results || []).map((r: any) => {
           const visibility = (r?.visibility ?? "PUBLIC") as any;
           const accessLevel = (r?.accessLevel ?? "PUBLIC") as any;
 
@@ -1117,14 +1131,15 @@ const mapped = (results || []).map((r: any) => {
           adminView: isAdmin ? db.ADMIN_VIEW_TOKEN : undefined,
         });
 
-        const total = mapped.length;
+        const total = paginatedResult.total;
         const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-        const start = (page - 1) * limit;
-        const items = mapped.slice(start, start + limit);
+        const items = mapped;
 
         return {
           items,
           availableCategories,
+          isSearchCapped: !!paginatedResult.isSearchCapped,
+          searchPrefetchLimit: paginatedResult.searchPrefetchLimit ?? null,
           pagination: {
             page,
             limit,
@@ -1614,11 +1629,11 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
         const isStaff = isLogged && myProfileType === "formateur";
 
         // ✅ Appel DB sécurisé (anti-fuite) : la DB doit déjà filtrer
-       const resource = await db.getResourceById(input.id, {
-  includeInternal: isAdmin || isLogged,
-  includePremium: isAdmin || isStaff || !!isPremium,
-  isAdmin,
-} as any);
+        const resource = await db.getResourceById(input.id, {
+          includeInternal: isAdmin || isLogged,
+          includePremium: isAdmin || isStaff || !!isPremium,
+          isAdmin,
+        } as any);
 
         // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
         if (!resource) {
@@ -1652,6 +1667,54 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
 
         const themes = await db.getResourceThemes(input.id);
 
+        const detectFileExtension = (value?: string | null): string | null => {
+          const raw = String(value ?? "").trim();
+          if (!raw) return null;
+
+          const clean = raw.split("?")[0].split("#")[0];
+          const lastDot = clean.lastIndexOf(".");
+          if (lastDot === -1) return null;
+
+          const ext = clean.slice(lastDot + 1).toLowerCase().trim();
+          return ext || null;
+        };
+
+        const detectFileKind = (
+          ext?: string | null
+        ):
+          | "pdf"
+          | "image"
+          | "video"
+          | "audio"
+          | "powerpoint"
+          | "excel"
+          | "document"
+          | "archive"
+          | "other" => {
+          const e = String(ext ?? "").toLowerCase();
+
+          if (["pdf"].includes(e)) return "pdf";
+          if (["jpg", "jpeg", "png", "webp", "gif", "svg", "bmp", "tiff", "avif"].includes(e)) return "image";
+          if (["mp4", "webm", "mov", "avi", "mkv", "m4v"].includes(e)) return "video";
+          if (["mp3", "wav", "ogg", "m4a", "aac", "flac"].includes(e)) return "audio";
+          if (["ppt", "pptx", "odp", "key"].includes(e)) return "powerpoint";
+          if (["xls", "xlsx", "csv", "tsv", "ods"].includes(e)) return "excel";
+          if (["doc", "docx", "odt", "rtf", "txt", "md"].includes(e)) return "document";
+          if (["zip", "rar", "7z", "tar", "gz", "tgz"].includes(e)) return "archive";
+          return "other";
+        };
+
+        const buildPreviewPdfUrl = (value?: string | null): string | null => {
+          const raw = String(value ?? "").trim();
+          if (!raw) return null;
+
+          const clean = raw.split("?")[0].split("#")[0];
+          const lastDot = clean.lastIndexOf(".");
+          if (lastDot === -1) return null;
+
+          return `${clean.slice(0, lastDot)}.preview.pdf`;
+        };
+
         // 🔒 Jamais exposer fileUrl en clair
         const { fileUrl, ...safeResource } = resource as any;
 
@@ -1659,11 +1722,26 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
         const hasFile =
           (storageKey && String(storageKey).trim().length > 0) || !!fileUrl;
 
+        const fileExtension =
+          detectFileExtension(storageKey) ??
+          detectFileExtension(fileUrl) ??
+          null;
+
+        const fileKind = detectFileKind(fileExtension);
+
+        const previewPdfUrl =
+          ["powerpoint", "excel", "document"].includes(fileKind)
+            ? buildPreviewPdfUrl(fileUrl ?? (storageKey ? `/${storageKey}` : null))
+            : null;
+
         return {
           ...safeResource,
           themes,
           hasFile,
           canOpen: true,
+          fileExtension,
+          fileKind,
+          previewPdfUrl,
         };
       }),
 
@@ -2159,43 +2237,54 @@ getAllResourcesForAdmin: adminProcedure.query(async () => {
           fileName: z.string(),
           fileData: z.string(), // base64 (sans prefix "data:...")
           contentType: z.string(),
+          target: z.enum(["thumbnail", "resource"]).optional(),
         })
       )
       .mutation(async ({ input }) => {
-        // ✅ garde-fou PRO : limites simples (évite les payloads énormes)
-        // (tu peux ajuster plus tard, mais ça évite de tuer MySQL / Node)
-        const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+        const inferredTarget =
+          input.contentType === "application/pdf" ? "resource" : "thumbnail";
+
+        const target = input.target ?? inferredTarget;
+
+        const MAX_BYTES =
+          target === "thumbnail"
+            ? 5 * 1024 * 1024
+            : 100 * 1024 * 1024;
 
         const buffer = Buffer.from(input.fileData, "base64");
+
         if (buffer.byteLength > MAX_BYTES) {
           throw new TRPCError({
             code: "PAYLOAD_TOO_LARGE",
-            message: "Image trop lourde (max 5 Mo). Réduis-la et réessaie.",
+            message:
+              target === "thumbnail"
+                ? "Fichier trop lourd pour une vignette (max 5 Mo)."
+                : "Fichier ressource trop lourd (max 100 Mo).",
           });
         }
 
         const timestamp = Date.now();
         const randomSuffix = Math.random().toString(36).substring(2, 8);
 
-        // ✅ on nettoie un peu le nom (propre pour les URLs)
         const safeName = String(input.fileName || "file")
           .replace(/[^a-zA-Z0-9._-]+/g, "-")
           .replace(/-+/g, "-");
 
-        // ✅ thumbs dans un sous-dossier dédié (plus clair)
-        const fileKey = `thumbnails/${timestamp}-${randomSuffix}-${safeName}`;
+        const folder = target === "thumbnail" ? "thumbnails" : "resources";
+        const fileKey = `${folder}/${timestamp}-${randomSuffix}-${safeName}`;
 
-        // 1) Upload dans ton storage
         await storagePut(fileKey, buffer, input.contentType);
 
-        // 2) ✅ IMPORTANT : on récupère l’URL finale via storageGet
-        //    (évite les data: urls et assure une URL exploitable en front)
         const { url } = await storageGet(fileKey);
 
         return {
-          url,              // ✅ URL finale propre pour l’aperçu
-          storageKey: fileKey, // ✅ canonique : à enregistrer en DB
-          fileKey,          // compat legacy si utilisé ailleurs
+          url,
+          storageKey: fileKey,
+          fileKey,
+          target,
+          fileName: safeName,
+          contentType: input.contentType,
+          size: buffer.byteLength,
         };
       }),
 
@@ -3660,12 +3749,17 @@ profiles: router({
           rating: input.rating ?? null,
         });
 
+        const ratingValue =
+          input.rating ??
+          (typeof created === "object" && created !== null ? created.rating : null) ??
+          null;
+
         // ✅ Historique (audit trail)
         await db.addResourceHistory({
           resourceId: input.resourceId,
           userId: ctx.user.id,
           action: "comment_added",
-          changes: `Commentaire ajouté avec note ${input.rating ?? created?.rating ?? "null"}/5`,
+          changes: `Commentaire ajouté avec note ${ratingValue}/5`,
         });
 
         return { id: created?.id ?? created ?? null, success: true };
@@ -3846,14 +3940,42 @@ profiles: router({
     cancelSubscription: protectedProcedure
       .input(z.object({ subscriptionId: z.string() }))
       .mutation(async ({ input, ctx }) => {
-        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED", message: "You must be logged in" });
+        if (!ctx.user) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in",
+          });
+        }
 
         try {
+          const subscription = await stripeService.getOrCreateSubscription(ctx.user.id);
+
+          if (!subscription) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "No active subscription found",
+            });
+          }
+
+          if (String(subscription.stripeSubscriptionId) !== String(input.subscriptionId)) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "This subscription does not belong to the current user",
+            });
+          }
+
           await stripeService.cancelSubscription(input.subscriptionId);
           return { success: true };
         } catch (error) {
+          if (error instanceof TRPCError) {
+            throw error;
+          }
+
           console.error("[tRPC] Error canceling subscription:", error);
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to cancel subscription" });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to cancel subscription",
+          });
         }
       }),
   }),

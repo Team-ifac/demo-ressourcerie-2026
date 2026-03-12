@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "wouter";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, ExternalLink } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 type ProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
@@ -196,7 +196,7 @@ export default function Home() {
         <div className="container relative z-10 max-w-4xl mx-auto text-center">
           <h1 className="text-6xl font-bold mb-6 text-white drop-shadow-lg">
             Bienvenue sur la{" "}
-            <span className="text-blue-400">Ressourcerie IFAC</span>
+            <span className="text-blue-400">Ressourcerie ifac</span>
           </h1>
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto drop-shadow-md">
             Comprendre, animer, transmettre à portée de clic
@@ -204,17 +204,43 @@ export default function Home() {
 
           <div className="flex gap-4 justify-center flex-wrap">
             {!isReallyLogged ? (
-              <Link href="/auth/choice">
-                <Button size="lg" className="gap-2">
-                  🔓 Se connecter / créer un compte
-                </Button>
-              </Link>
+              <>
+                <Link href="/auth/choice">
+                  <Button size="lg" className="gap-2">
+                    🔓 Se connecter / créer un compte
+                  </Button>
+                </Link>
+
+                <a
+                  href="https://adhesion.ifac.asso.fr/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button size="lg" variant="secondary" className="gap-2">
+                    Devenir membre ifac
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </a>
+              </>
             ) : (
-              <Link href="/selection-profil">
-                <Button size="lg" className="gap-2">
-                  🎯 Choisir votre profil
-                </Button>
-              </Link>
+              <>
+                <Link href="/selection-profil">
+                  <Button size="lg" className="gap-2">
+                    🎯 Choisir votre profil
+                  </Button>
+                </Link>
+
+                <a
+                  href="https://adhesion.ifac.asso.fr/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button size="lg" variant="secondary" className="gap-2">
+                    Devenir membre ifac
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </a>
+              </>
             )}
           </div>
         </div>

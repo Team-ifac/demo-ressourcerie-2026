@@ -329,6 +329,8 @@ export async function getAllResources(filters?: {
   includePremium?: boolean;
   category?: string;
   profileType?: "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+  page?: number;
+  limit?: number;
 
   // ✅ vue admin = ne pas filtrer par accessLevel/status
   // 🔒 SÉCURITÉ (outil national) : pas de boolean, uniquement token interne
@@ -352,76 +354,128 @@ export async function getAllResources(filters?: {
   const conditions: any[] = [];
 
   if (filters?.search) {
+  const { tags, resourceTags } = await import("../drizzle/schema");
 
-  const normalize = (v: string) =>
-    v
+  const normalizeSearchValue = (value: string): string =>
+    value
+      .trim()
+      .toLowerCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
+      .replace(/[\u0300-\u036f]/g, "");
 
   const rawSearch = filters.search.trim();
+  const normalizedRawSearch = normalizeSearchValue(rawSearch);
 
-const words = rawSearch
-  .split(/\s+/)
-  .map((w) => w.trim().toLowerCase())
-  .filter((w) => w.length > 1)
-  .flatMap((w) => {
+  const words = normalizedRawSearch
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2)
+    .slice(0, 6);
+
+  const wordVariants = words.flatMap((w) => {
     const variants = [w];
 
-    if (w.endsWith("s")) variants.push(w.slice(0, -1));
-    else variants.push(w + "s");
+    if (w.length >= 4) {
+      if (w.endsWith("s")) {
+        variants.push(w.slice(0, -1));
+      } else {
+        variants.push(`${w}s`);
+      }
+    }
 
     return variants;
   });
 
-const searchVariants = Array.from(
-  new Set([
-    ...words,
-    ...words.map((w) =>
-      w
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-    ),
-  ])
-);
+  const searchVariants = Array.from(
+    new Set(
+      [normalizedRawSearch, ...wordVariants]
+        .map((v) => v.trim())
+        .filter((v) => v.length >= 2)
+        .slice(0, 12)
+    )
+  );
 
-const searchTerms = searchVariants.map((v) => `%${v}%`);
+  const searchTerms = searchVariants.map((v) => `%${v}%`);
 
-  const themeMatches = await db
-    .select({ resourceId: resourceThemes.resourceId })
-    .from(resourceThemes)
-    .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
-    .where(
-      or(
-        ...searchTerms.map((term) => like(themes.name, term))
-      )
-    );
+  const themeMatches =
+    searchTerms.length > 0
+      ? await db
+          .select({ resourceId: resourceThemes.resourceId })
+          .from(resourceThemes)
+          .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
+          .where(or(...searchTerms.map((term) => like(themes.name, term))))
+      : [];
 
   const themeResourceIds = themeMatches.map((t) => Number(t.resourceId));
 
-  const categoryNodeMatches = await db
-    .select({
-      resourceId: resourceCategoryNodes.resourceId,
-    })
-    .from(resourceCategoryNodes)
-    .innerJoin(
-      categoryNodes,
-      eq(resourceCategoryNodes.categoryNodeId, categoryNodes.id)
-    )
-    .where(
-      or(
-        ...searchTerms.map((term) => like(categoryNodes.slug, term))
-      )
-    );
+  const categoryNodeMatches =
+    searchTerms.length > 0
+      ? await db
+          .select({
+            resourceId: resourceCategoryNodes.resourceId,
+          })
+          .from(resourceCategoryNodes)
+          .innerJoin(
+            categoryNodes,
+            eq(resourceCategoryNodes.categoryNodeId, categoryNodes.id)
+          )
+          .where(
+            or(
+              ...searchTerms.flatMap((term) => [
+                like(categoryNodes.slug, term),
+                like(categoryNodes.title, term),
+              ])
+            )
+          )
+      : [];
 
   const categoryResourceIds = categoryNodeMatches.map((row) => Number(row.resourceId));
 
+  const tagMatches =
+    searchTerms.length > 0
+      ? await db
+          .select({
+            resourceId: resourceTags.resourceId,
+          })
+          .from(resourceTags)
+          .innerJoin(tags, eq(resourceTags.tagId, tags.id))
+          .where(
+            or(
+              ...searchTerms.flatMap((term) => [
+                like(tags.name, term),
+                like(tags.slug, term),
+              ])
+            )
+          )
+      : [];
+
+  const tagResourceIds = tagMatches.map((row) => Number(row.resourceId));
+
+  const profileMatches =
+    searchTerms.length > 0
+      ? await db
+          .select({
+            resourceId: resourceProfiles.resourceId,
+          })
+          .from(resourceProfiles)
+          .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
+          .where(
+            or(...searchTerms.map((term) => like(profileTypes.key, term)))
+          )
+      : [];
+
+  const profileResourceIds = profileMatches.map((row) => Number(row.resourceId));
+
   const allSearchResourceIds = Array.from(
-    new Set([...themeResourceIds, ...categoryResourceIds])
+    new Set([
+      ...themeResourceIds,
+      ...categoryResourceIds,
+      ...tagResourceIds,
+      ...profileResourceIds,
+    ])
   );
 
-  const searchConditions = [
+  const searchConditions: any[] = [
     ...searchTerms.map((term) => like(resources.title, term)),
     ...searchTerms.map((term) => like(resources.summary, term)),
     ...searchTerms.map((term) => like(resources.content, term)),
@@ -431,8 +485,11 @@ const searchTerms = searchVariants.map((v) => `%${v}%`);
     searchConditions.push(inArray(resources.id, allSearchResourceIds));
   }
 
-  conditions.push(or(...searchConditions));
+  if (searchConditions.length > 0) {
+    conditions.push(or(...searchConditions));
+  }
 }
+  if (filters?.type) conditions.push(eq(resources.type, filters.type));
   if (filters?.ageRange) conditions.push(eq(resources.ageRange, filters.ageRange));
   if (filters?.duration) conditions.push(eq(resources.duration, filters.duration));
 
@@ -600,7 +657,20 @@ const searchTerms = searchVariants.map((v) => `%${v}%`);
   }
 
   // ✅ Base SQL : plus récent d’abord
-  const result = await query.orderBy(desc(resources.createdAt));
+  let orderedQuery = query.orderBy(desc(resources.createdAt));
+
+  const hasSqlPagination =
+    typeof filters?.page === "number" &&
+    typeof filters?.limit === "number" &&
+    filters.page >= 1 &&
+    filters.limit >= 1;
+
+  if (hasSqlPagination) {
+    const offset = (filters.page! - 1) * filters.limit!;
+    orderedQuery = orderedQuery.limit(filters.limit!).offset(offset);
+  }
+
+  const result = await orderedQuery;
 
   // Extract only resource data if joined and deduplicate
   const resourcesMap = new Map<number, any>();
@@ -612,64 +682,163 @@ const searchTerms = searchVariants.map((v) => `%${v}%`);
   });
 
   // Enrichissement : collections + thèmes
-  const resourcesWithMeta = await Promise.all(
-    Array.from(resourcesMap.values()).map(async (resource: any) => {
-      const collectionRows = await db
-        .select()
-        .from(collectionResources)
-        .innerJoin(collections, eq(collectionResources.collectionId, collections.id))
-        .where(eq(collectionResources.resourceId, resource.id));
+  const resourceIds = Array.from(resourcesMap.keys());
 
-      const themeRows = await db
-        .select({ theme: themes })
-        .from(resourceThemes)
-        .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
-        .where(eq(resourceThemes.resourceId, resource.id));
+  const collectionsByResourceId = new Map<number, any[]>();
+  const themesByResourceId = new Map<number, any[]>();
 
-      return {
-        ...resource,
-        collections: collectionRows.map((row: any) => row.collections),
-        themes: themeRows.map((row: any) => row.theme),
-      };
-    })
-  );
+  if (resourceIds.length > 0) {
+    const collectionRows = await db
+      .select({
+        resourceId: collectionResources.resourceId,
+        collection: collections,
+      })
+      .from(collectionResources)
+      .innerJoin(collections, eq(collectionResources.collectionId, collections.id))
+      .where(inArray(collectionResources.resourceId, resourceIds));
 
-  // ✅ Tri de pertinence simple si recherche active
+    for (const row of collectionRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      const existing = collectionsByResourceId.get(resourceId) ?? [];
+      existing.push(row.collection);
+      collectionsByResourceId.set(resourceId, existing);
+    }
+
+    const themeRows = await db
+      .select({
+        resourceId: resourceThemes.resourceId,
+        theme: themes,
+      })
+      .from(resourceThemes)
+      .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
+      .where(inArray(resourceThemes.resourceId, resourceIds));
+
+    for (const row of themeRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      const existing = themesByResourceId.get(resourceId) ?? [];
+      existing.push(row.theme);
+      themesByResourceId.set(resourceId, existing);
+    }
+  }
+
+  const resourcesWithMeta = Array.from(resourcesMap.values()).map((resource: any) => {
+    const resourceId = Number(resource.id);
+
+    return {
+      ...resource,
+      collections: collectionsByResourceId.get(resourceId) ?? [],
+      themes: themesByResourceId.get(resourceId) ?? [],
+    };
+  });
+
+  // ✅ Tri de pertinence intelligent si recherche active
   if (filters?.search) {
     const normalizeSearchText = (value: unknown): string =>
       String(value ?? "")
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
 
     const normalizedSearch = normalizeSearchText(filters.search);
 
+    const { tags, resourceTags } = await import("../drizzle/schema");
+
+      const scoredResourceIds = resourcesWithMeta.map((resource: any) => Number(resource.id));
+
+    const tagsByResourceId = new Map<number, string[]>();
+    const profilesByResourceId = new Map<number, string[]>();
+
+    if (scoredResourceIds.length > 0) {
+      const tagRows = await db
+        .select({
+          resourceId: resourceTags.resourceId,
+          name: tags.name,
+          slug: tags.slug,
+        })
+        .from(resourceTags)
+        .innerJoin(tags, eq(resourceTags.tagId, tags.id))
+        .where(inArray(resourceTags.resourceId, scoredResourceIds));
+
+      for (const row of tagRows as any[]) {
+        const resourceId = Number(row.resourceId);
+        const existing = tagsByResourceId.get(resourceId) ?? [];
+
+        if (row.name) {
+          existing.push(normalizeSearchText(row.name));
+        }
+
+        if (row.slug) {
+          existing.push(normalizeSearchText(row.slug));
+        }
+
+        tagsByResourceId.set(resourceId, existing);
+      }
+
+      const profileRows = await db
+        .select({
+          resourceId: resourceProfiles.resourceId,
+          key: profileTypes.key,
+        })
+        .from(resourceProfiles)
+        .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
+        .where(inArray(resourceProfiles.resourceId, scoredResourceIds));
+
+      for (const row of profileRows as any[]) {
+        const resourceId = Number(row.resourceId);
+        const existing = profilesByResourceId.get(resourceId) ?? [];
+
+        if (row.key) {
+          existing.push(normalizeSearchText(row.key));
+        }
+
+        profilesByResourceId.set(resourceId, existing);
+      }
+    }
+
     const scoredResources = resourcesWithMeta.map((resource: any) => {
+      const resourceId = Number(resource.id);
+
       const titleText = normalizeSearchText(resource.title);
       const summaryText = normalizeSearchText(resource.summary);
       const contentText = normalizeSearchText(resource.content);
       const categoryText = normalizeSearchText(resource.category);
+
       const themeTexts = Array.isArray(resource.themes)
         ? resource.themes.map((theme: any) => normalizeSearchText(theme?.name))
         : [];
 
+      const tagTexts = tagsByResourceId.get(resourceId) ?? [];
+      const profileTexts = profilesByResourceId.get(resourceId) ?? [];
+
       let score = 0;
 
-// 🎯 priorité maximale : titre
-if (titleText.startsWith(normalizedSearch)) score += 120;
-else if (titleText.includes(normalizedSearch)) score += 90;
+      // 🎯 priorité maximale : titre
+      if (titleText === normalizedSearch) score += 200;
+      else if (titleText.startsWith(normalizedSearch)) score += 140;
+      else if (titleText.includes(normalizedSearch)) score += 100;
 
-// 🎯 thèmes très importants
-if (themeTexts.some((themeName: string) => themeName.includes(normalizedSearch))) score += 70;
+      // 🎯 tags très importants
+      if (tagTexts.some((tagText: string) => tagText === normalizedSearch)) score += 110;
+      else if (tagTexts.some((tagText: string) => tagText.includes(normalizedSearch))) score += 85;
 
-// 🎯 catégorie
-if (categoryText.includes(normalizedSearch)) score += 50;
+      // 🎯 thèmes très importants
+      if (themeTexts.some((themeText: string) => themeText === normalizedSearch)) score += 95;
+      else if (themeTexts.some((themeText: string) => themeText.includes(normalizedSearch))) score += 70;
 
-// 🎯 résumé
-if (summaryText.includes(normalizedSearch)) score += 30;
+      // 🎯 profils
+      if (profileTexts.some((profileText: string) => profileText === normalizedSearch)) score += 80;
+      else if (profileTexts.some((profileText: string) => profileText.includes(normalizedSearch))) score += 60;
 
-// 🎯 contenu
-if (contentText.includes(normalizedSearch)) score += 10;
+      // 🎯 catégorie
+      if (categoryText === normalizedSearch) score += 70;
+      else if (categoryText.includes(normalizedSearch)) score += 50;
+
+      // 🎯 résumé
+      if (summaryText.includes(normalizedSearch)) score += 30;
+
+      // 🎯 contenu
+      if (contentText.includes(normalizedSearch)) score += 10;
 
       return {
         ...resource,
@@ -691,6 +860,264 @@ if (contentText.includes(normalizedSearch)) score += 10;
   }
 
   return resourcesWithMeta;
+}
+export async function getPaginatedResources(filters?: {
+  search?: string;
+  themeIds?: number[];
+  collectionIds?: number[];
+  type?: string;
+  ageRange?: string;
+  duration?: string;
+  visibility?: "PUBLIC" | "INTERNAL_IFAC";
+  includeInternal?: boolean;
+  includePremium?: boolean;
+  category?: string;
+  profileType?: "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+  page?: number;
+  limit?: number;
+  adminView?: symbol;
+}) {
+  const db = await getDb();
+  if (!db) {
+    return {
+      items: [],
+      total: 0,
+    };
+  }
+
+  const page = Math.max(1, filters?.page ?? 1);
+  const limit = Math.max(1, Math.min(100, filters?.limit ?? 24));
+  const hasSearch = !!filters?.search?.trim();
+
+  // =========================================================
+  // Recherche active :
+  // on garde temporairement le moteur actuel (tri intelligent JS),
+  // puis on pagine après scoring.
+  // =========================================================
+  if (hasSearch) {
+    const SEARCH_PREFETCH_LIMIT = 300;
+
+    const allRows = await getAllResources({
+      ...filters,
+      page: 1,
+      limit: SEARCH_PREFETCH_LIMIT + 1,
+    });
+
+    const isSearchCapped = allRows.length > SEARCH_PREFETCH_LIMIT;
+    const cappedRows = isSearchCapped
+      ? allRows.slice(0, SEARCH_PREFETCH_LIMIT)
+      : allRows;
+
+    const total = cappedRows.length;
+    const start = (page - 1) * limit;
+    const items = cappedRows.slice(start, start + limit);
+
+    return {
+      items,
+      total,
+      isSearchCapped,
+      searchPrefetchLimit: SEARCH_PREFETCH_LIMIT,
+    };
+  }
+
+  // =========================================================
+  // Sans recherche :
+  // optimisation pro => COUNT SQL + page SQL
+  // =========================================================
+  const debugSql = process.env.DEBUG_SQL === "true";
+  const isAdminView = filters?.adminView === ADMIN_VIEW_TOKEN;
+
+  const conditions: any[] = [];
+
+  if (filters?.type) {
+    conditions.push(eq(resources.type, filters.type));
+  }
+
+  if (filters?.ageRange) {
+    conditions.push(eq(resources.ageRange, filters.ageRange));
+  }
+
+  if (filters?.duration) {
+    conditions.push(eq(resources.duration, filters.duration));
+  }
+
+  if (filters?.visibility) {
+    conditions.push(eq(resources.visibility, filters.visibility));
+  } else if (!filters?.includeInternal) {
+    conditions.push(eq(resources.visibility, "PUBLIC"));
+  }
+
+  // ===== Category (transition legacy -> taxonomie relationnelle) =====
+  if (filters?.category) {
+    const categoryKey = filters.category.trim();
+
+    const allCategoryNodesRows = await db
+      .select({
+        id: categoryNodes.id,
+        profileTypeId: categoryNodes.profileTypeId,
+        slug: categoryNodes.slug,
+        parentId: categoryNodes.parentId,
+        isActive: categoryNodes.isActive,
+      })
+      .from(categoryNodes);
+
+    const nodesById = new Map<number, any>();
+    for (const node of allCategoryNodesRows) {
+      nodesById.set(node.id, node);
+    }
+
+    const buildPath = (nodeId: number): string | null => {
+      const parts: string[] = [];
+      let current = nodesById.get(nodeId);
+
+      while (current) {
+        parts.unshift(current.slug);
+        if (current.parentId == null) break;
+        current = nodesById.get(current.parentId);
+      }
+
+      if (parts.length === 0) return null;
+      return parts.join("/");
+    };
+
+    const matchingCategoryNodeIds = allCategoryNodesRows
+      .filter((node) => node.isActive === 1)
+      .filter((node) => {
+        const path = buildPath(node.id);
+        return path === categoryKey;
+      })
+      .map((node) => node.id);
+
+    let taxonomyResourceIds: number[] = [];
+
+    if (matchingCategoryNodeIds.length > 0) {
+      const linkedRows = await db
+        .select({
+          resourceId: resourceCategoryNodes.resourceId,
+        })
+        .from(resourceCategoryNodes)
+        .where(inArray(resourceCategoryNodes.categoryNodeId, matchingCategoryNodeIds));
+
+      taxonomyResourceIds = Array.from(
+        new Set(linkedRows.map((row) => Number(row.resourceId)))
+      );
+    }
+
+    if (taxonomyResourceIds.length > 0) {
+      conditions.push(
+        or(
+          eq(resources.category, categoryKey),
+          inArray(resources.id, taxonomyResourceIds)
+        )
+      );
+    } else {
+      conditions.push(eq(resources.category, categoryKey));
+    }
+  }
+
+  // ===== Access level (SAFE-BY-DEFAULT) =====
+  if (!isAdminView) {
+    const internalOrLegacyAuthenticated = or(
+      eq(resources.accessLevel, "INTERNAL_IFAC"),
+      eq(resources.accessLevel as any, "AUTHENTICATED" as any)
+    );
+
+    if (!filters?.includeInternal) {
+      conditions.push(eq(resources.accessLevel, "PUBLIC"));
+    } else if (filters?.includePremium) {
+      conditions.push(
+        or(
+          eq(resources.accessLevel, "PUBLIC"),
+          internalOrLegacyAuthenticated,
+          eq(resources.accessLevel, "PREMIUM")
+        )
+      );
+    } else {
+      conditions.push(
+        or(eq(resources.accessLevel, "PUBLIC"), internalOrLegacyAuthenticated)
+      );
+    }
+  }
+
+  // ===== Status (GOUVERNANCE) =====
+  if (!isAdminView) {
+    conditions.push(eq(resources.status, "approved"));
+  }
+
+  let countQuery: any = db
+    .select({
+      total: sql<number>`count(distinct ${resources.id})`,
+    })
+    .from(resources);
+
+  if (filters?.profileType) {
+    const profileTypeId = await resolveProfileTypeId(filters.profileType);
+    countQuery = countQuery.innerJoin(
+      resourceProfiles,
+      eq(resources.id, resourceProfiles.resourceId)
+    );
+    conditions.push(eq(resourceProfiles.profileTypeId, profileTypeId));
+  }
+
+  if (filters?.collectionIds && filters.collectionIds.length > 0) {
+    countQuery = countQuery.innerJoin(
+      collectionResources,
+      eq(resources.id, collectionResources.resourceId)
+    );
+    conditions.push(inArray(collectionResources.collectionId, filters.collectionIds));
+  }
+
+  if (filters?.themeIds && filters.themeIds.length > 0) {
+    countQuery = countQuery.innerJoin(
+      resourceThemes,
+      eq(resources.id, resourceThemes.resourceId)
+    );
+    conditions.push(inArray(resourceThemes.themeId, filters.themeIds));
+  }
+
+  if (conditions.length > 0) {
+    countQuery = countQuery.where(and(...conditions));
+  }
+
+  if (debugSql) {
+    console.log(
+      "[DEBUG][getPaginatedResources] optimized SQL pagination active",
+      JSON.stringify(
+        {
+          page,
+          limit,
+          hasSearch,
+          type: filters?.type ?? null,
+          ageRange: filters?.ageRange ?? null,
+          duration: filters?.duration ?? null,
+          visibility: filters?.visibility ?? null,
+          category: filters?.category ?? null,
+          profileType: filters?.profileType ?? null,
+          collectionIds: filters?.collectionIds ?? [],
+          themeIds: filters?.themeIds ?? [],
+          includeInternal: !!filters?.includeInternal,
+          includePremium: !!filters?.includePremium,
+          isAdminView,
+        },
+        null,
+        2
+      )
+    );
+  }
+
+  const countRows = await countQuery;
+  const total = Number(countRows?.[0]?.total ?? 0);
+
+  const items = await getAllResources({
+    ...filters,
+    page,
+    limit,
+  });
+
+  return {
+    items,
+    total,
+  };
 }
 
 export async function getRecentResources(limit: number, includeInternal: boolean) {

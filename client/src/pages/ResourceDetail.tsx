@@ -21,6 +21,13 @@ import {
   Globe,
   Lock,
   Loader2,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Music,
+  FileArchive,
+  Presentation,
+  Sheet,
 } from "lucide-react";
 import { ShareButtons } from "@/components/ShareButtons";
 import { QRCodeGenerator } from "@/components/QRCodeGenerator";
@@ -81,9 +88,33 @@ export default function ResourceDetail() {
   // ✅ PRO : téléchargement 100% piloté par le backend (policy + URL sécurisée)
   const fileUrlQuery = trpc.resources.getFileUrl.useQuery(
     { id: resourceId },
-    { enabled: false, retry: false }
+    {
+      enabled: resourceId > 0 && !!resource?.hasFile && !!resource?.canOpen,
+      retry: false,
+    }
   );
 
+  const previewUrl = fileUrlQuery.data?.url ?? null;
+  const resolvedFileKind = String(resource?.fileKind ?? "").toLowerCase();
+function getActionLabel(fileKind?: string | null, fileExtension?: string | null) {
+  const kind = String(fileKind ?? "").toLowerCase();
+  const ext = String(fileExtension ?? "").toLowerCase();
+
+  if (kind === "pdf") return "Ouvrir le document";
+  if (kind === "image") return "Ouvrir l’image";
+  if (kind === "video") return "Lire la vidéo";
+  if (kind === "audio") return "Écouter l’audio";
+  if (kind === "powerpoint" || kind === "presentation") return "Télécharger le PowerPoint";
+  if (kind === "excel" || kind === "spreadsheet") return "Télécharger le fichier Excel";
+  if (kind === "archive") return "Télécharger l’archive";
+  if (kind === "document") return "Télécharger le document";
+
+  if (["doc", "docx", "odt", "rtf", "txt", "md"].includes(ext)) {
+    return "Télécharger le document";
+  }
+
+  return "Télécharger la ressource";
+}
   const handleDownload = async () => {
     if (!resourceId || resourceId <= 0) {
       toast.error("Ressource invalide");
@@ -284,14 +315,171 @@ export default function ResourceDetail() {
 
               <Separator />
 
-              {resource.thumbnailUrl && resource.accessLevel !== "PREMIUM" && (
-                <div className="rounded-lg overflow-hidden shadow-elegant">
-                  <img
-                    src={resource.thumbnailUrl}
-                    alt={resource.title}
-                    className="w-full aspect-video object-cover"
-                  />
-                </div>
+              {resource.accessLevel !== "PREMIUM" && resource.hasFile && (
+                <Card className="shadow-elegant overflow-hidden">
+                  <CardHeader>
+                    <CardTitle>Aperçu de la ressource</CardTitle>
+                    <CardDescription>
+                      Consultation directe quand le format le permet
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    {resolvedFileKind === "pdf" && previewUrl && (
+                      <div className="rounded-lg overflow-hidden border bg-background">
+                        <iframe
+                          src={previewUrl}
+                          title={resource.title}
+                          className="w-full h-[700px]"
+                        />
+                      </div>
+                    )}
+
+                    {resolvedFileKind === "image" && previewUrl && (
+                      <div className="rounded-lg overflow-hidden border bg-background">
+                        <img
+                          src={previewUrl}
+                          alt={resource.title}
+                          className="w-full max-h-[700px] object-contain bg-black/5"
+                        />
+                      </div>
+                    )}
+
+                    {resolvedFileKind === "video" && previewUrl && (
+                      <div className="rounded-lg overflow-hidden border bg-background p-2">
+                        <video
+                          controls
+                          preload="metadata"
+                          className="w-full max-h-[700px] rounded-md bg-black"
+                        >
+                          <source src={previewUrl} />
+                          Votre navigateur ne prend pas en charge la lecture vidéo.
+                        </video>
+                      </div>
+                    )}
+
+                    {resolvedFileKind === "audio" && previewUrl && (
+                      <div className="rounded-lg border bg-background p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Music className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">Aperçu audio</p>
+                            <p className="text-sm text-muted-foreground">
+                              Lecture directe dans la fiche ressource
+                            </p>
+                          </div>
+                        </div>
+
+                        <audio controls preload="metadata" className="w-full">
+                          <source src={previewUrl} />
+                          Votre navigateur ne prend pas en charge la lecture audio.
+                        </audio>
+                      </div>
+                    )}
+
+                     {(resolvedFileKind === "powerpoint" ||
+                      resolvedFileKind === "presentation") &&
+                      (resource.previewPdfUrl ? (
+                        <div className="rounded-lg overflow-hidden border bg-background">
+                          <iframe
+                            src={resource.previewPdfUrl}
+                            title={`${resource.title} - aperçu PDF`}
+                            className="w-full h-[700px]"
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border bg-background p-6 space-y-4">
+                          <div className="flex items-start gap-3">
+                            <Presentation className="h-5 w-5 text-muted-foreground mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="font-medium">Fichier de présentation</p>
+                              <p className="text-sm text-muted-foreground">
+                                Ce format n’est pas encore prévisualisable directement dans la
+                                plateforme. Utilisez le bouton d’action pour télécharger puis ouvrir
+                                le fichier dans PowerPoint, Keynote, LibreOffice Impress ou un outil
+                                compatible.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                    {(resolvedFileKind === "excel" ||
+                      resolvedFileKind === "spreadsheet") &&
+                      (resource.previewPdfUrl ? (
+                        <div className="rounded-lg overflow-hidden border bg-background">
+                          <iframe
+                            src={resource.previewPdfUrl}
+                            title={`${resource.title} - aperçu PDF`}
+                            className="w-full h-[700px]"
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border bg-background p-6 space-y-4">
+                          <div className="flex items-start gap-3">
+                            <Sheet className="h-5 w-5 text-muted-foreground mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="font-medium">Fichier tableur</p>
+                              <p className="text-sm text-muted-foreground">
+                                Ce format nécessite une application compatible pour une consultation
+                                complète. Téléchargez le fichier pour l’ouvrir dans Excel, Numbers,
+                                LibreOffice Calc ou un autre tableur.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                    {resolvedFileKind === "document" &&
+                      (resource.previewPdfUrl ? (
+                        <div className="rounded-lg overflow-hidden border bg-background">
+                          <iframe
+                            src={resource.previewPdfUrl}
+                            title={`${resource.title} - aperçu PDF`}
+                            className="w-full h-[700px]"
+                          />
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border bg-background p-6 space-y-4">
+                          <div className="flex items-start gap-3">
+                            <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="font-medium">Document bureautique</p>
+                              <p className="text-sm text-muted-foreground">
+                                Ce document peut être téléchargé puis ouvert dans Word, LibreOffice
+                                Writer ou un outil compatible.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                    {resolvedFileKind === "other" && resource.thumbnailUrl && (
+                      <div className="rounded-lg overflow-hidden border bg-background">
+                        <img
+                          src={resource.thumbnailUrl}
+                          alt={resource.title}
+                          className="w-full aspect-video object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {resolvedFileKind === "other" && !resource.thumbnailUrl && (
+                      <div className="rounded-lg border bg-background p-6 space-y-4">
+                        <div className="flex items-start gap-3">
+                          <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                          <div className="space-y-1">
+                            <p className="font-medium">Aperçu non disponible</p>
+                            <p className="text-sm text-muted-foreground">
+                              Ce type de fichier n’a pas encore de visionneuse intégrée.
+                              Utilisez le bouton d’action pour accéder au fichier.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
 
               <Card className="shadow-elegant">
@@ -355,7 +543,7 @@ export default function ResourceDetail() {
                     ) : (
                       <>
                         <Download className="h-4 w-4" />
-                        Télécharger la ressource
+                        {getActionLabel(resource?.fileKind, resource?.fileExtension)}
                       </>
                     )}
                   </Button>
