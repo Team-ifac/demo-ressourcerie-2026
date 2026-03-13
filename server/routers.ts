@@ -226,6 +226,62 @@ function filterByAccessLevel(rows: any[], allowed: AccessLevel[]) {
   });
 }
 
+async function incrementResourceViewCount(resourceId: number): Promise<void> {
+  try {
+    const dbConn = await db.getDb();
+    if (!dbConn) return;
+
+    const schema = await import("../drizzle/schema");
+    const resourcesTable =
+      (schema as any).resources ||
+      (schema as any).resourcesTable ||
+      (schema as any).resources_table;
+
+    if (!resourcesTable?.id || !resourcesTable?.viewCount) {
+      return;
+    }
+
+    const { eq, sql } = await import("drizzle-orm");
+
+    await dbConn
+      .update(resourcesTable)
+      .set({
+        viewCount: sql`COALESCE(${resourcesTable.viewCount}, 0) + 1`,
+      } as any)
+      .where(eq(resourcesTable.id, resourceId as any));
+  } catch (e) {
+    console.warn("[incrementResourceViewCount] skipped:", e);
+  }
+}
+
+async function incrementResourceDownloadCount(resourceId: number): Promise<void> {
+  try {
+    const dbConn = await db.getDb();
+    if (!dbConn) return;
+
+    const schema = await import("../drizzle/schema");
+    const resourcesTable =
+      (schema as any).resources ||
+      (schema as any).resourcesTable ||
+      (schema as any).resources_table;
+
+    if (!resourcesTable?.id || !resourcesTable?.downloadCount) {
+      return;
+    }
+
+    const { eq, sql } = await import("drizzle-orm");
+
+    await dbConn
+      .update(resourcesTable)
+      .set({
+        downloadCount: sql`COALESCE(${resourcesTable.downloadCount}, 0) + 1`,
+      } as any)
+      .where(eq(resourcesTable.id, resourceId as any));
+  } catch (e) {
+    console.warn("[incrementResourceDownloadCount] skipped:", e);
+  }
+}
+
 function normalizeSearchText(value: unknown): string {
   return String(value ?? "")
     .toLowerCase()
@@ -284,6 +340,57 @@ function sortResourcesIntelligently(rows: any[], rawSearch?: string): any[] {
       if (scoreB !== scoreA) {
         return scoreB - scoreA;
       }
+    }
+
+    const createdAtA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const createdAtB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+    if (createdAtB !== createdAtA) {
+      return createdAtB - createdAtA;
+    }
+
+    return String(a?.title ?? "").localeCompare(String(b?.title ?? ""), "fr", {
+      sensitivity: "base",
+    });
+  });
+}
+
+function computePopularityScore(resource: any): number {
+  const viewCount = Number(
+    resource?.viewCount ??
+      resource?.views ??
+      0
+  );
+
+  const downloadCount = Number(
+    resource?.downloadCount ??
+      0
+  );
+
+  return viewCount + downloadCount * 3;
+}
+
+function sortResourcesByPopularity(rows: any[]): any[] {
+  return [...(rows || [])].sort((a: any, b: any) => {
+    const scoreA = computePopularityScore(a);
+    const scoreB = computePopularityScore(b);
+
+    if (scoreB !== scoreA) {
+      return scoreB - scoreA;
+    }
+
+    const downloadA = Number(a?.downloadCount ?? 0);
+    const downloadB = Number(b?.downloadCount ?? 0);
+
+    if (downloadB !== downloadA) {
+      return downloadB - downloadA;
+    }
+
+    const viewA = Number(a?.viewCount ?? a?.views ?? 0);
+    const viewB = Number(b?.viewCount ?? b?.views ?? 0);
+
+    if (viewB !== viewA) {
+      return viewB - viewA;
     }
 
     const createdAtA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -611,6 +718,146 @@ function enforceContactRateLimit(key: string) {
   }
   cur.count += 1;
   contactRateLimit.set(key, cur);
+}
+
+async function getAdminPlatformStats(limit = 10) {
+  const dbConn = await db.getDb();
+  if (!dbConn) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Database not available",
+    });
+  }
+
+  const schema = await import("../drizzle/schema");
+  const { sql, eq, desc } = await import("drizzle-orm");
+
+  const resourcesTable =
+    (schema as any).resources ||
+    (schema as any).resourcesTable ||
+    (schema as any).resources_table;
+
+  const resourceHistoryTable =
+    (schema as any).resourceHistory ||
+    (schema as any).resourceHistories ||
+    (schema as any).resource_history ||
+    (schema as any).resource_history_table;
+
+  if (!resourcesTable) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Resources table not found in schema",
+    });
+  }
+
+  const totalResourcesRows = await dbConn
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resourcesTable);
+
+  const publishedResourcesRows = await dbConn
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resourcesTable)
+    .where(eq((resourcesTable as any).status, "approved"));
+
+  const pendingResourcesRows = await dbConn
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resourcesTable)
+    .where(sql`${(resourcesTable as any).status} in ('draft', 'pending')`);
+
+  const totalViewsRows = await dbConn
+    .select({
+      total: sql<number>`coalesce(sum(${(resourcesTable as any).viewCount}), 0)`,
+    })
+    .from(resourcesTable);
+
+  const topViewed = await dbConn
+    .select({
+      id: resourcesTable.id,
+      title: resourcesTable.title,
+      status: (resourcesTable as any).status,
+      accessLevel: (resourcesTable as any).accessLevel,
+      viewCount: sql<number>`coalesce(${(resourcesTable as any).viewCount}, 0)`,
+    })
+    .from(resourcesTable)
+    .orderBy(desc(sql`coalesce(${(resourcesTable as any).viewCount}, 0)`))
+    .limit(limit);
+
+  let totalDownloads = 0;
+  let topDownloaded: Array<{
+    id: number;
+    title: string;
+    status: string | null;
+    accessLevel: string | null;
+    downloadCount: number;
+  }> = [];
+
+  if (
+    resourceHistoryTable &&
+    (resourceHistoryTable as any).resourceId &&
+    (resourceHistoryTable as any).action
+  ) {
+    const totalDownloadsRows = await dbConn
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resourceHistoryTable)
+      .where(eq((resourceHistoryTable as any).action, "downloaded"));
+
+    totalDownloads = Number(totalDownloadsRows?.[0]?.total ?? 0);
+
+    topDownloaded = (await dbConn
+      .select({
+        id: resourcesTable.id,
+        title: resourcesTable.title,
+        status: (resourcesTable as any).status,
+        accessLevel: (resourcesTable as any).accessLevel,
+        downloadCount: sql<number>`count(*)`,
+      })
+      .from(resourceHistoryTable)
+      .innerJoin(
+        resourcesTable,
+        eq((resourceHistoryTable as any).resourceId, resourcesTable.id)
+      )
+      .where(eq((resourceHistoryTable as any).action, "downloaded"))
+      .groupBy(
+        resourcesTable.id,
+        resourcesTable.title,
+        (resourcesTable as any).status,
+        (resourcesTable as any).accessLevel
+      )
+      .orderBy(desc(sql`count(*)`))
+      .limit(limit)) as any[];
+  }
+
+  return {
+    counters: {
+      totalResources: Number(totalResourcesRows?.[0]?.total ?? 0),
+      publishedResources: Number(publishedResourcesRows?.[0]?.total ?? 0),
+      pendingResources: Number(pendingResourcesRows?.[0]?.total ?? 0),
+      totalViews: Number(totalViewsRows?.[0]?.total ?? 0),
+      totalDownloads: Number(totalDownloads ?? 0),
+    },
+    topViewed: (topViewed || []).map((row: any) => ({
+      id: Number(row.id),
+      title: String(row.title ?? ""),
+      status: row.status ?? null,
+      accessLevel: row.accessLevel ?? null,
+      viewCount: Number(row.viewCount ?? 0),
+    })),
+    topDownloaded: (topDownloaded || []).map((row: any) => ({
+      id: Number(row.id),
+      title: String(row.title ?? ""),
+      status: row.status ?? null,
+      accessLevel: row.accessLevel ?? null,
+      downloadCount: Number(row.downloadCount ?? 0),
+    })),
+  };
 }
 
 export const appRouter = router({
@@ -1338,7 +1585,7 @@ const filters: any = {
         const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
 
         const rows = (await db.getPopularResources(
-          limit,
+          Math.max(limit * 3, 20),
           isAdmin || entitlements.isAuthenticated,
           !!entitlements.isPremium
         )) as any[];
@@ -1368,7 +1615,7 @@ const filters: any = {
               return canViewResource({ visibility, entitlements: ent });
             });
 
-        return filtered;
+        return sortResourcesByPopularity(filtered).slice(0, limit);
       }),
 
     // ✅ Home Popular : 6 auto + 2 éditoriales (VIEW ONLY)
@@ -1385,14 +1632,16 @@ const filters: any = {
     const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
 
     const isStaff = entitlements.isStaff;
+    const autoLimit = input?.autoLimit ?? 6;
+    const editorialLimit = input?.editorialLimit ?? 2;
 
     const rows = (await db.getHomePopularResources({
       includeInternal: isAdmin || entitlements.isAuthenticated,
       // ✅ staff = accès PREMIUM (outil national)
       includePremium: isAdmin || isStaff || !!entitlements.isPremium,
       isAdmin,
-      autoLimit: input?.autoLimit ?? 6,
-      editorialLimit: input?.editorialLimit ?? 2,
+      autoLimit: Math.max(autoLimit * 3, 18),
+      editorialLimit,
     })) as any[];
 
     // ✅ DOUBLE VERROU ANTI-FUITE (accessLevel)
@@ -1421,7 +1670,7 @@ const filters: any = {
           return canViewResource({ visibility, entitlements: ent });
         });
 
-    return filtered;
+    return sortResourcesByPopularity(filtered);
   }),   
 
   // ⚠️ DEPRECATED : utiliser resources.getHomePopularResources (endpoint Home canonique)
@@ -1666,6 +1915,8 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
         }
 
         const themes = await db.getResourceThemes(input.id);
+
+        await incrementResourceViewCount(input.id);
 
         const detectFileExtension = (value?: string | null): string | null => {
           const raw = String(value ?? "").trim();
@@ -2351,6 +2602,20 @@ getAllResourcesForAdmin: adminProcedure.query(async () => {
 
   // ============ ADMIN ============
   admin: router({
+    stats: router({
+      getPlatformStats: adminProcedure
+        .input(
+          z
+            .object({
+              limit: z.number().int().min(1).max(50).optional(),
+            })
+            .optional()
+        )
+        .query(async ({ input }) => {
+          return await getAdminPlatformStats(input?.limit ?? 10);
+        }),
+    }),
+
     imports: router({
       list: adminProcedure
         .input(
