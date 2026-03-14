@@ -131,7 +131,109 @@ export async function getDb() {
     throw error;
   }
 }
+export async function getAdminPlatformStats(limit: number = 10) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
 
+  const safeLimit = Math.max(1, Math.min(50, limit));
+
+  const totalResourcesRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resources);
+
+  const publishedResourcesRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resources)
+    .where(eq(resources.status, "approved"));
+
+  const pendingResourcesRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resources)
+    .where(sql`${resources.status} in ('draft', 'pending')`);
+
+  const totalViewsRows = await db
+    .select({
+      total: sql<number>`coalesce(sum(${resources.viewCount}), 0)`,
+    })
+    .from(resources);
+
+  const topViewedRows = await db
+    .select({
+      id: resources.id,
+      title: resources.title,
+      status: resources.status,
+      accessLevel: resources.accessLevel,
+      viewCount: sql<number>`coalesce(${resources.viewCount}, 0)`,
+    })
+    .from(resources)
+    .orderBy(
+      desc(sql`coalesce(${resources.viewCount}, 0)`),
+      desc(resources.createdAt)
+    )
+    .limit(safeLimit);
+
+  const totalDownloadsRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resourceHistory)
+    .where(eq(resourceHistory.action, "downloaded"));
+
+  const topDownloadedRows = await db
+    .select({
+      id: resources.id,
+      title: resources.title,
+      status: resources.status,
+      accessLevel: resources.accessLevel,
+      downloadCount: sql<number>`count(*)`,
+    })
+    .from(resourceHistory)
+    .innerJoin(resources, eq(resourceHistory.resourceId, resources.id))
+    .where(eq(resourceHistory.action, "downloaded"))
+    .groupBy(
+      resources.id,
+      resources.title,
+      resources.status,
+      resources.accessLevel
+    )
+    .orderBy(
+      desc(sql`count(*)`),
+      desc(resources.createdAt)
+    )
+    .limit(safeLimit);
+
+  return {
+    counters: {
+      totalResources: Number(totalResourcesRows?.[0]?.total ?? 0),
+      publishedResources: Number(publishedResourcesRows?.[0]?.total ?? 0),
+      pendingResources: Number(pendingResourcesRows?.[0]?.total ?? 0),
+      totalViews: Number(totalViewsRows?.[0]?.total ?? 0),
+      totalDownloads: Number(totalDownloadsRows?.[0]?.total ?? 0),
+    },
+    topViewed: (topViewedRows || []).map((row: any) => ({
+      id: Number(row.id),
+      title: String(row.title ?? ""),
+      status: row.status ?? null,
+      accessLevel: row.accessLevel ?? null,
+      viewCount: Number(row.viewCount ?? 0),
+    })),
+    topDownloaded: (topDownloadedRows || []).map((row: any) => ({
+      id: Number(row.id),
+      title: String(row.title ?? ""),
+      status: row.status ?? null,
+      accessLevel: row.accessLevel ?? null,
+      downloadCount: Number(row.downloadCount ?? 0),
+    })),
+  };
+}
 // ============ PATH NORMALIZATION (PILIER 1) ============
 // Objectif : 1 règle canonique pour dériver les vignettes à partir des PDF importés.
 // On garde ça ici (serveur) pour pouvoir l'utiliser depuis import, upload, admin, etc.
@@ -1191,32 +1293,21 @@ export async function getPopularResources(
   return result;
 }
 
-// ===================== HOME POPULAR (6 auto + 2 éditoriales) =====================
+// ===================== HOME POPULAR + ÉDITORIAL =====================
 //
-// L’admin pilote 2 ressources via une collection dédiée.
-// Le reste (6) vient des plus vues (viewCount DESC), sans doublon.
-const HOME_EDITORIAL_COLLECTION_NAME = "Accueil - Sélection éditoriale";
+// Séparation propre :
+// - Ressources populaires = uniquement les plus vues
+// - ifac à la une = sélection éditoriale dédiée
+const HOME_EDITORIAL_COLLECTION_NAME = "ifac à la une";
 
-export async function getHomePopularResources(params: {
-  includeInternal: boolean; // ctx.user connecté ?
-  includePremium?: boolean; // premium ? (entitlements)
-  isAdmin: boolean; // ctx.user.role === 'admin' ?
-  autoLimit?: number; // défaut 6
-  editorialLimit?: number; // défaut 2
+function buildHomeBaseConditions(params: {
+  includeInternal: boolean;
+  includePremium?: boolean;
+  isAdmin: boolean;
 }) {
-  const db = await getDb();
-  if (!db) return [];
-
-  const autoLimit = params.autoLimit ?? 6;
-  const editorialLimit = params.editorialLimit ?? 2;
-
   const baseConditions: any[] = [];
 
-  // ✅ Règle canonique (outil national) :
-  // - Admin : voit TOUT (aucun filtre accessLevel/visibility/status ici)
-  // - Non-admin : SAFE-BY-DEFAULT (PUBLIC / INTERNAL_IFAC / PREMIUM selon flags)
   if (!params.isAdmin) {
-    // Accès visibilité / accessLevel (SAFE-BY-DEFAULT)
     if (!params.includeInternal) {
       baseConditions.push(eq(resources.visibility, "PUBLIC"));
       baseConditions.push(eq(resources.accessLevel, "PUBLIC"));
@@ -1237,13 +1328,29 @@ export async function getHomePopularResources(params: {
       );
     }
 
-    // On évite d’exposer des drafts aux non-admin sur la home
     baseConditions.push(eq(resources.status, "approved"));
   }
 
-  // 1) Éditorial (max 2) via collection dédiée
-  const editorialRows = await db
-    .select({ resource: resources })
+  return baseConditions;
+}
+
+export async function getHomeEditorialResources(params: {
+  includeInternal: boolean;
+  includePremium?: boolean;
+  isAdmin: boolean;
+  limit?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const limit = params.limit ?? 6;
+  const baseConditions = buildHomeBaseConditions(params);
+
+  const rows = await db
+    .select({
+      resource: resources,
+      addedAt: collectionResources.addedAt,
+    })
     .from(collectionResources)
     .innerJoin(collections, eq(collectionResources.collectionId, collections.id))
     .innerJoin(resources, eq(collectionResources.resourceId, resources.id))
@@ -1253,37 +1360,47 @@ export async function getHomePopularResources(params: {
         baseConditions.length > 0 ? and(...baseConditions) : undefined
       )
     )
-    .orderBy(desc(collectionResources.addedAt))
-    .limit(editorialLimit);
+    .orderBy(desc(collectionResources.addedAt));
 
-  const editorialResources = editorialRows.map((r: any) => r.resource);
-  const editorialIds = new Set<number>(editorialResources.map((r: any) => Number(r.id)));
+  const deduped = new Map<number, any>();
 
-  // 2) Automatique : top vues, en excluant les éditoriales
-  const autoRows = await db
+  for (const row of rows as any[]) {
+    const resource = row.resource;
+    const resourceId = Number(resource?.id);
+
+    if (!resourceId) continue;
+    if (!deduped.has(resourceId)) {
+      deduped.set(resourceId, resource);
+    }
+  }
+
+  return Array.from(deduped.values()).slice(0, limit);
+}
+
+export async function getHomePopularResources(params: {
+  includeInternal: boolean;
+  includePremium?: boolean;
+  isAdmin: boolean;
+  autoLimit?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const autoLimit = params.autoLimit ?? 6;
+  const baseConditions = buildHomeBaseConditions(params);
+
+  const rows = await db
     .select()
     .from(resources)
     .where(baseConditions.length > 0 ? and(...baseConditions) : undefined)
-    // ✅ Si includePremium=true, on “pousse” les PREMIUM en haut (sans fuite car baseConditions filtre déjà)
     .orderBy(
       desc(sql`(${resources.accessLevel} = 'PREMIUM')`),
       desc(resources.viewCount),
       desc(resources.createdAt)
     )
-    .limit(autoLimit + editorialLimit + 10);
+    .limit(autoLimit);
 
-  const autoResources = autoRows
-    .filter((r: any) => !editorialIds.has(Number(r.id)))
-    // ✅ Priorité forte PREMIUM côté JS (fiable, indépendant du SQL)
-    .sort((a: any, b: any) => {
-      if (a.accessLevel === "PREMIUM" && b.accessLevel !== "PREMIUM") return -1;
-      if (b.accessLevel === "PREMIUM" && a.accessLevel !== "PREMIUM") return 1;
-      return 0;
-    })
-    .slice(0, autoLimit);
-
-  // 3) Résultat final (max 8)
-  return [...editorialResources, ...autoResources].slice(0, editorialLimit + autoLimit);
+  return rows;
 }
 
 export async function getResourceById(
@@ -1982,8 +2099,6 @@ export async function getCollectionResources(
 
   const conditions: any[] = [eq(collectionResources.collectionId, collectionId)];
 
-  // 🔐 SAFE-BY-DEFAULT (comme getAllResources)
-
   if (!isAdmin) {
     if (!includeInternal) {
       conditions.push(eq(resourcesTable.accessLevel, "PUBLIC"));
@@ -2004,7 +2119,6 @@ export async function getCollectionResources(
       );
     }
 
-    // 🔒 Ne jamais exposer draft/pending/rejected
     conditions.push(eq(resourcesTable.status, "approved"));
   }
 
@@ -2027,7 +2141,18 @@ export async function getCollectionResources(
     .where(and(...conditions))
     .orderBy(desc(collectionResources.addedAt));
 
-  return result;
+  const deduped = new Map<number, any>();
+
+  for (const row of result as any[]) {
+    const resourceId = Number(row?.id);
+    if (!resourceId) continue;
+
+    if (!deduped.has(resourceId)) {
+      deduped.set(resourceId, row);
+    }
+  }
+
+  return Array.from(deduped.values());
 }
 
 export async function addResourceToCollection(collectionId: number, resourceId: number) {
@@ -2036,16 +2161,26 @@ export async function addResourceToCollection(collectionId: number, resourceId: 
 
   const { collectionResources } = await import("../drizzle/schema");
 
-  await db
-    .insert(collectionResources)
-    .values({
-      collectionId,
-      resourceId,
-      addedAt: new Date().toISOString(),
-    })
-    .onDuplicateKeyUpdate({
-      set: { collectionId, resourceId }, // no-op
-    });
+  const existing = await db
+    .select({ collectionId: collectionResources.collectionId })
+    .from(collectionResources)
+    .where(
+      and(
+        eq(collectionResources.collectionId, collectionId),
+        eq(collectionResources.resourceId, resourceId)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    return;
+  }
+
+  await db.insert(collectionResources).values({
+    collectionId,
+    resourceId,
+    addedAt: new Date().toISOString(),
+  });
 }
 
 export async function removeResourceFromCollection(collectionId: number, resourceId: number) {

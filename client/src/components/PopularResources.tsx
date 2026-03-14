@@ -8,7 +8,6 @@ export function PopularResources({ limit = 6 }: { limit?: number }) {
   const { data: popularResources = [], isLoading } =
     trpc.resources.getHomePopularResources.useQuery({
       autoLimit: limit,
-      editorialLimit: 2,
     });
 
   if (isLoading) {

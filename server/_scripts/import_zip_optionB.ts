@@ -76,28 +76,69 @@ function ensureDir(p: string) {
 }
 
 const SUPPORTED_IMPORT_EXTENSIONS = new Set([
+  // PDF
   ".pdf",
-  ".zip",
+
+  // Présentations
   ".ppt",
   ".pptx",
+  ".pps",
+  ".ppsx",
+  ".odp",
+  ".key",
+
+  // Tableurs
   ".xls",
   ".xlsx",
+  ".xlsm",
+  ".xlsb",
   ".csv",
+  ".ods",
+  ".tsv",
+
+  // Documents texte / bureautique
+  ".doc",
+  ".docx",
+  ".docm",
+  ".odt",
+  ".rtf",
+  ".txt",
+  ".md",
+
+  // Archives
+  ".zip",
+  ".rar",
+  ".7z",
+  ".tar",
+  ".gz",
+
+  // Audio
   ".mp3",
   ".wav",
   ".m4a",
   ".aac",
   ".ogg",
+  ".flac",
+
+  // Vidéo
   ".mp4",
   ".mov",
   ".avi",
   ".webm",
   ".mkv",
+  ".m4v",
+
+  // Images
   ".jpg",
   ".jpeg",
   ".png",
   ".webp",
   ".gif",
+  ".svg",
+  ".bmp",
+  ".tif",
+  ".tiff",
+  ".heic",
 ]);
 
 function getFileExtensionLower(filePath: string): string {
@@ -112,15 +153,28 @@ function isOfficePreviewConvertible(filePath: string): boolean {
   const ext = getFileExtensionLower(filePath);
 
   return [
+    // Présentations
     ".ppt",
     ".pptx",
+    ".pps",
+    ".ppsx",
+    ".odp",
+
+    // Documents
     ".doc",
     ".docx",
+    ".docm",
+    ".odt",
+    ".rtf",
+
+    // Tableurs
     ".xls",
     ".xlsx",
-    ".odt",
+    ".xlsm",
+    ".xlsb",
     ".ods",
-    ".odp",
+    ".csv",
+    ".tsv",
   ].includes(ext);
 }
 function tryGenerateOfficePreviewPdf(

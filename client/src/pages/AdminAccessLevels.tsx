@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Check, AlertCircle } from "lucide-react";
+import { Loader2, Check, AlertCircle, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -70,6 +71,21 @@ function allowedNextStatuses(current: EditorialStatus): EditorialStatus[] {
   return [...ALLOWED_STATUS_TRANSITIONS[current]];
 }
 
+const FEATURED_COLLECTION_NAME = "ifac à la une";
+
+function normalizeCollectionName(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function getFeaturedSwitchLabel(isFeatured: boolean) {
+  return isFeatured ? "À la une" : "Hors sélection";
+}
+
 export default function AdminAccessLevels() {
   const resourcesQuery = trpc.resources.getAllResourcesForAdmin.useQuery(undefined, {
     refetchOnWindowFocus: false,
@@ -80,6 +96,14 @@ export default function AdminAccessLevels() {
 
   const updateOneMutation = trpc.resources.update.useMutation();
   const bulkDeleteMutation = trpc.resources.bulkDelete.useMutation();
+
+  const collectionsQuery = trpc.collections.getAllCollections.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
+  const createCollectionMutation = trpc.collections.create.useMutation();
+  const addResourceAsAdminMutation = trpc.collections.addResourceAsAdmin.useMutation();
+  const removeResourceAsAdminMutation = trpc.collections.removeResourceAsAdmin.useMutation();
 
   const [search, setSearch] = useState("");
   const [filterLevel, setFilterLevel] = useState<AccessLevel | "ALL">("ALL");
@@ -117,6 +141,34 @@ const [bulkResourceType, setBulkResourceType] = useState<
   const [isUpdating, setIsUpdating] = useState(false);
 
   const resources: any[] = resourcesQuery.data ?? [];
+  const collections: any[] = collectionsQuery.data ?? [];
+
+  const featuredCollection =
+    [...collections]
+      .filter((c: any) => {
+        const candidate = c?.name ?? c?.title ?? "";
+        return (
+          normalizeCollectionName(candidate) ===
+          normalizeCollectionName(FEATURED_COLLECTION_NAME)
+        );
+      })
+      .sort((a: any, b: any) => Number(b?.id ?? 0) - Number(a?.id ?? 0))[0] ?? null;
+
+  const featuredCollectionId = featuredCollection ? Number(featuredCollection.id) : null;
+
+  const featuredResourcesQuery = trpc.collections.getCollectionWithResources.useQuery(
+    featuredCollectionId ? { collectionId: featuredCollectionId } : undefined!,
+    {
+      enabled: !!featuredCollectionId,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const featuredResourceIds = new Set<number>(
+    ((featuredResourcesQuery.data as any)?.resources ?? []).map((r: any) =>
+      Number(r?.id ?? r?.resourceId ?? r?.resource?.id)
+    )
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -171,6 +223,82 @@ const [bulkResourceType, setBulkResourceType] = useState<
 
   async function refresh() {
     await resourcesQuery.refetch();
+    await collectionsQuery.refetch();
+    if (featuredCollectionId) {
+      await featuredResourcesQuery.refetch();
+    }
+  }
+
+  async function handleCreateFeaturedCollection(): Promise<number | null> {
+    try {
+      const existingCollection =
+        [...(collectionsQuery.data ?? [])]
+          .filter(
+            (c: any) =>
+              String(c?.name ?? "").trim().toLowerCase() === FEATURED_COLLECTION_NAME
+          )
+          .sort((a: any, b: any) => Number(b?.id ?? 0) - Number(a?.id ?? 0))[0] ?? null;
+
+      if (existingCollection) {
+        return Number(existingCollection.id);
+      }
+
+      const created = await createCollectionMutation.mutateAsync({
+        name: FEATURED_COLLECTION_NAME,
+        description: "Sélection éditoriale affichée sur la page d’accueil",
+        isPublic: false,
+      });
+
+      await collectionsQuery.refetch();
+
+      const createdId = Number((created as any)?.id ?? 0) || null;
+
+      toast.success(`Collection "${FEATURED_COLLECTION_NAME}" créée.`);
+      return createdId;
+    } catch (error) {
+      console.error("[AdminAccessLevels] create featured collection error", error);
+      toast.error("Erreur lors de la création de la collection éditoriale.");
+      return null;
+    }
+  }
+
+  async function handleToggleFeatured(resourceId: number, nextChecked: boolean) {
+    try {
+      let activeCollectionId = featuredCollectionId;
+
+      if (nextChecked && !activeCollectionId) {
+        activeCollectionId = await handleCreateFeaturedCollection();
+
+        if (!activeCollectionId) {
+          toast.error(`Impossible de créer "${FEATURED_COLLECTION_NAME}".`);
+          return;
+        }
+      }
+
+      if (!activeCollectionId) {
+        toast.error(`La collection "${FEATURED_COLLECTION_NAME}" est introuvable.`);
+        return;
+      }
+
+      if (nextChecked) {
+        await addResourceAsAdminMutation.mutateAsync({
+          collectionId: activeCollectionId,
+          resourceId,
+        });
+        toast.success("Ressource ajoutée à ifac à la une.");
+      } else {
+        await removeResourceAsAdminMutation.mutateAsync({
+          collectionId: activeCollectionId,
+          resourceId,
+        });
+        toast.success("Ressource retirée de ifac à la une.");
+      }
+
+      await refresh();
+    } catch (error) {
+      console.error("[AdminAccessLevels] toggle featured error", error);
+      toast.error("Erreur lors de la mise à jour de ifac à la une.");
+    }
   }
 
   async function handleBulkUpdate() {
@@ -350,6 +478,17 @@ try {
   return (
     <div className="space-y-6 p-6">
 <div className="rounded-xl border bg-white p-4 shadow-sm">
+  <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900">
+  <div>
+    DEBUG collections — collections.length: {Array.isArray(collections) ? collections.length : 0}{" | "}
+    featuredCollectionId: {String(featuredCollectionId ?? "null")}{" | "}
+    featuredCollectionName: {String(featuredCollection?.name ?? featuredCollection?.title ?? "null")}
+  </div>
+
+  <pre className="mt-2 overflow-auto whitespace-pre-wrap rounded bg-white p-2 text-[11px] text-red-900">
+    {JSON.stringify(collections, null, 2)}
+  </pre>
+</div>
   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0">
       <div className="inline-flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-1 text-sm font-medium text-orange-800">
@@ -395,6 +534,117 @@ try {
   </div>
 </div>
 
+
+      {!featuredCollection ? (
+        <Card className="p-4 border-yellow-200 bg-yellow-50">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-medium text-yellow-800">
+                <Star className="h-4 w-4" />
+                ifac à la une
+              </div>
+              <p className="mt-1 text-sm text-yellow-900">
+                Active le curseur d’une ressource ci-dessous pour l’ajouter à la sélection éditoriale
+                affichée sur la page d’accueil. Désactive-le pour la retirer.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleCreateFeaturedCollection}
+              disabled={createCollectionMutation.isPending}
+              className="bg-yellow-500 text-black hover:bg-yellow-600"
+            >
+              {createCollectionMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Star className="h-4 w-4" />
+              )}
+              Créer “ifac à la une”
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-4 border-red-200 bg-red-50">
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-red-800">
+                DEBUG ifac à la une
+              </div>
+
+              <div className="text-xs text-red-900">
+                featuredCollectionId : {String(featuredCollectionId ?? "null")}
+              </div>
+
+              <div className="text-xs text-red-900">
+                featuredResourceIds : {JSON.stringify(Array.from(featuredResourceIds))}
+              </div>
+
+              <pre className="max-h-80 overflow-auto rounded bg-white p-3 text-xs text-red-900">
+                {JSON.stringify(featuredResourcesQuery.data, null, 2)}
+              </pre>
+            </div>
+          </Card>
+
+          <Card className="p-4 border-yellow-200 bg-yellow-50">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-medium text-yellow-800">
+                    <Star className="h-4 w-4" />
+                    ifac à la une
+                  </div>
+                  <p className="mt-1 text-sm text-yellow-900">
+                    Tu pilotes ici exactement les ressources mises en avant.
+                    <span className="font-medium"> Ajouter </span>
+                    sur une ligne pour l’ajouter, ou
+                    <span className="font-medium"> Retirer </span>
+                    ci-dessous pour la supprimer de la sélection.
+                  </p>
+                </div>
+
+                <Badge variant="secondary" className="w-fit">
+                  {((featuredResourcesQuery.data as any)?.resources ?? []).length} ressource(s) sélectionnée(s)
+                </Badge>
+              </div>
+
+              {((featuredResourcesQuery.data as any)?.resources ?? []).length === 0 ? (
+                <div className="rounded-lg border border-dashed border-yellow-300 bg-white/70 p-4 text-sm text-yellow-900">
+                  Aucune ressource n’est actuellement dans <span className="font-medium">ifac à la une</span>.
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  {((featuredResourcesQuery.data as any)?.resources ?? []).map((resource: any) => (
+                    <div
+                      key={resource.id}
+                      className="flex flex-col gap-3 rounded-lg border bg-white p-3 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium">{resource.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {resource.summary ?? resource.description ?? "—"}
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-yellow-300 bg-white hover:bg-yellow-100"
+                        disabled={removeResourceAsAdminMutation.isPending}
+                        onClick={() => handleToggleFeatured(Number(resource.id), false)}
+                      >
+                        <Star className="mr-2 h-4 w-4" />
+                        Retirer de “ifac à la une”
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
 
       <Card className="p-4">
         <div className="flex flex-col gap-3">
@@ -676,6 +926,7 @@ try {
 <th className="px-3 py-2 w-40 text-left">Durée</th>
 <th className="px-3 py-2 w-44 text-left">Prépa</th>
 <th className="px-3 py-2 w-56 text-left">Type</th>
+<th className="px-3 py-2 w-40 text-left">À la une</th>
 <th className="px-3 py-2 w-32 text-left">Actions</th>
 
             </tr>
@@ -891,6 +1142,47 @@ const raw = String(r.ageRange ?? "").trim();
   })()}
 </td>
 
+
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const isFeatured = featuredResourceIds.has(id);
+                      const isBusy =
+                        createCollectionMutation.isPending ||
+                        addResourceAsAdminMutation.isPending ||
+                        removeResourceAsAdminMutation.isPending;
+
+                      return (
+                        <div className="flex min-w-[190px] items-center gap-3">
+                          <Switch
+                            checked={isFeatured}
+                            disabled={isBusy}
+                            onCheckedChange={(checked) =>
+                              handleToggleFeatured(id, Boolean(checked))
+                            }
+                            aria-label={
+                              isFeatured
+                                ? "Retirer de ifac à la une"
+                                : "Ajouter à ifac à la une"
+                            }
+                          />
+
+                          <span
+                            className={
+                              isFeatured
+                                ? "text-sm font-medium text-yellow-700"
+                                : "text-sm text-gray-500"
+                            }
+                          >
+                            {getFeaturedSwitchLabel(isFeatured)}
+                          </span>
+
+                          {isBusy && (
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
 
                   <td className="px-3 py-2">
                     <Button

@@ -684,14 +684,57 @@ app.use("/api", apiLimiter);
 
       // ✅ Source de vérité : DB
       const resource: any = await db.getResourceById(id, {
-  includeInternal: true,
-  includePremium: true,
-  isAdmin: true,
-});
+        includeInternal: true,
+        includePremium: true,
+        isAdmin: true,
+      });
+
       if (!resource) {
-        log.info({ event: "resource_download_not_found", resourceId: id, actor: me ? { id: me.id, role: me.role } : null }, "Resource not found");
+        log.info(
+          {
+            event: "resource_download_not_found",
+            resourceId: id,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
+          "Resource not found"
+        );
         return res.status(404).send("Not found");
       }
+
+      const incrementResourceDownloadCount = async (resourceId: number) => {
+        try {
+          const dbConn = await db.getDb();
+          if (!dbConn) return;
+
+          const schema = await import("../../drizzle/schema");
+          const resourcesTable =
+            (schema as any).resources ||
+            (schema as any).resourcesTable ||
+            (schema as any).resources_table;
+
+          if (!resourcesTable?.id || !resourcesTable?.downloadCount) {
+            return;
+          }
+
+          const { eq, sql } = await import("drizzle-orm");
+
+          await dbConn
+            .update(resourcesTable)
+            .set({
+              downloadCount: sql`COALESCE(${resourcesTable.downloadCount}, 0) + 1`,
+            } as any)
+            .where(eq(resourcesTable.id, resourceId as any));
+        } catch (e) {
+          logger.warn(
+            {
+              event: "resource_download_count_increment_skipped",
+              resourceId,
+              details: String((e as any)?.message ?? e),
+            },
+            "Download count increment skipped"
+          );
+        }
+      };
 
       // Log de tentative (audit)
       log.info(
@@ -773,9 +816,35 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
 
       // 1) redirect (http(s) direct OU storageGet)
       if (target.kind === "redirect") {
+        await incrementResourceDownloadCount(id);
+
+        try {
+          await db.addResourceHistory({
+            resourceId: id,
+            userId: me?.id ?? null,
+            action: "downloaded",
+            changes: `Téléchargement effectué (redirect)`,
+          });
+        } catch (historyError) {
+          log.warn(
+            {
+              event: "resource_download_history_failed",
+              resourceId: id,
+              actor: me ? { id: me.id, role: me.role } : null,
+              details: String((historyError as any)?.message ?? historyError),
+            },
+            "Download history write failed"
+          );
+        }
+
         // ⚠️ On ne loggue pas l’URL (peut être signée)
         log.info(
-          { event: "resource_download_completed", resourceId: id, outcome: "redirect", actor: me ? { id: me.id, role: me.role } : null },
+          {
+            event: "resource_download_completed",
+            resourceId: id,
+            outcome: "redirect",
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
           "Download completed"
         );
         return res.redirect(302, target.url);
@@ -850,16 +919,43 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
       res.setHeader("Content-Type", contentType);
       res.setHeader("X-Content-Type-Options", "nosniff");
 
+      await incrementResourceDownloadCount(id);
+
       const stream = fs.createReadStream(resolvedAbsPath);
       stream.on("error", (e) => {
         log.error(
-          { event: "resource_download_stream_error", resourceId: id, filename, err: e, actor: me ? { id: me.id, role: me.role } : null },
+          {
+            event: "resource_download_stream_error",
+            resourceId: id,
+            filename,
+            err: e,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
           "Error reading file"
         );
         res.status(500).send("Error reading file");
       });
 
-      stream.on("close", () => {
+      stream.on("close", async () => {
+        try {
+          await db.addResourceHistory({
+            resourceId: id,
+            userId: me?.id ?? null,
+            action: "downloaded",
+            changes: `Téléchargement effectué (${disposition === "inline" ? "lecture directe" : "téléchargement fichier"})`,
+          });
+        } catch (historyError) {
+          log.warn(
+            {
+              event: "resource_download_history_failed",
+              resourceId: id,
+              actor: me ? { id: me.id, role: me.role } : null,
+              details: String((historyError as any)?.message ?? historyError),
+            },
+            "Download history write failed"
+          );
+        }
+
         log.info(
           {
             event: "resource_download_completed",

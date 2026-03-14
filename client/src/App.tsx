@@ -49,6 +49,7 @@ import LearningPaths from "./pages/LearningPaths";
 import AdminLearningPaths from "./pages/AdminLearningPaths";
 import AdminAnalytics from "@/pages/AdminAnalytics";
 import AdminAccessLevels from "./pages/AdminAccessLevels";
+import AdminIfacALaUne from "@/pages/AdminIfacALaUne";
 import { trpc } from "@/lib/trpc";
 
 /* =========================================================
@@ -206,6 +207,11 @@ function Router() {
       <Route path="/admin/analytics">
         <AdminGuard>
           <AdminAnalytics />
+        </AdminGuard>
+      </Route>
+      <Route path="/admin/ifac-a-la-une">
+        <AdminGuard>
+          <AdminIfacALaUne />
         </AdminGuard>
       </Route>
       <Route path="/admin/parcours">

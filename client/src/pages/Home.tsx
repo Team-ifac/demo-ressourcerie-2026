@@ -10,54 +10,71 @@ export default function Home() {
   // ✅ Source unique et fiable : état connecté côté serveur (cookie)
   const { data: me } = trpc.auth.me.useQuery();
 
-  const { data: popularResources = [] } = trpc.resources.getHomePopularResources.useQuery({
+  const { data: popularResourcesRaw = [] } = trpc.resources.getHomePopularResources.useQuery({
     autoLimit: 6,
-    editorialLimit: 2,
+  });
+
+  const { data: editorialResources = [] } = trpc.resources.getHomeEditorialResources.useQuery({
+    limit: 6,
   });
 
   const { data: recentResources = [] } = trpc.resources.getHomeRecentResources.useQuery({
     limit: 6,
   });
 
+  const { data: homeStats } = trpc.resources.listPaginated.useQuery({
+    page: 1,
+    limit: 1,
+  });
+
   // connecté réel
   const isReallyLogged = !!me;
 
+  const popularResources = popularResourcesRaw.slice(0, 6);
+
+  const totalVisibleResources = homeStats?.pagination?.total ?? 0;
+  const popularCount = popularResources.length;
+  const editorialCount = editorialResources.length;
+  const recentCount = recentResources.length;
+
   const profiles: Array<{
-    id: ProfileType;
-    title: string;
-    description: string;
-    icon: string;
-    color: string;
-  }> = [
-    {
-      id: "animateur",
-      title: "Animateur·rice",
-      description: "Ressources pour animer des activités et gérer des groupes",
-      icon: "🎯",
-      color: "from-blue-500 to-blue-600",
-    },
-    {
-      id: "formateur",
-      title: "Formateur·rice",
-      description: "Supports de formation et approfondissements thématiques",
-      icon: "📚",
-      color: "from-purple-500 to-purple-600",
-    },
-    {
-      id: "directeur",
-      title: "Directeur·rice",
-      description: "Outils de gestion, management et administration",
-      icon: "🏢",
-      color: "from-orange-500 to-orange-600",
-    },
-    {
-      id: "stagiaire_bafa",
-      title: "Stagiaire BAFA/BAFD",
-      description: "Ressources pour débuter et réussir votre formation",
-      icon: "🎓",
-      color: "from-green-500 to-green-600",
-    },
-  ];
+  id: ProfileType;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+}> = [
+  {
+    id: "animateur",
+    title: "Animateur·rice",
+    description: "Ressources pour animer des activités et gérer des groupes",
+    icon: "🎯",
+    color: "from-blue-500 to-blue-600",
+  },
+  {
+    id: "formateur",
+    title: "Formateur·rice",
+    description: "Supports de formation et approfondissements thématiques",
+    icon: "📚",
+    color: "from-purple-500 to-purple-600",
+  },
+  {
+    id: "directeur",
+    title: "Directeur·rice",
+    description: "Outils de gestion, management et administration",
+    icon: "🏢",
+    color: "from-orange-500 to-orange-600",
+  },
+  {
+    id: "stagiaire_bafa",
+    title: "Stagiaire BAFA/BAFD",
+    description: "Ressources pour débuter et réussir votre formation",
+    icon: "🎓",
+    color: "from-green-500 to-green-600",
+  },
+];
+
+const profileCount = profiles.length;
 
   /* =====================================================
      VIGNETTES – même logique que /resources (safe démo)
@@ -115,10 +132,8 @@ export default function Home() {
 
   function ResourceHomeCard({
     resource,
-    showViews,
   }: {
     resource: any;
-    showViews?: boolean;
   }) {
     const thumbSrc = getResourceThumbnail(resource);
     const text = getResourceText(resource);
@@ -162,15 +177,9 @@ export default function Home() {
                 {resource.type || "document"}
               </span>
 
-              {showViews ? (
-                <span className="text-xs text-muted-foreground">
-                  👁️ {resource.views || 0} vues
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  Voir la ressource
-                </span>
-              )}
+              <span className="text-xs text-muted-foreground">
+                {resource.viewCount ?? resource.views ?? 0} vues
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -249,23 +258,61 @@ export default function Home() {
       {/* Stats */}
       <section className="py-20 px-4 bg-gradient-to-r from-primary/5 via-background to-primary/5">
         <div className="container max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-center">
-            <div className="space-y-4">
-              <div className="text-6xl font-bold text-primary">50+</div>
-              <p className="text-lg text-muted-foreground">Années d'expérience</p>
-              <p className="text-sm text-muted-foreground">
-                Au service de l'animation et la formation
-              </p>
-            </div>
-            <div className="space-y-4">
-              <div className="text-6xl font-bold text-primary">20.000+</div>
-              <p className="text-lg text-muted-foreground">
-                Professionnels formés chaque année
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Animateurs, formateurs, directeurs
-              </p>
-            </div>
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-3">La plateforme en chiffres</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Des indicateurs réels calculés à partir des contenus visibles sur la plateforme.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <Card className="border-0 shadow-sm bg-background/80 backdrop-blur">
+              <CardContent className="p-8 text-center space-y-3">
+                <div className="text-5xl font-bold text-primary">
+                  {totalVisibleResources}
+                </div>
+                <p className="text-lg font-medium">Ressources visibles</p>
+                <p className="text-sm text-muted-foreground">
+                  Total réellement accessible dans le catalogue
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-background/80 backdrop-blur">
+              <CardContent className="p-8 text-center space-y-3">
+                <div className="text-5xl font-bold text-primary">
+                  {popularCount}
+                </div>
+                <p className="text-lg font-medium">Ressources populaires</p>
+                <p className="text-sm text-muted-foreground">
+                  Mises en avant à partir des données de consultation
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-background/80 backdrop-blur">
+              <CardContent className="p-8 text-center space-y-3">
+                <div className="text-5xl font-bold text-primary">
+                  {recentCount}
+                </div>
+                <p className="text-lg font-medium">Nouveautés affichées</p>
+                <p className="text-sm text-muted-foreground">
+                  Dernières ressources remontées sur la page d’accueil
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-background/80 backdrop-blur">
+              <CardContent className="p-8 text-center space-y-3">
+                <div className="text-5xl font-bold text-primary">
+                  {editorialCount}
+                </div>
+                <p className="text-lg font-medium">ifac à la une</p>
+                <p className="text-sm text-muted-foreground">
+                  Sélection éditoriale mise en avant par ifac
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
@@ -335,13 +382,44 @@ export default function Home() {
                 <ResourceHomeCard
                   key={resource.id}
                   resource={resource}
-                  showViews
                 />
               ))}
             </div>
           </div>
         </section>
       )}
+
+      {/* ifac à la une */}
+      <section className="py-20 px-4 bg-primary/5">
+        <div className="container max-w-7xl mx-auto">
+          <div className="flex items-center gap-3 mb-12">
+            <h2 className="text-4xl font-bold">⭐ ifac à la une</h2>
+          </div>
+
+          {editorialResources.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="p-8 text-center">
+                <p className="text-lg font-medium mb-2">
+                  Aucune ressource mise en avant pour le moment
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Pour alimenter cette section, ajoute des ressources dans la collection nommée
+                  <span className="font-medium"> ifac à la une</span>.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {editorialResources.map((resource: any) => (
+                <ResourceHomeCard
+                  key={resource.id}
+                  resource={resource}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Récentes */}
       {recentResources.length > 0 && (

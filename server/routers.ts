@@ -737,6 +737,11 @@ async function getAdminPlatformStats(limit = 10) {
     (schema as any).resourcesTable ||
     (schema as any).resources_table;
 
+  const usersTable =
+    (schema as any).users ||
+    (schema as any).usersTable ||
+    (schema as any).users_table;
+
   const resourceHistoryTable =
     (schema as any).resourceHistory ||
     (schema as any).resourceHistories ||
@@ -775,7 +780,13 @@ async function getAdminPlatformStats(limit = 10) {
       total: sql<number>`coalesce(sum(${(resourcesTable as any).viewCount}), 0)`,
     })
     .from(resourcesTable);
-
+  const totalUsersRows = usersTable
+    ? await dbConn
+        .select({
+          total: sql<number>`count(*)`,
+        })
+        .from(usersTable)
+    : [{ total: 0 }];
   const topViewed = await dbConn
     .select({
       id: resourcesTable.id,
@@ -837,6 +848,7 @@ async function getAdminPlatformStats(limit = 10) {
 
   return {
     counters: {
+      totalUsers: Number(totalUsersRows?.[0]?.total ?? 0),
       totalResources: Number(totalResourcesRows?.[0]?.total ?? 0),
       publishedResources: Number(publishedResourcesRows?.[0]?.total ?? 0),
       pendingResources: Number(pendingResourcesRows?.[0]?.total ?? 0),
@@ -1618,61 +1630,101 @@ const filters: any = {
         return sortResourcesByPopularity(filtered).slice(0, limit);
       }),
 
-    // ✅ Home Popular : 6 auto + 2 éditoriales (VIEW ONLY)
+      // ✅ Home Popular : ressources populaires uniquement (VIEW ONLY)
     getHomePopularResources: publicProcedure
-  .input(
-    z
-      .object({
-        autoLimit: z.number().optional(),
-        editorialLimit: z.number().optional(),
-      })
-      .optional()
-  )
-  .query(async ({ input, ctx }) => {
-    const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+      .input(
+        z
+          .object({
+            autoLimit: z.number().optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input, ctx }) => {
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
 
-    const isStaff = entitlements.isStaff;
-    const autoLimit = input?.autoLimit ?? 6;
-    const editorialLimit = input?.editorialLimit ?? 2;
+        const isStaff = entitlements.isStaff;
+        const autoLimit = input?.autoLimit ?? 6;
 
-    const rows = (await db.getHomePopularResources({
-      includeInternal: isAdmin || entitlements.isAuthenticated,
-      // ✅ staff = accès PREMIUM (outil national)
-      includePremium: isAdmin || isStaff || !!entitlements.isPremium,
-      isAdmin,
-      autoLimit: Math.max(autoLimit * 3, 18),
-      editorialLimit,
-    })) as any[];
+          const rows = (await db.getHomePopularResources({
+    includeInternal: isAdmin || entitlements.isAuthenticated,
+    includePremium: false,
+    isAdmin: false,
+    autoLimit: 6,
+  })) as any[];
 
-    // ✅ DOUBLE VERROU ANTI-FUITE (accessLevel)
-    // - admin : tout
-    // - staff : tout (y compris PREMIUM)
-    // - sinon : logique premium standard
-    const allowed = isStaff
-      ? (["PUBLIC", "INTERNAL_IFAC", "PREMIUM"] as AccessLevel[])
-      : allowedAccessLevels(entitlements.isAuthenticated, !!entitlements.isPremium);
+        // ✅ DOUBLE VERROU ANTI-FUITE (accessLevel)
+        // - admin : tout
+        // - staff : tout (y compris PREMIUM)
+        // - sinon : logique premium standard
+        const allowed = isStaff
+          ? (["PUBLIC", "INTERNAL_IFAC", "PREMIUM"] as AccessLevel[])
+          : allowedAccessLevels(entitlements.isAuthenticated, !!entitlements.isPremium);
 
-    let rowsSafe = rows || [];
+        let rowsSafe = rows || [];
 
-    // ✅ IMPORTANT : on ne coupe PAS le PREMIUM pour staff (sinon bypass inutile)
-    if (!isAdmin && !isStaff) {
-      rowsSafe = filterByAccessLevel(rowsSafe, allowed);
-    }
+        if (!isAdmin && !isStaff) {
+          rowsSafe = filterByAccessLevel(rowsSafe, allowed);
+        }
 
-    const filtered = isAdmin
-      ? rowsSafe
-      : rowsSafe.filter((r: any) => {
-          if (isStaff) return true;
+        const filtered = isAdmin
+          ? rowsSafe
+          : rowsSafe.filter((r: any) => {
+              if (isStaff) return true;
 
-          const ent = { ...entitlements, isStaff: false };
-          const visibility = (r?.visibility ?? "PUBLIC") as any;
+              const ent = { ...entitlements, isStaff: false };
+              const visibility = (r?.visibility ?? "PUBLIC") as any;
 
-          return canViewResource({ visibility, entitlements: ent });
-        });
+              return canViewResource({ visibility, entitlements: ent });
+            });
 
-    return sortResourcesByPopularity(filtered);
-  }),   
+        return sortResourcesByPopularity(filtered).slice(0, autoLimit);
+      }),
 
+    // ✅ Home Editorial : ifac à la une (sélection éditoriale séparée)
+    getHomeEditorialResources: publicProcedure
+      .input(
+        z
+          .object({
+            limit: z.number().optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input, ctx }) => {
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+        const isStaff = entitlements.isStaff;
+        const limit = input?.limit ?? 3;
+
+        const rows = (await db.getHomeEditorialResources({
+          includeInternal: isAdmin || entitlements.isAuthenticated,
+          includePremium: isAdmin || isStaff || !!entitlements.isPremium,
+          isAdmin,
+          limit,
+        })) as any[];
+
+        const allowed = isStaff
+          ? (["PUBLIC", "INTERNAL_IFAC", "PREMIUM"] as AccessLevel[])
+          : allowedAccessLevels(entitlements.isAuthenticated, !!entitlements.isPremium);
+
+        let rowsSafe = rows || [];
+
+        if (!isAdmin && !isStaff) {
+          rowsSafe = filterByAccessLevel(rowsSafe, allowed);
+        }
+
+        const filtered = isAdmin
+          ? rowsSafe
+          : rowsSafe.filter((r: any) => {
+              if (isStaff) return true;
+
+              const ent = { ...entitlements, isStaff: false };
+              const visibility = (r?.visibility ?? "PUBLIC") as any;
+
+              return canViewResource({ visibility, entitlements: ent });
+            });
+
+        return rowsSafe === filtered ? filtered.slice(0, limit) : filtered.slice(0, limit);
+      }),
   // ⚠️ DEPRECATED : utiliser resources.getHomePopularResources (endpoint Home canonique)
 // (gardé temporairement pour éviter toute casse si un ancien écran l'appelle encore)
 listPopular: publicProcedure.query(async ({ ctx }) => {
@@ -1685,7 +1737,6 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
     includePremium: false, // 🔒 jamais de PREMIUM via listPopular
     isAdmin: false,        // 🔒 force le filtre status=approved côté DB (pas de drafts)
     autoLimit: 6,
-    editorialLimit: 0,
   })) as any[];
 
   // ✅ Double-verrou accessLevel (anti-fuite) — ici, premium est volontairement désactivé
@@ -3274,32 +3325,46 @@ profiles: router({
       const dbConn = await db.getDb();
       if (!dbConn) return [];
 
-      const schema = await import("../drizzle/schema");
-      const table =
-        (schema as any).collectionsTable ||
-        (schema as any).collections ||
-        (schema as any).collections_table;
+      const { sql } = await import("drizzle-orm");
 
-      if (!table) {
-        console.warn("[collections.getAllCollections] collections table not found in schema");
-        return [];
-      }
+      const result: any = await dbConn.execute(sql`
+        SELECT
+          id,
+          name,
+          description,
+          userId,
+          accessLevel,
+          createdAt,
+          updatedAt,
+          COALESCE(isPublic, 0) AS isPublic
+        FROM collections
+        ORDER BY id DESC
+      `);
 
-      const rows = (await dbConn
-        .select({
-          id: table.id,
-          name: (table as any).name ?? null,
-          title: (table as any).title ?? (table as any).name ?? null,
-          description: (table as any).description ?? null,
-          isPublic: (table as any).isPublic ?? (table as any).public ?? null,
-          accessLevel: (table as any).accessLevel ?? null,
-          userId: (table as any).userId ?? null,
-          createdAt: (table as any).createdAt ?? null,
-          updatedAt: (table as any).updatedAt ?? null,
-        })
-        .from(table)) as any[];
+      const rows =
+        Array.isArray(result?.rows)
+          ? result.rows
+          : Array.isArray(result?.[0])
+            ? result[0]
+            : Array.isArray(result)
+              ? result
+              : [];
 
-      return rows || [];
+      return (rows || []).map((row: any) => ({
+        id: Number(row.id),
+        name: row.name ?? null,
+        title: row.name ?? null,
+        description: row.description ?? null,
+        isPublic:
+          row.isPublic === 1 ||
+          row.isPublic === true ||
+          row.isPublic === "1" ||
+          row.isPublic === "true",
+        accessLevel: row.accessLevel ?? null,
+        userId: row.userId ?? null,
+        createdAt: row.createdAt ?? null,
+        updatedAt: row.updatedAt ?? null,
+      }));
     }),
 
     // Récupère une collection + ses ressources (admin)
@@ -3308,64 +3373,101 @@ profiles: router({
       .query(async ({ input }) => {
         const dbConn = await db.getDb();
         if (!dbConn) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-        }
-
-        const schema = await import("../drizzle/schema");
-
-        const collectionsTable =
-          (schema as any).collectionsTable ||
-          (schema as any).collections ||
-          (schema as any).collections_table;
-
-        const joinTable =
-          (schema as any).collectionResources ||
-          (schema as any).collection_resources ||
-          (schema as any).collectionResourcesTable ||
-          (schema as any).collection_resources_table;
-
-        const resourcesTable =
-          (schema as any).resourcesTable ||
-          (schema as any).resources ||
-          (schema as any).resources_table;
-
-        if (!collectionsTable || !joinTable || !resourcesTable) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "Schema tables missing (collections / join / resources)",
+            message: "Database not available",
           });
         }
 
-        const { eq, desc } = await import("drizzle-orm");
+        const { sql } = await import("drizzle-orm");
 
-        const colRows = (await dbConn
-          .select()
-          .from(collectionsTable)
-          .where(eq(collectionsTable.id, input.collectionId))
-          .limit(1)) as any[];
+        const collectionResult: any = await dbConn.execute(sql`
+          SELECT
+            id,
+            name,
+            description,
+            userId,
+            accessLevel,
+            createdAt,
+            updatedAt,
+            COALESCE(isPublic, 0) AS isPublic
+          FROM collections
+          WHERE id = ${input.collectionId}
+          LIMIT 1
+        `);
 
-        const collection = colRows?.[0];
+        const collectionRows =
+          Array.isArray(collectionResult?.rows)
+            ? collectionResult.rows
+            : Array.isArray(collectionResult?.[0])
+              ? collectionResult[0]
+              : Array.isArray(collectionResult)
+                ? collectionResult
+                : [];
+
+        const collection = collectionRows?.[0] ?? null;
+
         if (!collection) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Collection introuvable" });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Collection introuvable",
+          });
         }
 
-        const resources = (await dbConn
-          .select({
-            id: resourcesTable.id,
-            title: resourcesTable.title,
-            summary: (resourcesTable as any).summary ?? null,
-            visibility: (resourcesTable as any).visibility ?? null,
-            accessLevel: (resourcesTable as any).accessLevel ?? null,
-            status: (resourcesTable as any).status ?? null,
-            thumbnailUrl: (resourcesTable as any).thumbnailUrl ?? null,
-            thumbnailKey: (resourcesTable as any).thumbnailKey ?? null,
-          })
-          .from(joinTable)
-          .innerJoin(resourcesTable, eq((joinTable as any).resourceId, resourcesTable.id))
-          .where(eq((joinTable as any).collectionId, input.collectionId))
-          .orderBy(desc(resourcesTable.id))) as any[];
+        const resourcesResult: any = await dbConn.execute(sql`
+          SELECT
+            r.id,
+            r.title,
+            r.summary,
+            r.visibility,
+            r.accessLevel,
+            r.status,
+            r.thumbnailUrl,
+            r.thumbnailKey,
+            cr.resourceId
+          FROM collection_resources cr
+          INNER JOIN resources r ON r.id = cr.resourceId
+          WHERE cr.collectionId = ${input.collectionId}
+          ORDER BY r.id DESC
+        `);
 
-        return { collection, resources: resources || [] };
+        const resourceRows =
+          Array.isArray(resourcesResult?.rows)
+            ? resourcesResult.rows
+            : Array.isArray(resourcesResult?.[0])
+              ? resourcesResult[0]
+              : Array.isArray(resourcesResult)
+                ? resourcesResult
+                : [];
+
+        return {
+          collection: {
+            id: Number(collection.id),
+            name: collection.name ?? null,
+            title: collection.name ?? null,
+            description: collection.description ?? null,
+            isPublic:
+              collection.isPublic === 1 ||
+              collection.isPublic === true ||
+              collection.isPublic === "1" ||
+              collection.isPublic === "true",
+            accessLevel: collection.accessLevel ?? null,
+            userId: collection.userId ?? null,
+            createdAt: collection.createdAt ?? null,
+            updatedAt: collection.updatedAt ?? null,
+          },
+          resources: (resourceRows || []).map((row: any) => ({
+            id: Number(row.id),
+            resourceId: Number(row.resourceId ?? row.id),
+            title: row.title ?? "",
+            summary: row.summary ?? null,
+            visibility: row.visibility ?? null,
+            accessLevel: row.accessLevel ?? null,
+            status: row.status ?? null,
+            thumbnailUrl: row.thumbnailUrl ?? null,
+            thumbnailKey: row.thumbnailKey ?? null,
+          })),
+        };
       }),
 
     // Ajoute une ressource à une collection (admin)

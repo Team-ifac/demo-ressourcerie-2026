@@ -1,165 +1,113 @@
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  TrendingUp,
   Download,
   Eye,
   Users,
   FileText,
-  Calendar,
-  Filter,
-  MoreVertical,
+  CheckCircle2,
+  Clock3,
 } from "lucide-react";
-import { MonthlyReport } from "@/components/MonthlyReport";
-import { TrendAnalysis } from "@/components/TrendAnalysis";
+import { trpc } from "@/lib/trpc";
 
 export default function AdminAnalytics() {
-  // Mock data pour les statistiques
-  const overallStats = {
-    totalViews: 15234,
-    totalDownloads: 3421,
-    totalUsers: 892,
-    totalResources: 156,
-    avgRating: 4.2,
-    engagementRate: 68,
+  const statsQuery = trpc.admin.stats.getPlatformStats.useQuery();
+
+  const stats = (statsQuery.data ?? {}) as any;
+  const counters = (stats.counters ?? {}) as any;
+
+  const totalDownloads = Number(counters.totalDownloads ?? 0);
+  const totalUsers = Number(counters.totalUsers ?? 0);
+  const totalResources = Number(counters.totalResources ?? 0);
+  const totalViews = Number(counters.totalViews ?? 0);
+  const publishedResources = Number(counters.publishedResources ?? 0);
+  const pendingResources = Number(counters.pendingResources ?? 0);
+
+  const topDownloaded = Array.isArray(stats.topDownloaded)
+    ? stats.topDownloaded.map((resource: any, index: number) => ({
+        id: resource.id ?? index,
+        title: resource.title ?? "Ressource sans titre",
+        status: resource.status ?? null,
+        accessLevel: resource.accessLevel ?? null,
+        downloadCount: Number(resource.downloadCount ?? 0),
+      }))
+    : [];
+
+  const topViewed = Array.isArray(stats.topViewed)
+    ? stats.topViewed.map((resource: any, index: number) => ({
+        id: resource.id ?? index,
+        title: resource.title ?? "Ressource sans titre",
+        status: resource.status ?? null,
+        accessLevel: resource.accessLevel ?? null,
+        viewCount: Number(resource.viewCount ?? 0),
+      }))
+    : [];
+
+  const formatAccessLevel = (value: string | null) => {
+    if (value === "PUBLIC") return "Public";
+    if (value === "INTERNAL_IFAC") return "Interne ifac";
+    if (value === "PREMIUM") return "Premium";
+    return "—";
   };
 
-  const viewsData = [
-    { month: "Jan", views: 2400, downloads: 240 },
-    { month: "Fév", views: 3210, downloads: 321 },
-    { month: "Mar", views: 2290, downloads: 229 },
-    { month: "Avr", views: 2000, downloads: 200 },
-    { month: "Mai", views: 2181, downloads: 218 },
-    { month: "Jun", views: 2500, downloads: 250 },
-  ];
+  const formatStatus = (value: string | null) => {
+    if (value === "approved") return "Approuvée";
+    if (value === "pending") return "En attente";
+    if (value === "draft") return "Brouillon";
+    if (value === "rejected") return "Refusée";
+    return "—";
+  };
 
-  const categoryData = [
-    { name: "Activités ludiques", value: 2400, color: "#3b82f6" },
-    { name: "Formation", value: 1398, color: "#8b5cf6" },
-    { name: "Gestion de groupe", value: 9800, color: "#ec4899" },
-    { name: "Ressources pédagogiques", value: 3908, color: "#f59e0b" },
-    { name: "Autres", value: 4800, color: "#10b981" },
-  ];
-
-  const topResources = [
-    {
-      id: 1,
-      title: "Jeu des 5 sens",
-      views: 2341,
-      downloads: 456,
-      rating: 4.8,
-      engagement: 92,
-    },
-    {
-      id: 2,
-      title: "Gestion des conflits",
-      views: 1876,
-      downloads: 234,
-      rating: 4.5,
-      engagement: 78,
-    },
-    {
-      id: 3,
-      title: "Activités en groupe",
-      views: 1654,
-      downloads: 198,
-      rating: 4.3,
-      engagement: 71,
-    },
-    {
-      id: 4,
-      title: "Formation BAFA",
-      views: 1432,
-      downloads: 167,
-      rating: 4.6,
-      engagement: 85,
-    },
-    {
-      id: 5,
-      title: "Jeux de société",
-      views: 1289,
-      downloads: 145,
-      rating: 4.1,
-      engagement: 65,
-    },
-  ];
-
-  const engagementData = [
-    { metric: "Commentaires", value: 234, trend: "+12%" },
-    { metric: "Collections créées", value: 89, trend: "+8%" },
-    { metric: "Ressources testées", value: 456, trend: "+23%" },
-    { metric: "Sujets au forum", value: 67, trend: "+15%" },
-  ];
-
-  const userGrowth = [
-    { week: "Sem 1", users: 120, active: 95 },
-    { week: "Sem 2", users: 180, active: 145 },
-    { week: "Sem 3", users: 250, active: 200 },
-    { week: "Sem 4", users: 320, active: 265 },
-    { week: "Sem 5", users: 420, active: 350 },
-  ];
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-
-      <main className="flex-1 py-8">
-        <div className="container space-y-8">
-          <div className="flex items-center justify-between">
+  if (statsQuery.isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 py-8">
+          <div className="container space-y-8">
             <div>
               <Breadcrumb items={[{ label: "Admin" }, { label: "Analytics" }]} />
               <h1 className="text-4xl font-bold mt-4">Dashboard Analytics</h1>
               <p className="text-muted-foreground mt-2">
-                Suivi des performances et engagement de la plateforme
+                Chargement des statistiques plateforme...
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="gap-2">
-                <Calendar className="h-4 w-4" />
-                Juin 2024
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Filter className="h-4 w-4" />
-                Filtres
-              </Button>
-              <Button variant="outline" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (statsQuery.error) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 py-8">
+          <div className="container space-y-8">
+            <div>
+              <Breadcrumb items={[{ label: "Admin" }, { label: "Analytics" }]} />
+              <h1 className="text-4xl font-bold mt-4">Dashboard Analytics</h1>
+              <p className="text-destructive mt-2">
+                Erreur lors du chargement des statistiques plateforme.
+              </p>
             </div>
           </div>
+        </main>
+      </div>
+    );
+  }
 
-          {/* Cartes de statistiques principales */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Vues totales</p>
-                    <Eye className="h-4 w-4 text-blue-500" />
-                  </div>
-                  <p className="text-3xl font-bold">{overallStats.totalViews.toLocaleString()}</p>
-                  <p className="text-xs text-green-600">+12% ce mois</p>
-                </div>
-              </CardContent>
-            </Card>
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <main className="flex-1 py-8">
+        <div className="container space-y-8">
+          <div>
+            <Breadcrumb items={[{ label: "Admin" }, { label: "Analytics" }]} />
+            <h1 className="text-4xl font-bold mt-4">Dashboard Analytics</h1>
+            <p className="text-muted-foreground mt-2">
+              Vue réelle des indicateurs principaux de la plateforme.
+            </p>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-6">
                 <div className="space-y-2">
@@ -167,8 +115,10 @@ export default function AdminAnalytics() {
                     <p className="text-sm text-muted-foreground">Téléchargements</p>
                     <Download className="h-4 w-4 text-green-500" />
                   </div>
-                  <p className="text-3xl font-bold">{overallStats.totalDownloads.toLocaleString()}</p>
-                  <p className="text-xs text-green-600">+8% ce mois</p>
+                  <p className="text-3xl font-bold">{totalDownloads}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Donnée backend réelle
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -180,8 +130,10 @@ export default function AdminAnalytics() {
                     <p className="text-sm text-muted-foreground">Utilisateurs</p>
                     <Users className="h-4 w-4 text-purple-500" />
                   </div>
-                  <p className="text-3xl font-bold">{overallStats.totalUsers.toLocaleString()}</p>
-                  <p className="text-xs text-green-600">+15% ce mois</p>
+                  <p className="text-3xl font-bold">{totalUsers}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Donnée backend réelle
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -193,8 +145,10 @@ export default function AdminAnalytics() {
                     <p className="text-sm text-muted-foreground">Ressources</p>
                     <FileText className="h-4 w-4 text-orange-500" />
                   </div>
-                  <p className="text-3xl font-bold">{overallStats.totalResources}</p>
-                  <p className="text-xs text-green-600">+5 ce mois</p>
+                  <p className="text-3xl font-bold">{totalResources}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Donnée backend réelle
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -203,225 +157,223 @@ export default function AdminAnalytics() {
               <CardContent className="pt-6">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Note moyenne</p>
-                    <TrendingUp className="h-4 w-4 text-yellow-500" />
+                    <p className="text-sm text-muted-foreground">Vues totales</p>
+                    <Eye className="h-4 w-4 text-blue-500" />
                   </div>
-                  <p className="text-3xl font-bold">{overallStats.avgRating}</p>
-                  <p className="text-xs text-muted-foreground">sur 5</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Engagement</p>
-                    <TrendingUp className="h-4 w-4 text-red-500" />
-                  </div>
-                  <p className="text-3xl font-bold">{overallStats.engagementRate}%</p>
-                  <p className="text-xs text-green-600">+3% ce mois</p>
+                  <p className="text-3xl font-bold">{totalViews}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Donnée backend réelle
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Graphiques */}
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-              <TabsTrigger value="resources">Ressources</TabsTrigger>
-              <TabsTrigger value="engagement">Engagement</TabsTrigger>
-              <TabsTrigger value="users">Utilisateurs</TabsTrigger>
-            </TabsList>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>État des ressources</CardTitle>
+                <CardDescription>
+                  Répartition réelle des ressources côté plateforme
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium">Ressources approuvées</p>
+                      <p className="text-sm text-muted-foreground">
+                        Disponibles ou prêtes côté catalogue
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{publishedResources}</p>
+                </div>
 
-            {/* Onglet Vue d'ensemble */}
-            <TabsContent value="overview" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Vues et téléchargements</CardTitle>
-                  <CardDescription>Tendance sur les 6 derniers mois</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={viewsData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line
-                        type="monotone"
-                        dataKey="views"
-                        stroke="#3b82f6"
-                        name="Vues"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="downloads"
-                        stroke="#10b981"
-                        name="Téléchargements"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <Clock3 className="h-5 w-5 text-orange-500" />
+                    <div>
+                      <p className="font-medium">Ressources en attente</p>
+                      <p className="text-sm text-muted-foreground">
+                        Brouillons ou validations à traiter
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{pendingResources}</p>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Distribution par catégorie</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie
-                          data={categoryData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, value }) =>
-                            `${name}: ${value}`
-                          }
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {categoryData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Résumé plateforme</CardTitle>
+                <CardDescription>
+                  Lecture rapide des indicateurs actuels
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Total ressources
+                  </span>
+                  <span className="font-semibold">{totalResources}</span>
+                </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Engagement par métrique</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {engagementData.map((item) => (
-                      <div
-                        key={item.metric}
-                        className="flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="font-medium">{item.metric}</p>
-                          <p className="text-2xl font-bold">{item.value}</p>
-                        </div>
-                        <Badge className="bg-green-100 text-green-700">
-                          {item.trend}
-                        </Badge>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Total utilisateurs
+                  </span>
+                  <span className="font-semibold">{totalUsers}</span>
+                </div>
 
-            {/* Onglet Ressources */}
-            <TabsContent value="resources" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top 5 ressources</CardTitle>
-                  <CardDescription>
-                    Les ressources les plus consultées et téléchargées
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {topResources.map((resource, index) => (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Total téléchargements
+                  </span>
+                  <span className="font-semibold">{totalDownloads}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Total vues
+                  </span>
+                  <span className="font-semibold">{totalViews}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Ressources approuvées
+                  </span>
+                  <span className="font-semibold">{publishedResources}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Ressources en attente
+                  </span>
+                  <span className="font-semibold">{pendingResources}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Top téléchargements</CardTitle>
+                <CardDescription>
+                  Ressources les plus téléchargées actuellement
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {topDownloaded.length === 0 ? (
+                    <div className="p-4 border rounded-lg text-sm text-muted-foreground">
+                      Aucun téléchargement enregistré pour le moment.
+                    </div>
+                  ) : (
+                    topDownloaded.map((resource: any, index: number) => (
                       <div
                         key={resource.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex items-center justify-between p-4 border rounded-lg"
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="w-8 h-8 flex items-center justify-center rounded-full">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-3">
+                            <Badge
+                              variant="outline"
+                              className="w-8 h-8 flex items-center justify-center rounded-full shrink-0"
+                            >
                               {index + 1}
                             </Badge>
-                            <div>
-                              <p className="font-medium">{resource.title}</p>
-                              <div className="flex gap-4 text-sm text-muted-foreground mt-1">
-                                <span className="flex items-center gap-1">
-                                  <Eye className="h-3 w-3" /> {resource.views} vues
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Download className="h-3 w-3" /> {resource.downloads} DL
-                                </span>
+                            <div className="min-w-0">
+                              <p className="font-medium break-words">
+                                {resource.title}
+                              </p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <Badge variant="secondary">
+                                  {formatAccessLevel(resource.accessLevel)}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {formatStatus(resource.status)}
+                                </Badge>
                               </div>
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold">⭐ {resource.rating}</p>
+
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="font-bold">{resource.downloadCount}</p>
                           <p className="text-sm text-muted-foreground">
-                            {resource.engagement}% engagement
+                            téléchargements
                           </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Onglet Engagement */}
-            <TabsContent value="engagement" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Statistiques d'engagement</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={engagementData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="metric" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#3b82f6" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </TabsContent>
+            <Card>
+              <CardHeader>
+                <CardTitle>Top vues</CardTitle>
+                <CardDescription>
+                  Ressources les plus consultées actuellement
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {topViewed.length === 0 ? (
+                    <div className="p-4 border rounded-lg text-sm text-muted-foreground">
+                      Aucune vue enregistrée pour le moment.
+                    </div>
+                  ) : (
+                    topViewed.map((resource: any, index: number) => (
+                      <div
+                        key={resource.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-3">
+                            <Badge
+                              variant="outline"
+                              className="w-8 h-8 flex items-center justify-center rounded-full shrink-0"
+                            >
+                              {index + 1}
+                            </Badge>
+                            <div className="min-w-0">
+                              <p className="font-medium break-words">
+                                {resource.title}
+                              </p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <Badge variant="secondary">
+                                  {formatAccessLevel(resource.accessLevel)}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {formatStatus(resource.status)}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
 
-            {/* Onglet Utilisateurs */}
-            <TabsContent value="users" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Croissance des utilisateurs</CardTitle>
-                  <CardDescription>
-                    Nouveaux utilisateurs et utilisateurs actifs par semaine
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={userGrowth}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="week" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="users" fill="#3b82f6" name="Nouveaux" />
-                      <Bar dataKey="active" fill="#10b981" name="Actifs" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          {/* Section Rapports et Tendances */}
-          <div className="space-y-6">
-            <MonthlyReport month="Juin" year={2024} />
-            <TrendAnalysis />
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="font-bold">{resource.viewCount}</p>
+                          <p className="text-sm text-muted-foreground">
+                            vues
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
     </div>
   );
 }
-

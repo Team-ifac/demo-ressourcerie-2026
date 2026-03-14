@@ -17,6 +17,8 @@ import {
   Mail,
   Settings,
   Shield,
+  BarChart3,
+  Star,
 } from "lucide-react";
 import { Link, Redirect } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -369,17 +371,17 @@ export default function Admin() {
               </CardContent>
             </Card>
 
-            {/* CMS (bêta) */}
-            <Card className="shadow-elegant hover:shadow-elegant-lg transition-all duration-300 border-muted">
+            {/* Analytics */}
+            <Card className="shadow-elegant hover:shadow-elegant-lg transition-all duration-300">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
-                    <Settings className="h-6 w-6 text-slate-700" />
+                  <div className="w-12 h-12 rounded-lg bg-rose-100 flex items-center justify-center">
+                    <BarChart3 className="h-6 w-6 text-rose-700" />
                   </div>
                   <div>
-                    <CardTitle>CMS (bêta)</CardTitle>
+                    <CardTitle>Analytics</CardTitle>
                     <CardDescription>
-                      Modifier du texte simplement (outil limité pour l’instant)
+                      Consulter les indicateurs réels de la plateforme
                     </CardDescription>
                   </div>
                 </div>
@@ -387,9 +389,34 @@ export default function Admin() {
               <CardContent>
                 <Button
                   asChild
-                  className="w-full bg-slate-700 hover:bg-slate-800"
+                  className="w-full bg-rose-600 hover:bg-rose-700"
                 >
-                  <Link href="/admin/cms">Ouvrir le CMS</Link>
+                  <Link href="/admin/analytics">Ouvrir Analytics</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* ifac à la une */}
+            <Card className="shadow-elegant hover:shadow-elegant-lg transition-all duration-300">
+              <CardHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
+                    <Star className="h-6 w-6 text-yellow-700" />
+                  </div>
+                  <div>
+                    <CardTitle>ifac à la une</CardTitle>
+                    <CardDescription>
+                      Piloter les ressources mises en avant sur la page d’accueil
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  asChild
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-black"
+                >
+                  <Link href="/admin/ifac-a-la-une">Gérer la mise en avant</Link>
                 </Button>
               </CardContent>
             </Card>
