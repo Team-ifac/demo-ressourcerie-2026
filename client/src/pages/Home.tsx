@@ -74,8 +74,6 @@ export default function Home() {
   },
 ];
 
-const profileCount = profiles.length;
-
   /* =====================================================
      VIGNETTES – même logique que /resources (safe démo)
      ===================================================== */
@@ -368,27 +366,6 @@ const profileCount = profiles.length;
         </div>
       </section>
 
-      {/* Populaires */}
-      {popularResources.length > 0 && (
-        <section className="py-20 px-4 bg-background">
-          <div className="container max-w-7xl mx-auto">
-            <div className="flex items-center gap-3 mb-12">
-              <TrendingUp className="h-8 w-8 text-primary" />
-              <h2 className="text-4xl font-bold">Ressources populaires</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {popularResources.map((resource: any) => (
-                <ResourceHomeCard
-                  key={resource.id}
-                  resource={resource}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* ifac à la une */}
       <section className="py-20 px-4 bg-primary/5">
         <div className="container max-w-7xl mx-auto">
@@ -420,6 +397,27 @@ const profileCount = profiles.length;
           )}
         </div>
       </section>
+
+      {/* Populaires */}
+      {popularResources.length > 0 && (
+        <section className="py-20 px-4 bg-background">
+          <div className="container max-w-7xl mx-auto">
+            <div className="flex items-center gap-3 mb-12">
+              <TrendingUp className="h-8 w-8 text-primary" />
+              <h2 className="text-4xl font-bold">Ressources populaires</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {popularResources.map((resource: any) => (
+                <ResourceHomeCard
+                  key={resource.id}
+                  resource={resource}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Récentes */}
       {recentResources.length > 0 && (

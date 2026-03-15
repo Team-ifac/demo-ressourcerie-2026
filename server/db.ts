@@ -165,6 +165,12 @@ export async function getAdminPlatformStats(limit: number = 10) {
     })
     .from(resources);
 
+  const totalUsersRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(users);
+
   const topViewedRows = await db
     .select({
       id: resources.id,
@@ -202,7 +208,8 @@ export async function getAdminPlatformStats(limit: number = 10) {
       resources.id,
       resources.title,
       resources.status,
-      resources.accessLevel
+      resources.accessLevel,
+      resources.createdAt
     )
     .orderBy(
       desc(sql`count(*)`),
@@ -212,6 +219,7 @@ export async function getAdminPlatformStats(limit: number = 10) {
 
   return {
     counters: {
+      totalUsers: Number(totalUsersRows?.[0]?.total ?? 0),
       totalResources: Number(totalResourcesRows?.[0]?.total ?? 0),
       publishedResources: Number(publishedResourcesRows?.[0]?.total ?? 0),
       pendingResources: Number(pendingResourcesRows?.[0]?.total ?? 0),
@@ -783,11 +791,22 @@ export async function getAllResources(filters?: {
     }
   });
 
-  // Enrichissement : collections + thèmes
+  // Enrichissement : collections + thèmes + historique synthétique
   const resourceIds = Array.from(resourcesMap.keys());
 
   const collectionsByResourceId = new Map<number, any[]>();
   const themesByResourceId = new Map<number, any[]>();
+  const profilesByResourceId = new Map<number, string[]>();
+  const downloadCountByResourceId = new Map<number, number>();
+  const historyMetaByResourceId = new Map<
+    number,
+    {
+      historyCount: number;
+      lastAction: string | null;
+      lastActionAt: string | null;
+      lastActorName: string | null;
+    }
+  >();
 
   if (resourceIds.length > 0) {
     const collectionRows = await db
@@ -821,15 +840,131 @@ export async function getAllResources(filters?: {
       existing.push(row.theme);
       themesByResourceId.set(resourceId, existing);
     }
+
+    const profileRows = await db
+      .select({
+        resourceId: resourceProfiles.resourceId,
+        profileKey: profileTypes.key,
+      })
+      .from(resourceProfiles)
+      .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
+      .where(inArray(resourceProfiles.resourceId, resourceIds));
+
+    for (const row of profileRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      const existing = profilesByResourceId.get(resourceId) ?? [];
+      const key = String(row.profileKey ?? "").trim();
+
+      if (key) {
+        existing.push(key);
+        profilesByResourceId.set(resourceId, existing);
+      }
+    }
+
+    const downloadCountRows = await db
+      .select({
+        resourceId: resourceHistory.resourceId,
+        count: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(
+        and(
+          inArray(resourceHistory.resourceId, resourceIds),
+          eq(resourceHistory.action, "downloaded")
+        )
+      )
+      .groupBy(resourceHistory.resourceId);
+
+    for (const row of downloadCountRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      downloadCountByResourceId.set(resourceId, Number(row.count ?? 0));
+    }
+
+    const historyCountRows = await db
+      .select({
+        resourceId: resourceHistory.resourceId,
+        count: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(inArray(resourceHistory.resourceId, resourceIds))
+      .groupBy(resourceHistory.resourceId);
+
+    for (const row of historyCountRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      const existing = historyMetaByResourceId.get(resourceId) ?? {
+        historyCount: 0,
+        lastAction: null,
+        lastActionAt: null,
+        lastActorName: null,
+      };
+
+      historyMetaByResourceId.set(resourceId, {
+        ...existing,
+        historyCount: Number(row.count ?? 0),
+      });
+    }
+
+    const historyRows = await db
+      .select({
+        id: resourceHistory.id,
+        resourceId: resourceHistory.resourceId,
+        action: resourceHistory.action,
+        createdAt: resourceHistory.createdAt,
+        userId: resourceHistory.userId,
+        userName: users.name,
+      })
+      .from(resourceHistory)
+      .leftJoin(users, eq(resourceHistory.userId, users.id))
+      .where(inArray(resourceHistory.resourceId, resourceIds))
+      .orderBy(desc(resourceHistory.createdAt), desc(resourceHistory.id));
+
+    for (const row of historyRows as any[]) {
+      const resourceId = Number(row.resourceId);
+
+      if (historyMetaByResourceId.get(resourceId)?.lastActionAt) {
+        continue;
+      }
+
+      const existing = historyMetaByResourceId.get(resourceId) ?? {
+        historyCount: 0,
+        lastAction: null,
+        lastActionAt: null,
+        lastActorName: null,
+      };
+
+      historyMetaByResourceId.set(resourceId, {
+        ...existing,
+        lastAction: row.action ? String(row.action) : null,
+        lastActionAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+        lastActorName:
+          row.userId == null
+            ? "Système"
+            : row.userName
+            ? String(row.userName)
+            : "Utilisateur",
+      });
+    }
   }
 
   const resourcesWithMeta = Array.from(resourcesMap.values()).map((resource: any) => {
     const resourceId = Number(resource.id);
+    const historyMeta = historyMetaByResourceId.get(resourceId) ?? {
+      historyCount: 0,
+      lastAction: null,
+      lastActionAt: null,
+      lastActorName: null,
+    };
 
     return {
       ...resource,
       collections: collectionsByResourceId.get(resourceId) ?? [],
       themes: themesByResourceId.get(resourceId) ?? [],
+      profiles: profilesByResourceId.get(resourceId) ?? [],
+      downloadCount: downloadCountByResourceId.get(resourceId) ?? 0,
+      historyCount: historyMeta.historyCount,
+      lastAction: historyMeta.lastAction,
+      lastActionAt: historyMeta.lastActionAt,
+      lastActorName: historyMeta.lastActorName,
     };
   });
 
@@ -1472,24 +1607,44 @@ export async function createResource(resource: any, themeIds: number[]) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // ✅ Defaults canonique côté serveur (évite draft+PUBLIC quand l'UI ne propose pas ces champs)
+  const rawStatus = String(resource?.status ?? "draft").toLowerCase();
+  const rawAccessLevel = String(
+    resource?.accessLevel ?? resource?.visibility ?? "INTERNAL_IFAC"
+  ).toUpperCase();
+
+  const canonicalAccessLevel =
+    rawAccessLevel === "PUBLIC"
+      ? "PUBLIC"
+      : rawAccessLevel === "PREMIUM"
+      ? "PREMIUM"
+      : "INTERNAL_IFAC";
+
+  const canonicalVisibility =
+    rawStatus === "approved" && canonicalAccessLevel === "PUBLIC"
+      ? "PUBLIC"
+      : "INTERNAL_IFAC";
+
+  // ✅ Defaults canoniques côté serveur
   // - statut par défaut : draft
-  // - visibilité par défaut : INTERNAL_IFAC
+  // - accessLevel par défaut : INTERNAL_IFAC
+  // - visibility miroir strict de accessLevel / status
   const safeResource = {
     ...resource,
-    status: resource?.status ?? "draft",
-    visibility: resource?.visibility ?? "INTERNAL_IFAC",
+    status: rawStatus,
+    accessLevel:
+      rawStatus !== "approved" && canonicalAccessLevel === "PUBLIC"
+        ? "INTERNAL_IFAC"
+        : canonicalAccessLevel,
+    visibility: canonicalVisibility,
   };
 
-  // ✅ Blindage DB (Pilier 10) : interdit draft + PUBLIC
-  // On applique une règle canonique même si un autre endpoint/import contourne l’UI.
+  // ✅ Blindage DB (Pilier 10) : interdit non-publié + PUBLIC
   const nextStatus = String(safeResource?.status ?? "draft").toLowerCase();
-  const nextVisibility = String(safeResource?.visibility ?? "INTERNAL_IFAC").toUpperCase();
+  const nextAccessLevel = String(safeResource?.accessLevel ?? "INTERNAL_IFAC").toUpperCase();
 
-  if (nextStatus !== "approved" && nextVisibility === "PUBLIC") {
-    throw new Error(
-      "Interdit : une ressource non publiée (draft/pending/rejected) ne peut pas être publique (PUBLIC)."
-    );
+  if (nextStatus !== "approved" && nextAccessLevel === "PUBLIC") {
+    safeResource.accessLevel = "INTERNAL_IFAC";
+    safeResource.visibility = "INTERNAL_IFAC";
   }
 
   const [result] = await db.insert(resources).values(safeResource);

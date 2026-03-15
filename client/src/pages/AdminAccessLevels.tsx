@@ -3,7 +3,6 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -478,17 +477,7 @@ try {
   return (
     <div className="space-y-6 p-6">
 <div className="rounded-xl border bg-white p-4 shadow-sm">
-  <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900">
-  <div>
-    DEBUG collections — collections.length: {Array.isArray(collections) ? collections.length : 0}{" | "}
-    featuredCollectionId: {String(featuredCollectionId ?? "null")}{" | "}
-    featuredCollectionName: {String(featuredCollection?.name ?? featuredCollection?.title ?? "null")}
-  </div>
 
-  <pre className="mt-2 overflow-auto whitespace-pre-wrap rounded bg-white p-2 text-[11px] text-red-900">
-    {JSON.stringify(collections, null, 2)}
-  </pre>
-</div>
   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0">
       <div className="inline-flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-1 text-sm font-medium text-orange-800">
@@ -535,116 +524,7 @@ try {
 </div>
 
 
-      {!featuredCollection ? (
-        <Card className="p-4 border-yellow-200 bg-yellow-50">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-yellow-800">
-                <Star className="h-4 w-4" />
-                ifac à la une
-              </div>
-              <p className="mt-1 text-sm text-yellow-900">
-                Active le curseur d’une ressource ci-dessous pour l’ajouter à la sélection éditoriale
-                affichée sur la page d’accueil. Désactive-le pour la retirer.
-              </p>
-            </div>
 
-            <Button
-              type="button"
-              onClick={handleCreateFeaturedCollection}
-              disabled={createCollectionMutation.isPending}
-              className="bg-yellow-500 text-black hover:bg-yellow-600"
-            >
-              {createCollectionMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Star className="h-4 w-4" />
-              )}
-              Créer “ifac à la une”
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <>
-          <Card className="p-4 border-red-200 bg-red-50">
-            <div className="space-y-2">
-              <div className="text-sm font-semibold text-red-800">
-                DEBUG ifac à la une
-              </div>
-
-              <div className="text-xs text-red-900">
-                featuredCollectionId : {String(featuredCollectionId ?? "null")}
-              </div>
-
-              <div className="text-xs text-red-900">
-                featuredResourceIds : {JSON.stringify(Array.from(featuredResourceIds))}
-              </div>
-
-              <pre className="max-h-80 overflow-auto rounded bg-white p-3 text-xs text-red-900">
-                {JSON.stringify(featuredResourcesQuery.data, null, 2)}
-              </pre>
-            </div>
-          </Card>
-
-          <Card className="p-4 border-yellow-200 bg-yellow-50">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-yellow-800">
-                    <Star className="h-4 w-4" />
-                    ifac à la une
-                  </div>
-                  <p className="mt-1 text-sm text-yellow-900">
-                    Tu pilotes ici exactement les ressources mises en avant.
-                    <span className="font-medium"> Ajouter </span>
-                    sur une ligne pour l’ajouter, ou
-                    <span className="font-medium"> Retirer </span>
-                    ci-dessous pour la supprimer de la sélection.
-                  </p>
-                </div>
-
-                <Badge variant="secondary" className="w-fit">
-                  {((featuredResourcesQuery.data as any)?.resources ?? []).length} ressource(s) sélectionnée(s)
-                </Badge>
-              </div>
-
-              {((featuredResourcesQuery.data as any)?.resources ?? []).length === 0 ? (
-                <div className="rounded-lg border border-dashed border-yellow-300 bg-white/70 p-4 text-sm text-yellow-900">
-                  Aucune ressource n’est actuellement dans <span className="font-medium">ifac à la une</span>.
-                </div>
-              ) : (
-                <div className="grid gap-2">
-                  {((featuredResourcesQuery.data as any)?.resources ?? []).map((resource: any) => (
-                    <div
-                      key={resource.id}
-                      className="flex flex-col gap-3 rounded-lg border bg-white p-3 md:flex-row md:items-center md:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium">{resource.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {resource.summary ?? resource.description ?? "—"}
-                        </div>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="border-yellow-300 bg-white hover:bg-yellow-100"
-                        disabled={removeResourceAsAdminMutation.isPending}
-                        onClick={() => handleToggleFeatured(Number(resource.id), false)}
-                      >
-                        <Star className="mr-2 h-4 w-4" />
-                        Retirer de “ifac à la une”
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
-        </>
-      )}
 
       <Card className="p-4">
         <div className="flex flex-col gap-3">

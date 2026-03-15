@@ -58,7 +58,53 @@ function normalizeLeadingSlash(p: string) {
   if (!p) return p;
   return p.startsWith("/") ? p : `/${p}`;
 }
+const resourceViewRegisterThrottle = new Map<string, number>();
+const RESOURCE_VIEW_REGISTER_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+function buildRegisterViewThrottleKey(req: express.Request, userId: number | null, resourceId: number): string {
+  if (userId) {
+    return `user:${userId}:resource:${resourceId}`;
+  }
+
+  const xf = req.headers["x-forwarded-for"];
+  const ip =
+    (typeof xf === "string" ? xf.split(",")[0].trim() : null) ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    "unknown";
+
+  const userAgent = String(req.headers["user-agent"] ?? "unknown")
+    .slice(0, 200)
+    .trim();
+
+  return `anon:${ip}:${userAgent}:resource:${resourceId}`;
+}
+
+function shouldRegisterResourceView(
+  req: express.Request,
+  userId: number | null,
+  resourceId: number
+): boolean {
+  const now = Date.now();
+  const key = buildRegisterViewThrottleKey(req, userId, resourceId);
+  const lastSeenAt = resourceViewRegisterThrottle.get(key);
+
+  if (lastSeenAt && now - lastSeenAt < RESOURCE_VIEW_REGISTER_TTL_MS) {
+    return false;
+  }
+
+  resourceViewRegisterThrottle.set(key, now);
+
+  if (resourceViewRegisterThrottle.size > 5000) {
+    resourceViewRegisterThrottle.forEach((ts, entryKey) => {
+      if (now - ts > RESOURCE_VIEW_REGISTER_TTL_MS) {
+        resourceViewRegisterThrottle.delete(entryKey);
+      }
+    });
+  }
+
+  return true;
+}
 /**
  * Résolution PRO du fileUrl:
  * - http(s)://...                 => redirect direct
@@ -701,7 +747,7 @@ app.use("/api", apiLimiter);
         return res.status(404).send("Not found");
       }
 
-      const incrementResourceDownloadCount = async (resourceId: number) => {
+      const incrementResourceDownloadCountOnly = async (resourceId: number) => {
         try {
           const dbConn = await db.getDb();
           if (!dbConn) return;
@@ -816,7 +862,7 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
 
       // 1) redirect (http(s) direct OU storageGet)
       if (target.kind === "redirect") {
-        await incrementResourceDownloadCount(id);
+        await incrementResourceDownloadCountOnly(id);
 
         try {
           await db.addResourceHistory({
@@ -919,7 +965,7 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
       res.setHeader("Content-Type", contentType);
       res.setHeader("X-Content-Type-Options", "nosniff");
 
-      await incrementResourceDownloadCount(id);
+      await incrementResourceDownloadCountOnly(id);
 
       const stream = fs.createReadStream(resolvedAbsPath);
       stream.on("error", (e) => {
@@ -1002,7 +1048,121 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
       return res.status(500).send("Internal error");
     }
   });
+  app.post("/api/resources/register-view/:id", async (req, res) => {
+    const requestId = (req as any)?.id;
+    const log = logger.child({ requestId, route: "POST /api/resources/register-view/:id" });
 
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id)) {
+        return res.status(400).json({ ok: false, error: "Invalid resource id" });
+      }
+
+      const ctx = await createContext({ req, res } as any);
+      const me: any = (ctx as any)?.me ?? (ctx as any)?.user ?? null;
+
+      const resource: any = await db.getResourceById(id, {
+        includeInternal: true,
+        includePremium: true,
+        isAdmin: true,
+      });
+
+      if (!resource) {
+        return res.status(404).json({ ok: false, error: "Not found" });
+      }
+
+      const { buildEntitlementsForUser } = await import("./entitlements");
+      const entState = await buildEntitlementsForUser(me);
+
+      const meWithEntitlements = me
+        ? { ...me, entitlements: entState.entitlements }
+        : null;
+
+      if (!canDownloadResource({ resource, me: meWithEntitlements })) {
+        return res.status(404).json({ ok: false, error: "Not found" });
+      }
+
+      const shouldRegister = shouldRegisterResourceView(req, me?.id ?? null, id);
+
+      if (!shouldRegister) {
+        log.info(
+          {
+            event: "resource_view_register_throttled",
+            resourceId: id,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
+          "Resource view throttled"
+        );
+
+        return res.json({ ok: true, throttled: true });
+      }
+
+      const dbConn = await db.getDb();
+      if (!dbConn) {
+        return res.status(500).json({ ok: false, error: "Database not available" });
+      }
+
+      const schema = await import("../../drizzle/schema");
+      const resourcesTable =
+        (schema as any).resources ||
+        (schema as any).resourcesTable ||
+        (schema as any).resources_table;
+
+      if (!resourcesTable?.id || !resourcesTable?.viewCount) {
+        return res.status(500).json({ ok: false, error: "viewCount column not available" });
+      }
+
+      const { eq, sql } = await import("drizzle-orm");
+
+      await dbConn
+        .update(resourcesTable)
+        .set({
+          viewCount: sql`COALESCE(${resourcesTable.viewCount}, 0) + 1`,
+        } as any)
+        .where(eq(resourcesTable.id, id as any));
+
+      try {
+        await db.addResourceHistory({
+          resourceId: id,
+          userId: me?.id ?? null,
+          action: "viewed",
+          changes: "Consultation de la ressource",
+        });
+      } catch (historyError) {
+        log.warn(
+          {
+            event: "resource_view_history_failed",
+            resourceId: id,
+            actor: me ? { id: me.id, role: me.role } : null,
+            details: String((historyError as any)?.message ?? historyError),
+          },
+          "View history write failed"
+        );
+      }
+
+      log.info(
+        {
+          event: "resource_view_registered",
+          resourceId: id,
+          actor: me ? { id: me.id, role: me.role } : null,
+        },
+        "Resource view registered"
+      );
+
+      return res.json({ ok: true });
+    } catch (err: any) {
+      log.error(
+        {
+          event: "resource_view_register_error",
+          resourceIdRaw: req.params.id,
+          err,
+        },
+        "Register view failed"
+      );
+
+      return res.status(500).json({ ok: false, error: "Internal error" });
+    }
+  });
   // tRPC API
   app.use(
     "/api/trpc",

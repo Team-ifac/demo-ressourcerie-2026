@@ -148,7 +148,6 @@ function getFileExtensionLower(filePath: string): string {
 function isPdfFile(filePath: string): boolean {
   return getFileExtensionLower(filePath) === ".pdf";
 }
-
 function isOfficePreviewConvertible(filePath: string): boolean {
   const ext = getFileExtensionLower(filePath);
 
@@ -800,6 +799,7 @@ async function main() {
 
   // thumbsOnly force la génération même si mode=WRITE et même si tout est "SKIP"
   const thumbsEnabled = (mode === "WRITE" && !noThumbs) || thumbsOnly;
+  const officePreviewsEnabled = mode === "WRITE";
 
   console.log("=== Import Option B (depuis dossier extrait) ===");
   console.log("EXTRACT_ROOT:", EXTRACT_ROOT);
@@ -1002,8 +1002,38 @@ async function main() {
           } else {
             thumbsSkipped++;
           }
+
+          // ✅ Régénération preview bureautique sur mise à jour
+          if (isOfficePreviewConvertible(destAbs)) {
+            const preview = tryGenerateOfficePreviewPdf(destAbs, {
+              enabled: officePreviewsEnabled,
+            });
+
+            if (preview.written) {
+              console.log(`🧾 preview PDF régénéré pour ${destAbs}`);
+            }
+          }
         } else {
           skipped++;
+
+          // ✅ Même si le fichier bureautique est inchangé,
+          // on régénère le preview PDF s'il manque encore.
+          if (isOfficePreviewConvertible(destAbs)) {
+            const expectedPreviewPdf = path.join(
+              path.dirname(destAbs),
+              `${path.basename(destAbs, path.extname(destAbs))}.preview.pdf`
+            );
+
+            if (!fs.existsSync(expectedPreviewPdf)) {
+              const preview = tryGenerateOfficePreviewPdf(destAbs, {
+                enabled: officePreviewsEnabled,
+              });
+
+              if (preview.written) {
+                console.log(`🧾 preview PDF généré (fichier inchangé) pour ${destAbs}`);
+              }
+            }
+          }
         }
         continue;
       }
@@ -1246,7 +1276,7 @@ if (isPdfFile(destAbs)) {
 // 🆕 PILIER PREVIEW BUREAUTIQUE
 if (isOfficePreviewConvertible(destAbs)) {
   const preview = tryGenerateOfficePreviewPdf(destAbs, {
-    enabled: thumbsEnabled,
+    enabled: officePreviewsEnabled,
   });
 
   if (preview.written) {

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useRoute } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -43,13 +44,69 @@ export default function ResourceDetail() {
 
   const { isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
-
+    const hasRegisteredViewRef = useRef<number | null>(null);
   const {
     data: resource,
     isLoading,
     error,
-  } = trpc.resources.getById.useQuery({ id: resourceId }, { enabled: resourceId > 0 });
+  } = trpc.resources.getById.useQuery(
+    { id: resourceId },
+    {
+      enabled: resourceId > 0,
+      retry: false,
+      staleTime: 1000 * 60 * 5,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }
+  );
+  useEffect(() => {
+    if (!resourceId || resourceId <= 0) return;
+    if (!resource) return;
+    if (!resource.canOpen) return;
 
+    const storageKey = `resource-view-counted:v4:${resourceId}`;
+
+    if (hasRegisteredViewRef.current === resourceId) {
+      return;
+    }
+
+    if (sessionStorage.getItem(storageKey) === "1") {
+      hasRegisteredViewRef.current = resourceId;
+      return;
+    }
+
+    hasRegisteredViewRef.current = resourceId;
+    sessionStorage.setItem(storageKey, "pending");
+
+    let cancelled = false;
+
+    const registerView = async () => {
+      try {
+        const response = await fetch(`/api/resources/register-view/${resourceId}`, {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error("register_view_failed");
+        }
+
+        if (!cancelled) {
+          sessionStorage.setItem(storageKey, "1");
+        }
+      } catch {
+        hasRegisteredViewRef.current = null;
+        sessionStorage.removeItem(storageKey);
+      }
+    };
+
+    registerView();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resourceId, resource]);
   const { data: favoriteCheck } = trpc.favorites.check.useQuery(
     { resourceId },
     { enabled: isAuthenticated && resourceId > 0 }
@@ -85,8 +142,8 @@ export default function ResourceDetail() {
     }
   };
 
-  // ✅ PRO : téléchargement 100% piloté par le backend (policy + URL sécurisée)
-  const fileUrlQuery = trpc.resources.getFileUrl.useQuery(
+  // ✅ PRO : preview séparée de l’ouverture explicite
+  const previewUrlQuery = trpc.resources.getFileUrl.useQuery(
     { id: resourceId },
     {
       enabled: resourceId > 0 && !!resource?.hasFile && !!resource?.canOpen,
@@ -94,7 +151,16 @@ export default function ResourceDetail() {
     }
   );
 
-  const previewUrl = fileUrlQuery.data?.url ?? null;
+  // ✅ PRO : téléchargement / ouverture explicite piloté par le backend
+  const fileUrlQuery = trpc.resources.getFileUrl.useQuery(
+    { id: resourceId },
+    {
+      enabled: false,
+      retry: false,
+    }
+  );
+
+  const previewUrl = previewUrlQuery.data?.url ?? null;
   const resolvedFileKind = String(resource?.fileKind ?? "").toLowerCase();
 function getActionLabel(fileKind?: string | null, fileExtension?: string | null) {
   const kind = String(fileKind ?? "").toLowerCase();

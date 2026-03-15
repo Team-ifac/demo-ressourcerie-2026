@@ -142,14 +142,46 @@ function getAdminThumbnailSrc(r: AnyResource) {
   return "";
 }
 
+function getDownloadCount(r: AnyResource) {
+  return Number((r as any)?.downloadCount ?? 0);
+}
+
+function isOptionBImport(r: AnyResource) {
+  const summary = String(r.summary ?? "").toLowerCase();
+  const title = String(r.title ?? "").toLowerCase();
+  const fileUrl = normalizeUrl(r.fileUrl ?? r.url ?? "").toLowerCase();
+  const thumbnailUrl = normalizeUrl(r.thumbnailUrl ?? "").toLowerCase();
+  const storageKey = String((r as any)?.storageKey ?? "").toLowerCase();
+
+  return (
+    summary.includes("import (option b)") ||
+    title.includes("import (option b)") ||
+    fileUrl.startsWith("/imported/") ||
+    thumbnailUrl.startsWith("/imported_thumbs/") ||
+    storageKey.startsWith("imported/") ||
+    storageKey.startsWith("imported_thumbs/")
+  );
+}
+
 export default function AdminResourcesManagement() {
   const [, navigate] = useLocation();
 
   const [search, setSearch] = useState("");
-  const [onlyDrafts, setOnlyDrafts] = useState(false);
-  const [onlyImports, setOnlyImports] = useState(false);
+const [onlyUnused, setOnlyUnused] = useState(false);
+const [onlyImports, setOnlyImports] = useState(false);
+const [onlyDrafts, setOnlyDrafts] = useState(false);
 
   const [openId, setOpenId] = useState<number | null>(null);
+const openRowRef = React.useRef<HTMLTableRowElement | null>(null);
+
+useEffect(() => {
+  if (openRowRef.current) {
+    openRowRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }
+}, [openId]);
 
   // ✅ Option 2 : onglets dans le panneau (Détails / Historique)
   const [openTab, setOpenTab] = useState<"details" | "history">("details");
@@ -172,7 +204,7 @@ export default function AdminResourcesManagement() {
   // ✅ Pagination (client) : pro et simple
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<25 | 50 | 100>(25);
-  const [sort, setSort] = useState<{ key: "id" | "title"; dir: "asc" | "desc" }>({
+  const [sort, setSort] = useState<{ key: "id" | "title" | "download"; dir: "asc" | "desc" }>({
     key: "id",
     dir: "desc",
   });
@@ -194,7 +226,7 @@ export default function AdminResourcesManagement() {
     }
   );
 
-  const createTestMutation = trpc.resources.create.useMutation();
+  const createTestMutation = trpc.resources.createTestResource.useMutation();
 
   // ✅ Standard PRO : un seul endpoint (typé) pour supprimer
   const deleteOneMutation = trpc.resources.delete.useMutation();
@@ -224,49 +256,59 @@ export default function AdminResourcesManagement() {
   const resources: AnyResource[] = resourcesQuery.data ?? [];
 
   const filtered = useMemo(() => {
-  const q = search.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
 
-  return resources.filter((r: AnyResource) => {
-    // ✅ filtre "Imports"
-    if (onlyImports) {
-      const s = String(r.summary ?? "").toLowerCase();
-      if (!s.startsWith("import (option b)")) return false;
-    }
+    return resources.filter((r: AnyResource) => {
+      // ✅ filtre "Imports Option B"
+      if (onlyImports && !isOptionBImport(r)) {
+        return false;
+      }
 
-    // ✅ filtre "Brouillons"
-    if (onlyDrafts) {
-      const st = String(r.status ?? "").toLowerCase();
-      if (st !== "draft") return false;
-    }
+      // ✅ filtre "Jamais téléchargées" (indépendant des brouillons)
+      if (onlyUnused && getDownloadCount(r) !== 0) {
+        return false;
+      }
 
-    // ✅ recherche texte
-    if (!q) return true;
+      // ✅ filtre "Brouillons"
+      if (onlyDrafts) {
+        const st = String(r.status ?? "").toLowerCase();
+        if (st !== "draft") return false;
+      }
 
-    const title = (r.title ?? "").toLowerCase();
-    const type = (r.type ?? "").toLowerCase();
-    const access = (r.accessLevel ?? "").toLowerCase();
-    const status = (r.status ?? "").toLowerCase();
-    const summary = (r.summary ?? "").toLowerCase();
+      // ✅ recherche texte
+      if (!q) return true;
 
-    const collections = Array.isArray(r.collections)
-      ? r.collections.map((c: any) => (c?.name ?? "")).join(" ").toLowerCase()
-      : "";
+      const title = (r.title ?? "").toLowerCase();
+      const type = (r.type ?? "").toLowerCase();
+      const access = (r.accessLevel ?? "").toLowerCase();
+      const status = (r.status ?? "").toLowerCase();
+      const summary = (r.summary ?? "").toLowerCase();
+      const fileUrl = normalizeUrl(r.fileUrl ?? r.url ?? "").toLowerCase();
+      const thumbnailUrl = normalizeUrl(r.thumbnailUrl ?? "").toLowerCase();
+      const storageKey = String((r as any)?.storageKey ?? "").toLowerCase();
 
-    const profils = Array.isArray(r.profiles)
-      ? r.profiles.join(" ").toLowerCase()
-      : "";
+      const collections = Array.isArray(r.collections)
+        ? r.collections.map((c: any) => (c?.name ?? "")).join(" ").toLowerCase()
+        : "";
 
-    return (
-      title.includes(q) ||
-      type.includes(q) ||
-      access.includes(q) ||
-      status.includes(q) ||
-      summary.includes(q) ||
-      collections.includes(q) ||
-      profils.includes(q)
-    );
-  });
-}, [resources, search, onlyDrafts, onlyImports]);
+      const profils = Array.isArray(r.profiles)
+        ? r.profiles.join(" ").toLowerCase()
+        : "";
+
+      return (
+        title.includes(q) ||
+        type.includes(q) ||
+        access.includes(q) ||
+        status.includes(q) ||
+        summary.includes(q) ||
+        fileUrl.includes(q) ||
+        thumbnailUrl.includes(q) ||
+        storageKey.includes(q) ||
+        collections.includes(q) ||
+        profils.includes(q)
+      );
+    });
+  }, [resources, search, onlyDrafts, onlyImports, onlyUnused]);
 
     const total = filtered.length;
 
@@ -279,14 +321,22 @@ export default function AdminResourcesManagement() {
 
     const paginated = useMemo(() => {
     const sorted = [...filtered].sort((a, b) => {
+  if (sort.key === "download") {
+    const ad = Number((a as any)?.downloadCount ?? 0);
+    const bd = Number((b as any)?.downloadCount ?? 0);
+    return sort.dir === "asc" ? ad - bd : bd - ad;
+  }
+
   if (sort.key === "title") {
     const at = String(a.title ?? "").toLowerCase();
     const bt = String(b.title ?? "").toLowerCase();
     const cmp = at.localeCompare(bt, "fr");
     return sort.dir === "asc" ? cmp : -cmp;
   }
-  // default: id
-  return sort.dir === "asc" ? Number(a.id) - Number(b.id) : Number(b.id) - Number(a.id);
+
+  return sort.dir === "asc"
+    ? Number(a.id) - Number(b.id)
+    : Number(b.id) - Number(a.id);
 });
 
     const start = (safePage - 1) * pageSize;
@@ -309,19 +359,7 @@ export default function AdminResourcesManagement() {
 
   async function onCreateTest() {
     try {
-      const now = new Date();
-      const title = `Ressource test (${now.toISOString().slice(0, 10)} ${now.toTimeString().slice(0, 5)})`;
-
-      await createTestMutation.mutateAsync({
-        title,
-        summary: "Exemple créé en 1 clic pour la démo admin.",
-        content: "Exemple créé en 1 clic pour la démo admin.",
-        type: "document",
-        visibility: "INTERNAL_IFAC",
-        themeIds: [],
-        status: "draft",
-      });
-
+      await createTestMutation.mutateAsync();
       await refresh();
     } catch (e) {
       console.error(e);
@@ -329,10 +367,20 @@ export default function AdminResourcesManagement() {
     }
   }
 
-  async function onDeleteOne(id: number) {
-    if (!confirm(`Supprimer la ressource ID ${id} ?`)) return;
+  async function onDeleteOne(id: number, title?: string | null) {
+    const safeTitle = String(title ?? "Sans titre").trim() || "Sans titre";
+
+    const confirmed = confirm(
+      `⚠️ Suppression définitive\n\nTu es sur le point de supprimer la ressource :\n« ${safeTitle} » (ID ${id})\n\nCette action est irréversible.\n\nConfirmer la suppression ?`
+    );
+
+    if (!confirmed) return;
+
     try {
       await deleteOneMutation.mutateAsync({ id });
+      if (openId === id) {
+        setOpenId(null);
+      }
       await refresh();
     } catch (e) {
       console.error(e);
@@ -393,143 +441,85 @@ function computeExportMeta() {
 }
 
 // ✅ Export traçabilité (audit-proof)
-// - CSV lisible (humain)
-// - JSONL (1 ligne = 1 ressource) (machine / archive / audit)
+// - export simple en CSV
 function onExportTrails() {
-  const meta = computeExportMeta();
+  try {
+    const meta = computeExportMeta();
+    const rows = filtered;
 
-  const rows = filtered;
-
-  // =========================
-  // CSV (lisible)
-  // =========================
-  const header = [
-    "ID",
-    "Titre",
-    "Type",
-    "Profils",
-    "Collections",
-    "Visibilité",
-    "Accès",
-    "Statut",
-    "Téléchargeable",
-    "URL",
-    "HistoryCount",
-    "DernièreAction",
-    "DernierActeur",
-    "DernièreActionAt (ISO)",
-    "DernièreActionAt (FR)",
-    "ExportedAt (ISO)",
-    "Filtres (search)",
-    "Filtres (onlyDrafts)",
-    "Filtres (onlyImports)",
-  ];
-
-  const lines: string[] = [header.map(toCsvValue).join(",")];
-
-  rows.forEach((r: AnyResource) => {
-    const collections = Array.isArray(r.collections)
-      ? r.collections.map((c: any) => c?.name).filter(Boolean).join(" | ")
-      : "";
-
-    const profils = Array.isArray(r.profiles) ? r.profiles.join(" | ") : "";
-
-    const url = (r as any)?.fileUrl ?? (r as any)?.url ?? "";
-    const downloadable = !!String(url || "").trim();
-
-    const historyCount = Number((r as any)?.historyCount ?? 0);
-    const lastAction = String((r as any)?.lastAction ?? "");
-    const lastActorName = String((r as any)?.lastActorName ?? "");
-    const lastActionAtIso = safeIso((r as any)?.lastActionAt);
-    const lastActionAtFr = formatFr((r as any)?.lastActionAt);
-
-    const line = [
-      r.id ?? "",
-      r.title ?? "",
-      r.type ?? "",
-      profils,
-      collections,
-      visibilityLabel(r.visibility),
-      accessLabel(r.accessLevel),
-      r.status ?? "",
-      yesNo(downloadable),
-      url,
-      isNaN(historyCount) ? 0 : historyCount,
-      historyActionLabel(lastAction || ""),
-      lastActorName || "",
-      lastActionAtIso,
-      lastActionAtFr,
-      meta.exportedAtIso,
-      meta.filters.search,
-      yesNo(meta.filters.onlyDrafts),
-      yesNo(meta.filters.onlyImports),
+    const header = [
+      "ID",
+      "Titre",
+      "Type",
+      "Profils",
+      "Collections",
+      "Visibilité",
+      "Accès",
+      "Statut",
+      "Téléchargeable",
+      "URL",
+      "HistoryCount",
+      "DernièreAction",
+      "DernierActeur",
+      "DernièreActionAt (ISO)",
+      "DernièreActionAt (FR)",
+      "ExportedAt (ISO)",
+      "Filtres (search)",
+      "Filtres (onlyDrafts)",
+      "Filtres (onlyImports)",
     ];
 
-    lines.push(line.map(toCsvValue).join(","));
-  });
+    const lines: string[] = [header.map(toCsvValue).join(",")];
 
-  const csvContent = lines.join("\n");
-  const csvFilename = `ressources-tracabilite-${new Date().toISOString().slice(0, 10)}.csv`;
-  downloadTextFile(csvFilename, csvContent, "text/csv;charset=utf-8");
+    rows.forEach((r: AnyResource) => {
+      const collections = Array.isArray(r.collections)
+        ? r.collections.map((c: any) => c?.name).filter(Boolean).join(" | ")
+        : "";
 
-  // =========================
-  // JSONL (archive / audit)
-  // =========================
-  // 1 ligne = 1 record (facile à ingérer et versionner)
-  const jsonlLines: string[] = [];
+      const profils = Array.isArray(r.profiles) ? r.profiles.join(" | ") : "";
 
-  // Meta en 1ère ligne (type=meta)
-  jsonlLines.push(
-    toJsonLine({
-      type: "meta",
-      ...meta,
-    })
-  );
+      const url = (r as any)?.fileUrl ?? (r as any)?.url ?? "";
+      const downloadable = !!String(url || "").trim();
 
-  // Chaque ressource (type=resource)
-  rows.forEach((r: AnyResource) => {
-    const payload = {
-      type: "resource",
-      exportedAtIso: meta.exportedAtIso,
+      const historyCount = Number((r as any)?.historyCount ?? 0);
+      const lastAction = String((r as any)?.lastAction ?? "");
+      const lastActorName = String((r as any)?.lastActorName ?? "");
+      const lastActionAtIso = safeIso((r as any)?.lastActionAt);
+      const lastActionAtFr = formatFr((r as any)?.lastActionAt);
 
-      // Identité
-      id: r.id,
-      title: r.title ?? null,
-      resourceType: r.type ?? null,
+      const line = [
+        r.id ?? "",
+        r.title ?? "",
+        r.type ?? "",
+        profils,
+        collections,
+        visibilityLabel(r.visibility),
+        accessLabel(r.accessLevel),
+        r.status ?? "",
+        yesNo(downloadable),
+        url,
+        isNaN(historyCount) ? 0 : historyCount,
+        historyActionLabel(lastAction || ""),
+        lastActorName || "",
+        lastActionAtIso,
+        lastActionAtFr,
+        meta.exportedAtIso,
+        meta.filters.search,
+        yesNo(meta.filters.onlyDrafts),
+        yesNo(meta.filters.onlyImports),
+      ];
 
-      // Gouvernance
-      visibility: r.visibility ?? null,
-      accessLevel: r.accessLevel ?? null,
-      status: r.status ?? null,
-      profiles: Array.isArray(r.profiles) ? r.profiles : [],
-      collections: Array.isArray(r.collections)
-        ? r.collections.map((c: any) => c?.name).filter(Boolean)
-        : [],
+      lines.push(line.map(toCsvValue).join(","));
+    });
 
-      // Fichier (info admin, pas de sécurité)
-      url: (r as any)?.url ?? null,
-      fileUrl: (r as any)?.fileUrl ?? null,
-      thumbnailUrl: (r as any)?.thumbnailUrl ?? null,
-      thumbnailKey: (r as any)?.thumbnailKey ?? null,
-      storageKey: (r as any)?.storageKey ?? null,
+    const csvContent = lines.join("\n");
+    const filename = `ressources-tracabilite-${new Date().toISOString().slice(0, 10)}.csv`;
 
-      // Audit liste
-      historyCount: (r as any)?.historyCount ?? 0,
-      lastAction: (r as any)?.lastAction ?? null,
-      lastActionLabel: historyActionLabel(String((r as any)?.lastAction ?? "")),
-      lastActorName: (r as any)?.lastActorName ?? null,
-      lastActionAtIso: safeIso((r as any)?.lastActionAt),
-
-      // Contexte export (filtres)
-      filters: meta.filters,
-    };
-
-    jsonlLines.push(toJsonLine(payload));
-  });
-
-  const jsonlContent = jsonlLines.join("\n");
-  const jsonlFilename = `ressources-tracabilite-${new Date().toISOString().slice(0, 10)}.jsonl`;
-  downloadTextFile(jsonlFilename, jsonlContent, "application/json;charset=utf-8");
+    downloadTextFile(filename, csvContent, "text/csv;charset=utf-8");
+  } catch (e) {
+    console.error(e);
+    alert("Erreur lors de l'export de traçabilité (voir console).");
+  }
 }
 
 function openEditModal(r: AnyResource) {
@@ -637,46 +627,54 @@ function openEditModal(r: AnyResource) {
   }
 
   return (
-    <div className="p-6">
-      <div className="rounded-xl border bg-blue-50 p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Ressources · Vue d’ensemble</h1>
-            <p className="mt-1 text-gray-700">
-              Ici, tu gères <span className="font-medium">une ressource à la fois</span> (voir, modifier, ouvrir la page complète).
-              Pour changer <span className="font-medium">plusieurs ressources d’un coup</span>, utilise “Modifications en masse”.
-            </p>
+    <div className="min-h-screen bg-slate-50/60 p-4 md:p-6">
+      <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                Administration · Ressources
+              </div>
 
-            {/* Mini légende */}
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-md bg-blue-600 px-2 py-1 text-white">
-                🔵 Vue d’ensemble = 1 ressource à la fois
-              </span>
-              <span className="rounded-md bg-orange-600 px-2 py-1 text-white">
-                🟠 Modifications en masse = plusieurs ressources
-              </span>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+                Ressources · Vue d’ensemble
+              </h1>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Cette page sert à piloter <span className="font-semibold text-slate-800">une ressource à la fois</span> :
+                consultation, modification rapide, contrôle de l’historique et ouverture du fichier.
+                Pour les changements collectifs, utilise l’espace dédié <span className="font-semibold text-slate-800">Modifications en masse</span>.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 font-medium text-blue-700">
+                  Vue d’ensemble = 1 ressource à la fois
+                </span>
+                <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 font-medium text-orange-700">
+                  Modifications en masse = plusieurs ressources
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 xl:justify-end">
+              <Link
+                href="/admin/access-levels"
+                className="inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-orange-700"
+                title="Ouvrir l’outil de modifications en masse"
+              >
+                🟠 Modifications en masse
+              </Link>
+
+              <Link
+                href="/admin"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                title="Retour au tableau de bord admin"
+              >
+                Retour admin
+              </Link>
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin/access-levels"
-              className="inline-flex items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-white hover:bg-orange-700"
-              title="Ouvrir l’outil de modifications en masse"
-            >
-              🟠 Modifications en masse
-            </Link>
-
-            <Link
-              href="/admin"
-              className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-gray-900 ring-1 ring-gray-200 hover:bg-gray-50"
-              title="Retour au tableau de bord admin"
-            >
-              Retour admin
-            </Link>
-          </div>
         </div>
-      </div>
 
       {/* MODAL EDIT */}
       {editOpen && edit && (
@@ -691,7 +689,7 @@ function openEditModal(r: AnyResource) {
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
+                className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
                 title="Fermer"
               >
                 ✕
@@ -894,140 +892,184 @@ function openEditModal(r: AnyResource) {
         </div>
       )}
 
-      <div className="mt-6 rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <button
-  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-  onClick={() => navigate("/admin/ressources/nouvelle")}
-  type="button"
->
-  + Ajouter
-</button>
+          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+                onClick={() => navigate("/admin/ressources/nouvelle")}
+                type="button"
+              >
+                + Ajouter
+              </button>
 
-            <button
-              className="rounded-lg border px-4 py-2 hover:bg-gray-50"
-              onClick={onCreateTest}
-              disabled={createTestMutation.isPending}
-              type="button"
-            >
-              Créer une ressource de test
-            </button>
+              <button
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                onClick={onCreateTest}
+                disabled={createTestMutation.isPending}
+                type="button"
+              >
+                Créer une ressource de test
+              </button>
 
-          <button className="rounded-lg border px-4 py-2 hover:bg-gray-50" onClick={onExportTrails} type="button">
-            Export traçabilité (CSV + JSONL)
-          </button>
+              <button
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                onClick={() => {
+                  void onExportTrails();
+                }}
+                type="button"
+              >
+                Export traçabilité (CSV)
+              </button>
+
+              <button
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                type="button"
+                onClick={() => {
+                  setSort({ key: "download", dir: "desc" });
+                  setPage(1);
+                }}
+              >
+                Top téléchargements
+              </button>
+            </div>
+
+            <div className="w-full xl:w-[420px]">
+              <input
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
+                placeholder="Rechercher (titre, type, profil, collection...)"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
           </div>
 
-          <div className="mb-3 flex items-center gap-6 text-sm">
-  <label className="flex items-center gap-2">
-    <input
-      type="checkbox"
-      checked={onlyImports}
-      onChange={(e) => {
-        setOnlyImports(e.target.checked);
-        setPage(1);
-      }}
-    />
-    <span>Imports Option B</span>
-  </label>
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={onlyImports}
+                  onChange={(e) => {
+                    setOnlyImports(e.target.checked);
+                    setPage(1);
+                  }}
+                />
+                <span>Imports Option B</span>
+              </label>
 
-  <label className="flex items-center gap-2">
-    <input
-      type="checkbox"
-      checked={onlyDrafts}
-      onChange={(e) => {
-        setOnlyDrafts(e.target.checked);
-        setPage(1);
-      }}
-    />
-    <span>Brouillons</span>
-  </label>
-</div>
+              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={onlyDrafts}
+                  onChange={(e) => {
+                    setOnlyDrafts(e.target.checked);
+                    setPage(1);
+                  }}
+                />
+                <span>Brouillons</span>
+              </label>
 
-          <input
-            className="w-full rounded-lg border px-3 py-2 md:w-[420px]"
-            placeholder="Rechercher (titre, type, profil, collection...)"
-            value={search}
-            onChange={(e) => {
-  setSearch(e.target.value);
-  setPage(1);
-}}
-          />
+              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={onlyUnused}
+                  onChange={(e) => {
+                    setOnlyUnused(e.target.checked);
+                    setPage(1);
+                  }}
+                />
+                <span>Jamais téléchargées</span>
+              </label>
+            </div>
+
+            <div className="text-sm text-slate-500">
+              {total} ressource{total > 1 ? "s" : ""} après filtrage
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="mt-6 rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-xl font-semibold">Ressources</h2>
-          <div className="text-sm text-gray-600">{rangeLabel}</div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Ressources</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Vue liste, consultation rapide et contrôle éditorial.
+            </p>
+          </div>
+
+          <div className="text-sm font-medium text-slate-600">{rangeLabel}</div>
         </div>
 
-        <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-  <div className="flex items-center gap-2 text-sm text-gray-600">
-    <span>Par page :</span>
-    <select
-      className="rounded-md border px-2 py-1"
-      value={pageSize}
-      onChange={(e) => {
-        setPageSize(Number(e.target.value) as 25 | 50 | 100);
-        setPage(1);
-      }}
-    >
-      <option value={25}>25</option>
-      <option value={50}>50</option>
-      <option value={100}>100</option>
-    </select>
-  </div>
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            <span>Par page :</span>
+            <select
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value) as 25 | 50 | 100);
+                setPage(1);
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
 
-  <div className="flex items-center justify-end gap-2">
-    <button
-      className="rounded-md border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
-      onClick={() => setPage((p) => Math.max(1, p - 1))}
-      disabled={safePage <= 1}
-      type="button"
-    >
-      ← Précédent
-    </button>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              type="button"
+            >
+              ← Précédent
+            </button>
 
-    <span className="text-sm text-gray-600">
-      Page {safePage} / {totalPages}
-    </span>
+            <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600">
+              Page {safePage} / {totalPages}
+            </span>
 
-    <button
-      className="rounded-md border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
-      onClick={() => setPage((p: number) => Math.min(totalPages, p + 1))}
-      disabled={safePage >= totalPages}
-      type="button"
-    >
-      Suivant →
-    </button>
-  </div>
-</div>
+            <button
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              onClick={() => setPage((p: number) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              type="button"
+            >
+              Suivant →
+            </button>
+          </div>
+        </div>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-y-2">
-            <thead>
-              <tr className="text-left text-sm text-gray-600">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
+          <table className="min-w-full border-separate border-spacing-0 text-sm">
+            <thead className="sticky top-0 z-10 bg-white text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+              <tr className="text-left text-sm text-slate-600">
                 <th className="px-3">
-  <button
-    type="button"
-    className="inline-flex items-center gap-1 hover:underline"
-    onClick={() =>
-      setSort((s) =>
-        s.key === "title"
-          ? { key: "title", dir: s.dir === "asc" ? "desc" : "asc" }
-          : { key: "title", dir: "asc" }
-      )
-    }
-    title="Trier par titre"
-  >
-    Titre
-    <span className="text-xs text-gray-400">
-      {sort.key === "title" ? (sort.dir === "asc" ? "▲" : "▼") : ""}
-    </span>
-  </button>
-</th>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:underline"
+                    onClick={() => {
+                      setSort((s) =>
+                        s.key === "title"
+                          ? { key: "title", dir: s.dir === "asc" ? "desc" : "asc" }
+                          : { key: "title", dir: "asc" }
+                      );
+                      setPage(1);
+                    }}
+                    title="Trier par titre"
+                  >
+                    Titre
+                    <span className="text-xs text-gray-400">
+                      {sort.key === "title" ? (sort.dir === "asc" ? "▲" : "▼") : ""}
+                    </span>
+                  </button>
+                </th>
 
                 <th className="px-3">Type</th>
                 <th className="px-3">Profils</th>
@@ -1037,6 +1079,26 @@ function openEditModal(r: AnyResource) {
                 <th className="px-3">Lecture</th>
                 <th className="px-3">Statut</th>
                 <th className="px-3">Hist.</th>
+                <th className="px-3">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:underline"
+                    onClick={() => {
+                      setSort((s) =>
+                        s.key === "download"
+                          ? { key: "download", dir: s.dir === "asc" ? "desc" : "asc" }
+                          : { key: "download", dir: "desc" }
+                      );
+                      setPage(1);
+                    }}
+                    title="Trier par téléchargements"
+                  >
+                    DL
+                    <span className="text-xs text-gray-400">
+                      {sort.key === "download" ? (sort.dir === "asc" ? "▲" : "▼") : ""}
+                    </span>
+                  </button>
+                </th>
                 <th className="px-3">Tél</th>
                 <th className="px-3">Dernière action</th>
                 <th className="px-3 text-right">Actions</th>
@@ -1068,11 +1130,14 @@ const hasFile =
 
                 return (
                   <React.Fragment key={id}>
-                    <tr className="rounded-lg border bg-white shadow-sm">
-                      <td className="px-3 py-3">
+                    <tr
+  ref={isOpen ? openRowRef : null}
+  className="border-b border-slate-200 bg-white align-top transition hover:bg-slate-50/70 even:bg-slate-50/40"
+>
+                      <td className="px-3 py-4">
   <button
   type="button"
-  className="text-left"
+  className="text-left transition hover:opacity-90"
   onClick={() => {
     const next = isOpen ? null : id;
     setOpenId(next);
@@ -1136,10 +1201,12 @@ const hasFile =
   })()}
 </div>
 
-  <div className="font-medium hover:underline">{r.title ?? "Sans titre"}</div>
+  <div className="font-semibold text-slate-800 leading-tight hover:underline">
+  {r.title ?? "Sans titre"}
+</div>
 </div>
 
-    <div className="text-xs text-gray-500">ID: {id}</div>
+    <div className="text-xs text-slate-400 mt-0.5">ID {id}</div>
   </button>
 </td>
 
@@ -1200,6 +1267,22 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
 </td>
 
 <td className="px-3 py-3">
+  {(() => {
+    const dl = getDownloadCount(r);
+
+    let cls = "bg-gray-100 text-gray-700";
+    if (dl >= 50) cls = "bg-green-100 text-green-800";
+    else if (dl >= 10) cls = "bg-blue-100 text-blue-800";
+    else if (dl >= 1) cls = "bg-orange-100 text-orange-800";
+
+    return (
+      <span className={`rounded-md px-2 py-1 text-sm ${cls}`}>
+        {dl}
+      </span>
+    );
+  })()}
+</td>
+<td className="px-3 py-3">
   <span className="rounded-md bg-gray-100 px-2 py-1 text-sm">
     {hasFile ? "oui" : "non"}
   </span>
@@ -1225,9 +1308,9 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
 </td>
 
                       <td className="px-3 py-3">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2 opacity-80 group-hover:opacity-100 transition">
                           <button
-                            className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
+                            className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
                           onClick={() => {
   const next = isOpen ? null : id;
   setOpenId(next);
@@ -1240,16 +1323,20 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
                           </button>
 
                           <button
-  className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
-  onClick={() => openEditModal(r)}
+  className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
+  onClick={() => {
+  setOpenId(id);
+  setOpenTab("details");
+  openEditModal(r);
+}}
   type="button"
   title="Modifier (édition rapide)"
 >
   ✏️
 </button>
                           <button
-                            className="rounded-md border px-2 py-1 text-sm hover:bg-gray-50"
-                            onClick={() => onDeleteOne(id)}
+                            className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
+                            onClick={() => onDeleteOne(id, r.title)}
                             type="button"
                             title="Supprimer"
                           >
@@ -1261,10 +1348,10 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
 
                     {isOpen && (
   <tr>
-    <td colSpan={12} className="px-3 pb-4">
-      <div className="rounded-lg border bg-gray-50 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="font-semibold">Ressource #{id}</div>
+    <td colSpan={13} className="px-4 pb-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 mb-3">
+          <div className="font-semibold text-slate-800">Ressource #{id}</div>
 
           {/* Onglets */}
           <div className="flex items-center gap-2">
@@ -1548,5 +1635,6 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
         </div>
       </div>
     </div>
+  </div>
   );
 }

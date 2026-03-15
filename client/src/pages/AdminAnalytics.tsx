@@ -8,6 +8,8 @@ import {
   FileText,
   CheckCircle2,
   Clock3,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -23,6 +25,26 @@ export default function AdminAnalytics() {
   const totalViews = Number(counters.totalViews ?? 0);
   const publishedResources = Number(counters.publishedResources ?? 0);
   const pendingResources = Number(counters.pendingResources ?? 0);
+
+  const publicationRate =
+    totalResources > 0 ? Math.round((publishedResources / totalResources) * 100) : 0;
+
+  const averageViewsPerResource =
+    totalResources > 0 ? (totalViews / totalResources).toFixed(1) : "0.0";
+
+  const averageDownloadsPerResource =
+    totalResources > 0 ? (totalDownloads / totalResources).toFixed(1) : "0.0";
+
+  const engagementRatio =
+    totalViews > 0 ? Math.round((totalDownloads / totalViews) * 100) : 0;
+const platformActivityLevel =
+  totalViews > 1000
+    ? "Très forte activité"
+    : totalViews > 300
+    ? "Activité soutenue"
+    : totalViews > 100
+    ? "Activité modérée"
+    : "Activité faible";
 
   const topDownloaded = Array.isArray(stats.topDownloaded)
     ? stats.topDownloaded.map((resource: any, index: number) => ({
@@ -101,9 +123,10 @@ export default function AdminAnalytics() {
         <div className="container space-y-8">
           <div>
             <Breadcrumb items={[{ label: "Admin" }, { label: "Analytics" }]} />
-            <h1 className="text-4xl font-bold mt-4">Dashboard Analytics</h1>
+            <h1 className="text-4xl font-bold mt-4">Pilotage de la plateforme</h1>
             <p className="text-muted-foreground mt-2">
-              Vue réelle des indicateurs principaux de la plateforme.
+              Vue consolidée de l’activité réelle de la ressourcerie ifac :
+              ressources, consultations, téléchargements et niveau de publication.
             </p>
           </div>
 
@@ -172,9 +195,9 @@ export default function AdminAnalytics() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle>État des ressources</CardTitle>
+                <CardTitle>État éditorial des ressources</CardTitle>
                 <CardDescription>
-                  Répartition réelle des ressources côté plateforme
+                  Niveau de publication réel du fonds documentaire
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -184,7 +207,7 @@ export default function AdminAnalytics() {
                     <div>
                       <p className="font-medium">Ressources approuvées</p>
                       <p className="text-sm text-muted-foreground">
-                        Disponibles ou prêtes côté catalogue
+                        Disponibles dans le catalogue ou prêtes à être diffusées
                       </p>
                     </div>
                   </div>
@@ -195,71 +218,113 @@ export default function AdminAnalytics() {
                   <div className="flex items-center gap-3">
                     <Clock3 className="h-5 w-5 text-orange-500" />
                     <div>
-                      <p className="font-medium">Ressources en attente</p>
+                      <p className="font-medium">Ressources à traiter</p>
                       <p className="text-sm text-muted-foreground">
-                        Brouillons ou validations à traiter
+                        Brouillons et validations encore en attente
                       </p>
                     </div>
                   </div>
                   <p className="text-2xl font-bold">{pendingResources}</p>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium">Taux de publication</p>
+                      <p className="text-sm text-muted-foreground">
+                        Part des ressources déjà approuvées sur l’ensemble du fonds
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold">{publicationRate}%</p>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Résumé plateforme</CardTitle>
+                <CardTitle>Lecture de pilotage</CardTitle>
                 <CardDescription>
-                  Lecture rapide des indicateurs actuels
+                  Indicateurs synthétiques pour suivre l’usage réel de la plateforme
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Total ressources
+                    Moyenne de vues par ressource
                   </span>
-                  <span className="font-semibold">{totalResources}</span>
+                  <span className="font-semibold">{averageViewsPerResource}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Total utilisateurs
+                    Moyenne de téléchargements par ressource
                   </span>
-                  <span className="font-semibold">{totalUsers}</span>
+                  <span className="font-semibold">{averageDownloadsPerResource}</span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Total téléchargements
+                    Ratio téléchargements / vues
                   </span>
-                  <span className="font-semibold">{totalDownloads}</span>
+                  <span className="font-semibold">{engagementRatio}%</span>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Total vues
-                  </span>
-                  <span className="font-semibold">{totalViews}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Ressources approuvées
-                  </span>
-                  <span className="font-semibold">{publishedResources}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Ressources en attente
-                  </span>
-                  <span className="font-semibold">{pendingResources}</span>
+                <div className="p-4 border rounded-lg bg-muted/40">
+                  <div className="flex items-start gap-3">
+                    <TrendingUp className="h-5 w-5 mt-0.5 text-primary" />
+                    <div className="space-y-1">
+                      <p className="font-medium">Lecture rapide</p>
+                      <p className="text-sm text-muted-foreground">
+                        Ce bloc permet d’évaluer si les ressources sont simplement consultées
+                        ou réellement téléchargées et exploitées sur le terrain.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <Card className="xl:col-span-2">
+              <CardHeader>
+                <CardTitle>Activité globale de la plateforme</CardTitle>
+                <CardDescription>
+                  Lecture stratégique rapide de l’usage réel de la ressourcerie ifac
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground">Niveau d’activité</p>
+                  <p className="text-2xl font-bold mt-2">{platformActivityLevel}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Interprétation basée sur le volume total de consultations enregistrées.
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground">Vues par utilisateur</p>
+                  <p className="text-2xl font-bold mt-2">
+                    {totalUsers > 0 ? (totalViews / totalUsers).toFixed(1) : "0.0"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Permet d’estimer l’intensité moyenne d’usage de la plateforme.
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground">Téléchargements par utilisateur</p>
+                  <p className="text-2xl font-bold mt-2">
+                    {totalUsers > 0 ? (totalDownloads / totalUsers).toFixed(1) : "0.0"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Indicateur concret d’appropriation des ressources par les équipes.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Top téléchargements</CardTitle>

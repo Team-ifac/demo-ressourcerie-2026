@@ -226,8 +226,88 @@ function filterByAccessLevel(rows: any[], allowed: AccessLevel[]) {
   });
 }
 
-async function incrementResourceViewCount(resourceId: number): Promise<void> {
+const resourceViewThrottle = new Map<string, number>();
+const RESOURCE_VIEW_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function buildResourceViewThrottleKey(ctx: any, resourceId: number): string {
+  const userId = ctx?.user?.id;
+  if (userId) {
+    return `user:${userId}:resource:${resourceId}`;
+  }
+
+  const xf = ctx?.req?.headers?.["x-forwarded-for"];
+  const ip =
+    (typeof xf === "string" ? xf.split(",")[0].trim() : null) ||
+    ctx?.req?.ip ||
+    ctx?.req?.socket?.remoteAddress ||
+    "unknown";
+
+  const userAgent = String(ctx?.req?.headers?.["user-agent"] ?? "unknown")
+    .slice(0, 200)
+    .trim();
+
+  return `anon:${ip}:${userAgent}:resource:${resourceId}`;
+}
+
+function shouldCountResourceView(
+  ctx: any,
+  resourceId: number
+): { allowed: boolean; key: string; now: number; lastSeenAt?: number } {
+  const now = Date.now();
+  const key = buildResourceViewThrottleKey(ctx, resourceId);
+  const lastSeenAt = resourceViewThrottle.get(key);
+
+  if (lastSeenAt && now - lastSeenAt < RESOURCE_VIEW_TTL_MS) {
+    return {
+      allowed: false,
+      key,
+      now,
+      lastSeenAt,
+    };
+  }
+
+  resourceViewThrottle.set(key, now);
+
+  // petit ménage mémoire
+  if (resourceViewThrottle.size > 5000) {
+    resourceViewThrottle.forEach((ts, entryKey) => {
+      if (now - ts > RESOURCE_VIEW_TTL_MS) {
+        resourceViewThrottle.delete(entryKey);
+      }
+    });
+  }
+
+  return {
+    allowed: true,
+    key,
+    now,
+    lastSeenAt,
+  };
+}
+
+async function incrementResourceViewCount(
+  resourceId: number,
+  ctx: any,
+  source = "unknown"
+): Promise<void> {
   try {
+    const throttle = shouldCountResourceView(ctx, resourceId);
+
+    console.log("[view-count] attempt", {
+      source,
+      resourceId,
+      allowed: throttle.allowed,
+      key: throttle.key,
+      lastSeenAt: throttle.lastSeenAt ?? null,
+      userId: ctx?.user?.id ?? null,
+      path: ctx?.req?.path ?? ctx?.req?.url ?? null,
+      method: ctx?.req?.method ?? null,
+    });
+
+    if (!throttle.allowed) {
+      return;
+    }
+
     const dbConn = await db.getDb();
     if (!dbConn) return;
 
@@ -249,6 +329,13 @@ async function incrementResourceViewCount(resourceId: number): Promise<void> {
         viewCount: sql`COALESCE(${resourcesTable.viewCount}, 0) + 1`,
       } as any)
       .where(eq(resourcesTable.id, resourceId as any));
+
+    console.log("[view-count] incremented", {
+      source,
+      resourceId,
+      key: throttle.key,
+      userId: ctx?.user?.id ?? null,
+    });
   } catch (e) {
     console.warn("[incrementResourceViewCount] skipped:", e);
   }
@@ -367,7 +454,26 @@ function computePopularityScore(resource: any): number {
       0
   );
 
-  return viewCount + downloadCount * 3;
+  const createdAtMs = resource?.createdAt
+    ? new Date(resource.createdAt).getTime()
+    : 0;
+
+  const ageInDays =
+    createdAtMs > 0
+      ? Math.max(0, (Date.now() - createdAtMs) / (1000 * 60 * 60 * 24))
+      : 9999;
+
+  let freshnessBonus = 0;
+
+  if (ageInDays <= 7) {
+    freshnessBonus = 30;
+  } else if (ageInDays <= 30) {
+    freshnessBonus = 20;
+  } else if (ageInDays <= 90) {
+    freshnessBonus = 10;
+  }
+
+  return viewCount + downloadCount * 3 + freshnessBonus;
 }
 
 function sortResourcesByPopularity(rows: any[]): any[] {
@@ -721,155 +827,16 @@ function enforceContactRateLimit(key: string) {
 }
 
 async function getAdminPlatformStats(limit = 10) {
-  const dbConn = await db.getDb();
-  if (!dbConn) {
+  try {
+    return await db.getAdminPlatformStats(limit);
+  } catch (error) {
+    console.error("[admin.stats.getPlatformStats] failed:", error);
+
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "Database not available",
     });
   }
-
-  const schema = await import("../drizzle/schema");
-  const { sql, eq, desc } = await import("drizzle-orm");
-
-  const resourcesTable =
-    (schema as any).resources ||
-    (schema as any).resourcesTable ||
-    (schema as any).resources_table;
-
-  const usersTable =
-    (schema as any).users ||
-    (schema as any).usersTable ||
-    (schema as any).users_table;
-
-  const resourceHistoryTable =
-    (schema as any).resourceHistory ||
-    (schema as any).resourceHistories ||
-    (schema as any).resource_history ||
-    (schema as any).resource_history_table;
-
-  if (!resourcesTable) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Resources table not found in schema",
-    });
-  }
-
-  const totalResourcesRows = await dbConn
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resourcesTable);
-
-  const publishedResourcesRows = await dbConn
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resourcesTable)
-    .where(eq((resourcesTable as any).status, "approved"));
-
-  const pendingResourcesRows = await dbConn
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resourcesTable)
-    .where(sql`${(resourcesTable as any).status} in ('draft', 'pending')`);
-
-  const totalViewsRows = await dbConn
-    .select({
-      total: sql<number>`coalesce(sum(${(resourcesTable as any).viewCount}), 0)`,
-    })
-    .from(resourcesTable);
-  const totalUsersRows = usersTable
-    ? await dbConn
-        .select({
-          total: sql<number>`count(*)`,
-        })
-        .from(usersTable)
-    : [{ total: 0 }];
-  const topViewed = await dbConn
-    .select({
-      id: resourcesTable.id,
-      title: resourcesTable.title,
-      status: (resourcesTable as any).status,
-      accessLevel: (resourcesTable as any).accessLevel,
-      viewCount: sql<number>`coalesce(${(resourcesTable as any).viewCount}, 0)`,
-    })
-    .from(resourcesTable)
-    .orderBy(desc(sql`coalesce(${(resourcesTable as any).viewCount}, 0)`))
-    .limit(limit);
-
-  let totalDownloads = 0;
-  let topDownloaded: Array<{
-    id: number;
-    title: string;
-    status: string | null;
-    accessLevel: string | null;
-    downloadCount: number;
-  }> = [];
-
-  if (
-    resourceHistoryTable &&
-    (resourceHistoryTable as any).resourceId &&
-    (resourceHistoryTable as any).action
-  ) {
-    const totalDownloadsRows = await dbConn
-      .select({
-        total: sql<number>`count(*)`,
-      })
-      .from(resourceHistoryTable)
-      .where(eq((resourceHistoryTable as any).action, "downloaded"));
-
-    totalDownloads = Number(totalDownloadsRows?.[0]?.total ?? 0);
-
-    topDownloaded = (await dbConn
-      .select({
-        id: resourcesTable.id,
-        title: resourcesTable.title,
-        status: (resourcesTable as any).status,
-        accessLevel: (resourcesTable as any).accessLevel,
-        downloadCount: sql<number>`count(*)`,
-      })
-      .from(resourceHistoryTable)
-      .innerJoin(
-        resourcesTable,
-        eq((resourceHistoryTable as any).resourceId, resourcesTable.id)
-      )
-      .where(eq((resourceHistoryTable as any).action, "downloaded"))
-      .groupBy(
-        resourcesTable.id,
-        resourcesTable.title,
-        (resourcesTable as any).status,
-        (resourcesTable as any).accessLevel
-      )
-      .orderBy(desc(sql`count(*)`))
-      .limit(limit)) as any[];
-  }
-
-  return {
-    counters: {
-      totalUsers: Number(totalUsersRows?.[0]?.total ?? 0),
-      totalResources: Number(totalResourcesRows?.[0]?.total ?? 0),
-      publishedResources: Number(publishedResourcesRows?.[0]?.total ?? 0),
-      pendingResources: Number(pendingResourcesRows?.[0]?.total ?? 0),
-      totalViews: Number(totalViewsRows?.[0]?.total ?? 0),
-      totalDownloads: Number(totalDownloads ?? 0),
-    },
-    topViewed: (topViewed || []).map((row: any) => ({
-      id: Number(row.id),
-      title: String(row.title ?? ""),
-      status: row.status ?? null,
-      accessLevel: row.accessLevel ?? null,
-      viewCount: Number(row.viewCount ?? 0),
-    })),
-    topDownloaded: (topDownloaded || []).map((row: any) => ({
-      id: Number(row.id),
-      title: String(row.title ?? ""),
-      status: row.status ?? null,
-      accessLevel: row.accessLevel ?? null,
-      downloadCount: Number(row.downloadCount ?? 0),
-    })),
-  };
 }
 
 export const appRouter = router({
@@ -1646,11 +1613,11 @@ const filters: any = {
         const autoLimit = input?.autoLimit ?? 6;
 
           const rows = (await db.getHomePopularResources({
-    includeInternal: isAdmin || entitlements.isAuthenticated,
-    includePremium: false,
-    isAdmin: false,
-    autoLimit: 6,
-  })) as any[];
+  includeInternal: isAdmin || entitlements.isAuthenticated,
+  includePremium: false,
+  isAdmin: false,
+  autoLimit,
+})) as any[];
 
         // ✅ DOUBLE VERROU ANTI-FUITE (accessLevel)
         // - admin : tout
@@ -1967,8 +1934,6 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
 
         const themes = await db.getResourceThemes(input.id);
 
-        await incrementResourceViewCount(input.id);
-
         const detectFileExtension = (value?: string | null): string | null => {
           const raw = String(value ?? "").trim();
           if (!raw) return null;
@@ -2006,7 +1971,7 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
           return "other";
         };
 
-        const buildPreviewPdfUrl = (value?: string | null): string | null => {
+        const buildPreviewPdfUrl = async (value?: string | null): Promise<string | null> => {
           const raw = String(value ?? "").trim();
           if (!raw) return null;
 
@@ -2014,7 +1979,65 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
           const lastDot = clean.lastIndexOf(".");
           if (lastDot === -1) return null;
 
-          return `${clean.slice(0, lastDot)}.preview.pdf`;
+          const candidateWithoutExt = `${clean.slice(0, lastDot)}.preview.pdf`;
+          const candidateWithExt = `${clean}.preview.pdf`;
+
+          const isHttp = (v: string) => /^https?:\/\//i.test(v);
+
+          const normalizeLeadingSlash = (p: string) => {
+            if (!p) return p;
+            return p.startsWith("/") ? p : `/${p}`;
+          };
+
+          const checkLocalPublicCandidate = async (candidate: string): Promise<string | null> => {
+            const normalized = normalizeLeadingSlash(candidate);
+
+            const isLocalPublicPath =
+              normalized.startsWith("/imported/") ||
+              normalized.startsWith("/documents/") ||
+              normalized.startsWith("/media/") ||
+              normalized.startsWith("/images/") ||
+              normalized.startsWith("/client/public/");
+
+            if (!isLocalPublicPath) {
+              return normalized;
+            }
+
+            let rel = normalized;
+
+            if (rel.startsWith("/client/public/")) {
+              rel = rel.slice("/client/public".length);
+            }
+
+            const pathMod = await import("path");
+            const fsMod = await import("fs");
+
+            const publicRoot = pathMod.resolve(process.cwd(), "client", "public");
+            const absPath = pathMod.resolve(publicRoot, "." + rel);
+            const publicRootResolved = pathMod.resolve(publicRoot) + pathMod.sep;
+            const resolvedAbsPath = pathMod.resolve(absPath);
+
+            if (!resolvedAbsPath.startsWith(publicRootResolved)) {
+              return null;
+            }
+
+            if (!fsMod.existsSync(resolvedAbsPath)) {
+              return null;
+            }
+
+            return normalized;
+          };
+
+          if (isHttp(candidateWithoutExt)) return candidateWithoutExt;
+          if (isHttp(candidateWithExt)) return candidateWithExt;
+
+          const previewWithoutExt = await checkLocalPublicCandidate(candidateWithoutExt);
+          if (previewWithoutExt) return previewWithoutExt;
+
+          const previewWithExt = await checkLocalPublicCandidate(candidateWithExt);
+          if (previewWithExt) return previewWithExt;
+
+          return null;
         };
 
         // 🔒 Jamais exposer fileUrl en clair
@@ -2033,7 +2056,7 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
 
         const previewPdfUrl =
           ["powerpoint", "excel", "document"].includes(fileKind)
-            ? buildPreviewPdfUrl(fileUrl ?? (storageKey ? `/${storageKey}` : null))
+            ? await buildPreviewPdfUrl(fileUrl ?? (storageKey ? `/${storageKey}` : null))
             : null;
 
         return {
@@ -2046,7 +2069,53 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
           previewPdfUrl,
         };
       }),
+    registerView: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const isLogged = !!ctx.user;
+        const isAdmin = ctx.user?.role === "admin";
+        const isPremium = isLogged ? await resolveIsPremium(ctx.user!.id) : false;
+        const myProfileType = isLogged ? await resolveProfileType(ctx.user!.id) : null;
+        const isStaff = isLogged && myProfileType === "formateur";
 
+        const resource = await db.getResourceById(input.id, {
+          includeInternal: isAdmin || isLogged,
+          includePremium: isAdmin || isStaff || !!isPremium,
+          isAdmin,
+        } as any);
+
+        if (!resource) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Ressource non trouvée",
+          });
+        }
+
+        if (!isAdmin && !isStaff) {
+          const ent = {
+            isAuthenticated: isLogged,
+            isPremium,
+            isStaff: false,
+          };
+
+          const visibility = (resource.visibility ?? "PUBLIC") as any;
+          const accessLevel = (resource.accessLevel ?? "PUBLIC") as any;
+
+          const canView = canViewResource({ visibility, entitlements: ent });
+          const canOpenByLevel = canOpenResource({ accessLevel, entitlements: ent });
+
+          if (!canView || !canOpenByLevel) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Ressource non trouvée",
+            });
+          }
+        }
+
+        await incrementResourceViewCount(input.id, ctx);
+
+        return { success: true };
+      }),
     // ✅ NOUVEAU : endpoint sécurisé qui génère une URL de téléchargement
     // - applique VIEW + OPEN
     // - récupère une URL via storageGet (proxy) si possible
@@ -2061,11 +2130,11 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
         const isStaff = isLogged && myProfileType === "formateur";
 
         // ✅ Appel DB sécurisé (anti-fuite) : la DB doit déjà filtrer
-       const resource = await db.getResourceById(input.id, {
-  includeInternal: isAdmin || isLogged,
-  includePremium: isAdmin || isStaff || !!isPremium,
-  isAdmin,
-} as any);
+        const resource = await db.getResourceById(input.id, {
+          includeInternal: isAdmin || isLogged,
+          includePremium: isAdmin || isStaff || !!isPremium,
+          isAdmin,
+        } as any);
 
         // 🔒 NOT_FOUND quoi qu’il arrive (anti-fuite d’existence)
         if (!resource) {
@@ -2106,13 +2175,41 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
 
     // ================= ADMIN =================
         // ✅ Historique (audit trail) — ADMIN ONLY
-    getResourceHistory: adminProcedure
+    createTestResource: adminProcedure
+  .mutation(async ({ ctx }) => {
+
+    const id = await db.createResource(
+      {
+        title: "Ressource test admin",
+        summary: "Ressource créée automatiquement pour test.",
+        content: "Contenu de test.",
+        type: "document",
+        visibility: "INTERNAL_IFAC",
+        accessLevel: "INTERNAL_IFAC",
+        status: "draft",
+        storageKey: null,
+        fileUrl: null,
+        thumbnailUrl: null,
+      } as any,
+      []
+    );
+
+    await db.addResourceHistory({
+      resourceId: id,
+      userId: ctx.user.id,
+      action: "created",
+      changes: "Création ressource de test (admin)",
+    });
+
+    return { id };
+  }),
+        getResourceHistory: adminProcedure
       .input(z.object({ resourceId: z.number().int() }))
       .query(async ({ input }) => {
         return await db.getResourceHistory(input.resourceId);
       }),
 
-                create: adminProcedure
+    create: adminProcedure
       .input(
         z.object({
           title: z.string().min(1),
@@ -2462,8 +2559,14 @@ if (requestedStatus !== undefined) {
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        // Harmonisé avec deleteResource (même comportement, même erreurs)
-        const resource = await db.getResourceById(input.id);
+        // ✅ Vue admin canonique : doit aussi voir les brouillons / pending / premium
+        const resource = await db.getResourceById(input.id, {
+          includeInternal: true,
+          includePremium: true,
+          isAdmin: true,
+          adminView: db.ADMIN_VIEW_TOKEN,
+        } as any);
+
         if (!resource) {
           throw new TRPCError({
             code: "NOT_FOUND",
