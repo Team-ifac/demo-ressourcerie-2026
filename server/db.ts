@@ -217,6 +217,71 @@ export async function getAdminPlatformStats(limit: number = 10) {
     )
     .limit(safeLimit);
 
+  const recentDownloadRows = await db
+    .select({
+      day: sql<string>`DATE(${resourceHistory.createdAt})`,
+      count: sql<number>`count(*)`,
+    })
+    .from(resourceHistory)
+    .where(
+      and(
+        eq(resourceHistory.action, "downloaded"),
+        sql`${resourceHistory.createdAt} >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)`
+      )
+    )
+    .groupBy(sql`DATE(${resourceHistory.createdAt})`)
+    .orderBy(sql`DATE(${resourceHistory.createdAt})`);
+
+  const recentViewRows = await db
+    .select({
+      day: sql<string>`DATE(${resourceHistory.createdAt})`,
+      count: sql<number>`count(*)`,
+    })
+    .from(resourceHistory)
+    .where(
+      and(
+        eq(resourceHistory.action, "viewed"),
+        sql`${resourceHistory.createdAt} >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)`
+      )
+    )
+    .groupBy(sql`DATE(${resourceHistory.createdAt})`)
+    .orderBy(sql`DATE(${resourceHistory.createdAt})`);
+
+  const buildLast30Days = () => {
+    const days: string[] = [];
+
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setHours(12, 0, 0, 0);
+      date.setDate(date.getDate() - i);
+      days.push(date.toISOString().slice(0, 10));
+    }
+
+    return days;
+  };
+
+  const allDays = buildLast30Days();
+
+  const recentDownloadMap = new Map<string, number>();
+  for (const row of recentDownloadRows || []) {
+    recentDownloadMap.set(String(row.day), Number(row.count ?? 0));
+  }
+
+  const recentViewMap = new Map<string, number>();
+  for (const row of recentViewRows || []) {
+    recentViewMap.set(String(row.day), Number(row.count ?? 0));
+  }
+
+  const recentDownloads = allDays.map((day) => ({
+    day,
+    count: recentDownloadMap.get(day) ?? 0,
+  }));
+
+  const recentViews = allDays.map((day) => ({
+    day,
+    count: recentViewMap.get(day) ?? 0,
+  }));
+
   return {
     counters: {
       totalUsers: Number(totalUsersRows?.[0]?.total ?? 0),
@@ -240,6 +305,8 @@ export async function getAdminPlatformStats(limit: number = 10) {
       accessLevel: row.accessLevel ?? null,
       downloadCount: Number(row.downloadCount ?? 0),
     })),
+    recentDownloads,
+    recentViews,
   };
 }
 // ============ PATH NORMALIZATION (PILIER 1) ============

@@ -66,6 +66,35 @@ const platformActivityLevel =
       }))
     : [];
 
+  const recentDownloads = Array.isArray(stats.recentDownloads)
+    ? stats.recentDownloads.map((item: any) => ({
+        day: String(item.day ?? ""),
+        count: Number(item.count ?? 0),
+      }))
+    : [];
+
+  const recentViews = Array.isArray(stats.recentViews)
+    ? stats.recentViews.map((item: any) => ({
+        day: String(item.day ?? ""),
+        count: Number(item.count ?? 0),
+      }))
+    : [];
+
+  const maxRecentDownloads = Math.max(
+    1,
+    ...recentDownloads.map((item: { day: string; count: number }) => item.count)
+  );
+
+  const maxRecentViews = Math.max(
+    1,
+    ...recentViews.map((item: { day: string; count: number }) => item.count)
+  );
+
+  const formatShortDay = (day: string) => {
+    const value = String(day ?? "");
+    return value.length >= 10 ? value.slice(5) : value;
+  };
+
   const formatAccessLevel = (value: string | null) => {
     if (value === "PUBLIC") return "Public";
     if (value === "INTERNAL_IFAC") return "Interne ifac";
@@ -325,6 +354,95 @@ const platformActivityLevel =
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="xl:col-span-2">
+              <CardHeader>
+                <CardTitle>Activité des 30 derniers jours</CardTitle>
+                <CardDescription>
+                  Visualisation synthétique des téléchargements et des vues sur les 30 derniers jours.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="font-medium">Téléchargements par jour</p>
+                    <p className="text-xs text-muted-foreground">
+                      Max : {maxRecentDownloads}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 max-h-96 overflow-auto pr-1">
+                    {recentDownloads.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Aucune donnée disponible.
+                      </p>
+                    ) : (
+                      recentDownloads.map((item: { day: string; count: number }) => (
+                        <div key={`download-${item.day}`} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">
+                              {formatShortDay(item.day)}
+                            </span>
+                            <span className="font-medium">{item.count}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-all"
+                              style={{
+                                width: `${Math.max(
+                                  item.count > 0 ? 4 : 0,
+                                  (item.count / maxRecentDownloads) * 100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="font-medium">Vues par jour</p>
+                    <p className="text-xs text-muted-foreground">
+                      Max : {maxRecentViews}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 max-h-96 overflow-auto pr-1">
+                    {recentViews.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Aucune donnée disponible.
+                      </p>
+                    ) : (
+                      recentViews.map((item: { day: string; count: number }) => (
+                        <div key={`view-${item.day}`} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">
+                              {formatShortDay(item.day)}
+                            </span>
+                            <span className="font-medium">{item.count}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-blue-500 transition-all"
+                              style={{
+                                width: `${Math.max(
+                                  item.count > 0 ? 4 : 0,
+                                  (item.count / maxRecentViews) * 100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Top téléchargements</CardTitle>

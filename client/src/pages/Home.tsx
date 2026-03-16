@@ -22,6 +22,8 @@ export default function Home() {
     limit: 6,
   });
 
+  const { data: homePlatformStats } = trpc.resources.getHomePlatformStats.useQuery();
+
   const { data: homeStats } = trpc.resources.listPaginated.useQuery({
     page: 1,
     limit: 1,
@@ -32,10 +34,13 @@ export default function Home() {
 
   const popularResources = popularResourcesRaw.slice(0, 6);
 
-  const totalVisibleResources = homeStats?.pagination?.total ?? 0;
-  const popularCount = popularResources.length;
-  const editorialCount = editorialResources.length;
-  const recentCount = recentResources.length;
+  const totalVisibleResources =
+    Number(homePlatformStats?.totalVisibleResources ?? 0) ||
+    Number(homeStats?.pagination?.total ?? 0);
+
+  const totalVisibleViews = Number(homePlatformStats?.totalVisibleViews ?? 0);
+  const totalVisibleDownloads = Number(homePlatformStats?.totalVisibleDownloads ?? 0);
+  const totalUsers = Number(homePlatformStats?.totalUsers ?? 0);
 
   const profiles: Array<{
   id: ProfileType;
@@ -279,11 +284,11 @@ export default function Home() {
             <Card className="border-0 shadow-sm bg-background/80 backdrop-blur">
               <CardContent className="p-8 text-center space-y-3">
                 <div className="text-5xl font-bold text-primary">
-                  {popularCount}
+                  {totalVisibleViews}
                 </div>
-                <p className="text-lg font-medium">Ressources populaires</p>
+                <p className="text-lg font-medium">Vues cumulées</p>
                 <p className="text-sm text-muted-foreground">
-                  Mises en avant à partir des données de consultation
+                  Consultations enregistrées sur les ressources visibles
                 </p>
               </CardContent>
             </Card>
@@ -291,11 +296,11 @@ export default function Home() {
             <Card className="border-0 shadow-sm bg-background/80 backdrop-blur">
               <CardContent className="p-8 text-center space-y-3">
                 <div className="text-5xl font-bold text-primary">
-                  {recentCount}
+                  {totalVisibleDownloads}
                 </div>
-                <p className="text-lg font-medium">Nouveautés affichées</p>
+                <p className="text-lg font-medium">Téléchargements cumulés</p>
                 <p className="text-sm text-muted-foreground">
-                  Dernières ressources remontées sur la page d’accueil
+                  Téléchargements réellement enregistrés sur les ressources visibles
                 </p>
               </CardContent>
             </Card>
@@ -303,11 +308,11 @@ export default function Home() {
             <Card className="border-0 shadow-sm bg-background/80 backdrop-blur">
               <CardContent className="p-8 text-center space-y-3">
                 <div className="text-5xl font-bold text-primary">
-                  {editorialCount}
+                  {totalUsers}
                 </div>
-                <p className="text-lg font-medium">ifac à la une</p>
+                <p className="text-lg font-medium">Utilisateurs inscrits</p>
                 <p className="text-sm text-muted-foreground">
-                  Sélection éditoriale mise en avant par ifac
+                  Comptes actuellement enregistrés sur la plateforme
                 </p>
               </CardContent>
             </Card>

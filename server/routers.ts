@@ -330,6 +330,16 @@ async function incrementResourceViewCount(
       } as any)
       .where(eq(resourcesTable.id, resourceId as any));
 
+    await db.addResourceHistory({
+      resourceId,
+      userId: ctx?.user?.id ?? null,
+      action: "viewed",
+      changes: JSON.stringify({
+        source,
+        throttleKey: throttle.key,
+      }),
+    });
+
     console.log("[view-count] incremented", {
       source,
       resourceId,
@@ -1832,6 +1842,43 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           )
           .slice(0, limit);
+            }),
+
+    getHomePlatformStats: publicProcedure
+      .query(async ({ ctx }) => {
+        const { isAdmin, entitlements } = await getEntitlementsFromCtx(ctx);
+
+        const includeInternal = isAdmin || entitlements.isAuthenticated;
+        const includePremium = isAdmin || !!entitlements.isPremium;
+
+        const visibleResources = (await db.getAllResources({
+          includeInternal,
+          includePremium,
+          isAdmin,
+        } as any)) as any[];
+
+        const totalVisibleResources = visibleResources.length;
+
+        const totalVisibleViews = visibleResources.reduce(
+          (sum: number, resource: any) =>
+            sum + Number(resource?.viewCount ?? resource?.views ?? 0),
+          0
+        );
+
+        const totalVisibleDownloads = visibleResources.reduce(
+          (sum: number, resource: any) =>
+            sum + Number(resource?.downloadCount ?? 0),
+          0
+        );
+
+        const totalUsers = (await db.getAllUsers()).length;
+
+        return {
+          totalVisibleResources,
+          totalVisibleViews,
+          totalVisibleDownloads,
+          totalUsers,
+        };
       }),
 
     getAnimationTechniques: publicProcedure
