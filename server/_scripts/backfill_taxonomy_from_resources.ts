@@ -65,17 +65,28 @@ async function upsertCategoryNode(
 
   const categoryNodes =
     (schema as any).categoryNodes ?? (schema as any).category_nodes;
-  if (!categoryNodes) return null;
+  const profileTypes =
+    (schema as any).profileTypes ?? (schema as any).profile_types;
 
-  // ✅ parentIdKey est NOT NULL dans ta DB
-  const parentIdKey = parentId === null ? "ROOT" : String(parentId);
+  if (!categoryNodes || !profileTypes) return null;
+
+  const profileRows: Array<{ id: number }> = (await db2
+    .select({ id: profileTypes.id })
+    .from(profileTypes)
+    .where(eq(profileTypes.key, profileType as any))
+    .limit(1)) as any;
+
+  const profileTypeId = profileRows?.[0]?.id ? Number(profileRows[0].id) : null;
+  if (!profileTypeId) return null;
+
+  const parentIdKey = parentId === null ? "__ROOT__" : String(parentId);
 
   const rows: Array<{ id: number }> = (await db2
     .select({ id: categoryNodes.id })
     .from(categoryNodes)
     .where(
       and(
-        eq(categoryNodes.profileType, profileType as any),
+        eq(categoryNodes.profileTypeId, profileTypeId as any),
         eq(categoryNodes.parentIdKey, parentIdKey as any),
         eq(categoryNodes.slug, slug)
       )
@@ -84,9 +95,8 @@ async function upsertCategoryNode(
 
   if (rows.length > 0) return Number(rows[0].id);
 
-  // insert (✅ on renseigne parentIdKey)
   await db2.insert(categoryNodes).values({
-    profileType: profileType as any,
+    profileTypeId: profileTypeId as any,
     parentId: parentId as any,
     parentIdKey: parentIdKey as any,
     slug,
@@ -94,6 +104,7 @@ async function upsertCategoryNode(
     description: null,
     sortOrder: 0,
     isActive: 1,
+    path: "",
   } as any);
 
   const created: Array<{ id: number }> = (await db2
@@ -101,7 +112,7 @@ async function upsertCategoryNode(
     .from(categoryNodes)
     .where(
       and(
-        eq(categoryNodes.profileType, profileType as any),
+        eq(categoryNodes.profileTypeId, profileTypeId as any),
         eq(categoryNodes.parentIdKey, parentIdKey as any),
         eq(categoryNodes.slug, slug)
       )
@@ -110,7 +121,6 @@ async function upsertCategoryNode(
 
   return created.length > 0 ? Number(created[0].id) : null;
 }
-
 async function linkResourceToLeaf(resourceId: number, leafId: number): Promise<boolean> {
   const db2 = await (db as any).getDb?.();
   if (!db2) return false;

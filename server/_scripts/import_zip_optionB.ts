@@ -585,18 +585,41 @@ function buildCategoryPartsForTaxonomy(relParts: string[]): string[] {
     "connecte",
     "premium",
     "internal_ifac",
+    "_a_classer",
+    "a_classer",
+    "a classer",
   ]);
+
   const stopExact = new Set(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"]);
 
-  const middle = relParts.slice(1, -1);
-  const rawCats = middle.filter((p) => {
+  const parts = (relParts || [])
+    .map((p) => String(p || "").trim())
+    .filter(Boolean);
+
+  // On retire :
+  // - le 1er segment = profil
+  // - le dernier segment = nom de fichier
+  const candidateParts =
+    parts.length >= 2 ? parts.slice(1, parts.length - 1) : [];
+
+  const rawCats = candidateParts.filter((p) => {
+    const lower = p.toLowerCase();
+
     if (stopExact.has(p)) return false;
-    if (stopLower.has((p ?? "").toLowerCase())) return false;
+    if (stopLower.has(lower)) return false;
+
     return true;
   });
 
-  // On garde une version "titre" lisible (pas slug), mais nettoyée
-  return rawCats.map((c) => cleanText(String(c || ""))).filter(Boolean);
+  // Nettoyage final robuste
+  return rawCats
+    .map((c) => cleanText(String(c || "")))
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .filter((c) => {
+      const lower = c.toLowerCase();
+      return !stopLower.has(lower) && !stopExact.has(c);
+    });
 }
 
 async function ensureTaxonomyLink(
