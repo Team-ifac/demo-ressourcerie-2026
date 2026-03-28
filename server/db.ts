@@ -822,15 +822,7 @@ export async function getAllResources(filters?: {
 
     const categoryKey = filters.category.trim();
 
-    const allCategoryNodesRows = await db
-      .select({
-        id: categoryNodes.id,
-        profileTypeId: categoryNodes.profileTypeId,
-        slug: categoryNodes.slug,
-        parentId: categoryNodes.parentId,
-        isActive: categoryNodes.isActive,
-      })
-      .from(categoryNodes);
+    const allCategoryNodesRows = await getCachedCategoryNodes();
 
     const nodesById = new Map<number, any>();
     for (const node of allCategoryNodesRows) {
@@ -1337,15 +1329,7 @@ async function buildPaginatedResourceBase(params: {
   if (params?.category) {
     const categoryKey = params.category.trim();
 
-    const allCategoryNodesRows = await db
-      .select({
-        id: categoryNodes.id,
-        profileTypeId: categoryNodes.profileTypeId,
-        slug: categoryNodes.slug,
-        parentId: categoryNodes.parentId,
-        isActive: categoryNodes.isActive,
-      })
-      .from(categoryNodes);
+    const allCategoryNodesRows = await getCachedCategoryNodes();
 
     const nodesById = new Map<number, any>();
     for (const node of allCategoryNodesRows) {
@@ -3692,6 +3676,25 @@ let categoryNodesCache:
     }
   | null = null;
 
+let categoryKeysWithCountsCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    rows: Array<{
+      key: string;
+      count: number;
+    }>;
+  }
+>();
+
+let categoryKeysCache = new Map<
+  string,
+  {
+    expiresAt: number;
+    rows: string[];
+  }
+>();
+
 async function getCachedCategoryNodes() {
   const db = await getDb();
   if (!db) return [];
@@ -3737,10 +3740,23 @@ export async function listCategoryKeys(filters?: {
   const db = await getDb();
   if (!db) return [];
 
-  const conditions: any[] = [];
-
-  // 🔒 La vue admin n’est active QUE si on passe le token interne.
   const isAdminView = filters?.adminView === ADMIN_VIEW_TOKEN;
+
+  const cacheKey = JSON.stringify({
+    includeInternal: !!filters?.includeInternal,
+    includePremium: !!filters?.includePremium,
+    profileType: filters?.profileType ?? null,
+    isAdminView,
+  });
+
+  const now = Date.now();
+  const cached = categoryKeysCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > now) {
+    return cached.rows;
+  }
+
+  const conditions: any[] = [];
 
   // ===== Visibility (legacy) =====
   if (!filters?.includeInternal && !isAdminView) {
@@ -3836,7 +3852,14 @@ export async function listCategoryKeys(filters?: {
     .map((row) => buildPath(Number(row.nodeId)))
     .filter((x): x is string => !!x && x.length > 0);
 
-  return Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
+  const result = Array.from(new Set(keys)).sort((a, b) => a.localeCompare(b));
+
+  categoryKeysCache.set(cacheKey, {
+    expiresAt: now + 60_000,
+    rows: result,
+  });
+
+  return result;
 }
 
 export async function listCategoryKeysWithCounts(filters?: {
@@ -3848,8 +3871,23 @@ export async function listCategoryKeysWithCounts(filters?: {
   const db = await getDb();
   if (!db) return [];
 
-  const conditions: any[] = [];
   const isAdminView = filters?.adminView === ADMIN_VIEW_TOKEN;
+
+  const cacheKey = JSON.stringify({
+    includeInternal: !!filters?.includeInternal,
+    includePremium: !!filters?.includePremium,
+    profileType: filters?.profileType ?? null,
+    isAdminView,
+  });
+
+  const now = Date.now();
+  const cached = categoryKeysWithCountsCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > now) {
+    return cached.rows;
+  }
+
+  const conditions: any[] = [];
 
   if (!filters?.includeInternal && !isAdminView) {
     conditions.push(eq(resources.visibility, "PUBLIC"));
@@ -3910,13 +3948,7 @@ export async function listCategoryKeysWithCounts(filters?: {
 
   const rows = await query;
 
-  const allNodes = await db
-    .select({
-      id: categoryNodes.id,
-      slug: categoryNodes.slug,
-      parentId: categoryNodes.parentId,
-    })
-    .from(categoryNodes);
+  const allNodes = await getCachedCategoryNodes();
 
   const nodesById = new Map<number, any>();
   for (const node of allNodes) {
@@ -3945,9 +3977,16 @@ export async function listCategoryKeysWithCounts(filters?: {
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
-  return Array.from(counts.entries())
+  const result = Array.from(counts.entries())
     .map(([key, count]) => ({ key, count }))
     .sort((a, b) => a.key.localeCompare(b.key));
+
+  categoryKeysWithCountsCache.set(cacheKey, {
+    expiresAt: now + 60_000,
+    rows: result,
+  });
+
+  return result;
 }
 
 export async function rebuildResourceCategoryNodesFromLegacyCategory() {
