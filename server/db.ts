@@ -161,9 +161,10 @@ export async function getAdminPlatformStats(limit: number = 10) {
 
   const totalViewsRows = await db
     .select({
-      total: sql<number>`coalesce(sum(${resources.viewCount}), 0)`,
+      total: sql<number>`count(*)`,
     })
-    .from(resources);
+    .from(resourceHistory)
+    .where(eq(resourceHistory.action, "viewed"));
 
   const totalUsersRows = await db
     .select({
@@ -171,27 +172,84 @@ export async function getAdminPlatformStats(limit: number = 10) {
     })
     .from(users);
 
-  const topViewedRows = await db
-    .select({
-      id: resources.id,
-      title: resources.title,
-      status: resources.status,
-      accessLevel: resources.accessLevel,
-      viewCount: sql<number>`coalesce(${resources.viewCount}, 0)`,
-    })
-    .from(resources)
-    .orderBy(
-      desc(sql`coalesce(${resources.viewCount}, 0)`),
-      desc(resources.createdAt)
-    )
-    .limit(safeLimit);
-
   const totalDownloadsRows = await db
     .select({
       total: sql<number>`count(*)`,
     })
     .from(resourceHistory)
     .where(eq(resourceHistory.action, "downloaded"));
+
+  const neverViewedCountRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resources)
+    .where(
+      sql`NOT EXISTS (
+        SELECT 1
+        FROM resource_history rh
+        WHERE rh.resourceId = ${resources.id}
+          AND rh.action = 'viewed'
+      )`
+    );
+
+  const neverDownloadedCountRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resources)
+    .where(
+      sql`NOT EXISTS (
+        SELECT 1
+        FROM resource_history rh
+        WHERE rh.resourceId = ${resources.id}
+          AND rh.action = 'downloaded'
+      )`
+    );
+
+  const unusedResourcesCountRows = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(resources)
+    .where(
+      sql`NOT EXISTS (
+            SELECT 1
+            FROM resource_history rh
+            WHERE rh.resourceId = ${resources.id}
+              AND rh.action = 'viewed'
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM resource_history rh
+            WHERE rh.resourceId = ${resources.id}
+              AND rh.action = 'downloaded'
+          )`
+    );
+
+    const topViewedRows = await db
+    .select({
+      id: resources.id,
+      title: resources.title,
+      status: resources.status,
+      accessLevel: resources.accessLevel,
+      viewCount: sql<number>`count(*)`,
+    })
+    .from(resourceHistory)
+    .innerJoin(resources, eq(resourceHistory.resourceId, resources.id))
+    .where(eq(resourceHistory.action, "viewed"))
+    .groupBy(
+      resources.id,
+      resources.title,
+      resources.status,
+      resources.accessLevel,
+      resources.createdAt
+    )
+    .orderBy(
+      desc(sql`count(*)`),
+      desc(resources.createdAt)
+    )
+    .limit(safeLimit);
 
   const topDownloadedRows = await db
     .select({
@@ -215,6 +273,53 @@ export async function getAdminPlatformStats(limit: number = 10) {
       desc(sql`count(*)`),
       desc(resources.createdAt)
     )
+    .limit(safeLimit);
+
+  const neverViewedRows = await db
+    .select({
+      id: resources.id,
+      title: resources.title,
+      status: resources.status,
+      accessLevel: resources.accessLevel,
+      viewCount: sql<number>`0`,
+      createdAt: resources.createdAt,
+    })
+    .from(resources)
+    .where(
+      sql`NOT EXISTS (
+        SELECT 1
+        FROM resource_history rh
+        WHERE rh.resourceId = ${resources.id}
+          AND rh.action = 'viewed'
+      )`
+    )
+    .orderBy(desc(resources.createdAt))
+    .limit(safeLimit);
+
+  const neverDownloadedRows = await db
+    .select({
+      id: resources.id,
+      title: resources.title,
+      status: resources.status,
+      accessLevel: resources.accessLevel,
+      viewCount: sql<number>`(
+        SELECT count(*)
+        FROM resource_history rh
+        WHERE rh.resourceId = ${resources.id}
+          AND rh.action = 'viewed'
+      )`,
+      createdAt: resources.createdAt,
+    })
+    .from(resources)
+    .where(
+      sql`NOT EXISTS (
+        SELECT 1
+        FROM resource_history rh
+        WHERE rh.resourceId = ${resources.id}
+          AND rh.action = 'downloaded'
+      )`
+    )
+    .orderBy(desc(resources.createdAt))
     .limit(safeLimit);
 
   const recentDownloadRows = await db
@@ -290,6 +395,9 @@ export async function getAdminPlatformStats(limit: number = 10) {
       pendingResources: Number(pendingResourcesRows?.[0]?.total ?? 0),
       totalViews: Number(totalViewsRows?.[0]?.total ?? 0),
       totalDownloads: Number(totalDownloadsRows?.[0]?.total ?? 0),
+      neverViewedCount: Number(neverViewedCountRows?.[0]?.total ?? 0),
+      neverDownloadedCount: Number(neverDownloadedCountRows?.[0]?.total ?? 0),
+      unusedResourcesCount: Number(unusedResourcesCountRows?.[0]?.total ?? 0),
     },
     topViewed: (topViewedRows || []).map((row: any) => ({
       id: Number(row.id),
@@ -304,6 +412,22 @@ export async function getAdminPlatformStats(limit: number = 10) {
       status: row.status ?? null,
       accessLevel: row.accessLevel ?? null,
       downloadCount: Number(row.downloadCount ?? 0),
+    })),
+    neverViewed: (neverViewedRows || []).map((row: any) => ({
+      id: Number(row.id),
+      title: String(row.title ?? ""),
+      status: row.status ?? null,
+      accessLevel: row.accessLevel ?? null,
+      viewCount: Number(row.viewCount ?? 0),
+      createdAt: row.createdAt ?? null,
+    })),
+    neverDownloaded: (neverDownloadedRows || []).map((row: any) => ({
+      id: Number(row.id),
+      title: String(row.title ?? ""),
+      status: row.status ?? null,
+      accessLevel: row.accessLevel ?? null,
+      viewCount: Number(row.viewCount ?? 0),
+      createdAt: row.createdAt ?? null,
     })),
     recentDownloads,
     recentViews,
@@ -508,6 +632,7 @@ export async function getAllResources(filters?: {
   profileType?: "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
   page?: number;
   limit?: number;
+  includeMeta?: boolean;
 
   // ✅ vue admin = ne pas filtrer par accessLevel/status
   // 🔒 SÉCURITÉ (outil national) : pas de boolean, uniquement token interne
@@ -860,6 +985,11 @@ export async function getAllResources(filters?: {
 
   // Enrichissement : collections + thèmes + historique synthétique
   const resourceIds = Array.from(resourcesMap.keys());
+  const shouldIncludeMeta = filters?.includeMeta !== false;
+
+  if (!shouldIncludeMeta) {
+    return Array.from(resourcesMap.values());
+  }
 
   const collectionsByResourceId = new Map<number, any[]>();
   const themesByResourceId = new Map<number, any[]>();
@@ -1165,10 +1295,7 @@ export async function getAllResources(filters?: {
 
   return resourcesWithMeta;
 }
-export async function getPaginatedResources(filters?: {
-  search?: string;
-  themeIds?: number[];
-  collectionIds?: number[];
+async function buildPaginatedResourceBase(params: {
   type?: string;
   ageRange?: string;
   duration?: string;
@@ -1177,83 +1304,38 @@ export async function getPaginatedResources(filters?: {
   includePremium?: boolean;
   category?: string;
   profileType?: "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
-  page?: number;
-  limit?: number;
+  collectionIds?: number[];
+  themeIds?: number[];
   adminView?: symbol;
 }) {
   const db = await getDb();
   if (!db) {
-    return {
-      items: [],
-      total: 0,
-    };
+    throw new Error("Database not available");
   }
 
-  const page = Math.max(1, filters?.page ?? 1);
-  const limit = Math.max(1, Math.min(100, filters?.limit ?? 24));
-  const hasSearch = !!filters?.search?.trim();
-
-  // =========================================================
-  // Recherche active :
-  // on garde temporairement le moteur actuel (tri intelligent JS),
-  // puis on pagine après scoring.
-  // =========================================================
-  if (hasSearch) {
-    const SEARCH_PREFETCH_LIMIT = 300;
-
-    const allRows = await getAllResources({
-      ...filters,
-      page: 1,
-      limit: SEARCH_PREFETCH_LIMIT + 1,
-    });
-
-    const isSearchCapped = allRows.length > SEARCH_PREFETCH_LIMIT;
-    const cappedRows = isSearchCapped
-      ? allRows.slice(0, SEARCH_PREFETCH_LIMIT)
-      : allRows;
-
-    const total = cappedRows.length;
-    const start = (page - 1) * limit;
-    const items = cappedRows.slice(start, start + limit);
-
-    return {
-      items,
-      total,
-      isSearchCapped,
-      searchPrefetchLimit: SEARCH_PREFETCH_LIMIT,
-    };
-  }
-
-  // =========================================================
-  // Sans recherche :
-  // optimisation pro => COUNT SQL + page SQL
-  // =========================================================
-  const debugSql = process.env.DEBUG_SQL === "true";
-  const isAdminView = filters?.adminView === ADMIN_VIEW_TOKEN;
-
+  const isAdminView = params?.adminView === ADMIN_VIEW_TOKEN;
   const conditions: any[] = [];
 
-  if (filters?.type) {
-    conditions.push(eq(resources.type, filters.type));
+  if (params?.type) {
+    conditions.push(eq(resources.type, params.type));
   }
 
-  if (filters?.ageRange) {
-    conditions.push(eq(resources.ageRange, filters.ageRange));
+  if (params?.ageRange) {
+    conditions.push(eq(resources.ageRange, params.ageRange));
   }
 
-  if (filters?.duration) {
-    conditions.push(eq(resources.duration, filters.duration));
+  if (params?.duration) {
+    conditions.push(eq(resources.duration, params.duration));
   }
 
-  if (filters?.visibility) {
-    conditions.push(eq(resources.visibility, filters.visibility));
-  } else if (!filters?.includeInternal) {
+  if (params?.visibility) {
+    conditions.push(eq(resources.visibility, params.visibility));
+  } else if (!params?.includeInternal) {
     conditions.push(eq(resources.visibility, "PUBLIC"));
   }
 
-  // ===== Category (transition legacy -> taxonomie relationnelle) =====
-  if (filters?.category) {
-    const categoryKey = filters.category.trim();
+  if (params?.category) {
+    const categoryKey = params.category.trim();
 
     const allCategoryNodesRows = await db
       .select({
@@ -1319,16 +1401,15 @@ export async function getPaginatedResources(filters?: {
     }
   }
 
-  // ===== Access level (SAFE-BY-DEFAULT) =====
   if (!isAdminView) {
     const internalOrLegacyAuthenticated = or(
       eq(resources.accessLevel, "INTERNAL_IFAC"),
       eq(resources.accessLevel as any, "AUTHENTICATED" as any)
     );
 
-    if (!filters?.includeInternal) {
+    if (!params?.includeInternal) {
       conditions.push(eq(resources.accessLevel, "PUBLIC"));
-    } else if (filters?.includePremium) {
+    } else if (params?.includePremium) {
       conditions.push(
         or(
           eq(resources.accessLevel, "PUBLIC"),
@@ -1343,7 +1424,6 @@ export async function getPaginatedResources(filters?: {
     }
   }
 
-  // ===== Status (GOUVERNANCE) =====
   if (!isAdminView) {
     conditions.push(eq(resources.status, "approved"));
   }
@@ -1354,8 +1434,8 @@ export async function getPaginatedResources(filters?: {
     })
     .from(resources);
 
-  if (filters?.profileType) {
-    const profileTypeId = await resolveProfileTypeId(filters.profileType);
+  if (params?.profileType) {
+    const profileTypeId = await resolveProfileTypeId(params.profileType);
     countQuery = countQuery.innerJoin(
       resourceProfiles,
       eq(resources.id, resourceProfiles.resourceId)
@@ -1363,25 +1443,100 @@ export async function getPaginatedResources(filters?: {
     conditions.push(eq(resourceProfiles.profileTypeId, profileTypeId));
   }
 
-  if (filters?.collectionIds && filters.collectionIds.length > 0) {
+  if (params?.collectionIds && params.collectionIds.length > 0) {
     countQuery = countQuery.innerJoin(
       collectionResources,
       eq(resources.id, collectionResources.resourceId)
     );
-    conditions.push(inArray(collectionResources.collectionId, filters.collectionIds));
+    conditions.push(inArray(collectionResources.collectionId, params.collectionIds));
   }
 
-  if (filters?.themeIds && filters.themeIds.length > 0) {
+  if (params?.themeIds && params.themeIds.length > 0) {
     countQuery = countQuery.innerJoin(
       resourceThemes,
       eq(resources.id, resourceThemes.resourceId)
     );
-    conditions.push(inArray(resourceThemes.themeId, filters.themeIds));
+    conditions.push(inArray(resourceThemes.themeId, params.themeIds));
   }
 
   if (conditions.length > 0) {
     countQuery = countQuery.where(and(...conditions));
   }
+
+  return {
+    countQuery,
+    isAdminView,
+  };
+}
+export async function getPaginatedResources(filters?: {
+  search?: string;
+  themeIds?: number[];
+  collectionIds?: number[];
+  type?: string;
+  ageRange?: string;
+  duration?: string;
+  visibility?: "PUBLIC" | "INTERNAL_IFAC";
+  includeInternal?: boolean;
+  includePremium?: boolean;
+  category?: string;
+  profileType?: "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+  page?: number;
+  limit?: number;
+  adminView?: symbol;
+}) {
+  const db = await getDb();
+  if (!db) {
+    return {
+      items: [],
+      total: 0,
+    };
+  }
+
+  const page = Math.max(1, filters?.page ?? 1);
+  const limit = Math.max(1, Math.min(100, filters?.limit ?? 24));
+  const hasSearch = !!filters?.search?.trim();
+
+  if (hasSearch) {
+    const SEARCH_PREFETCH_LIMIT = 300;
+
+    const allRows = await getAllResources({
+      ...filters,
+      page: 1,
+      limit: SEARCH_PREFETCH_LIMIT + 1,
+    });
+
+    const isSearchCapped = allRows.length > SEARCH_PREFETCH_LIMIT;
+    const cappedRows = isSearchCapped
+      ? allRows.slice(0, SEARCH_PREFETCH_LIMIT)
+      : allRows;
+
+    const total = cappedRows.length;
+    const start = (page - 1) * limit;
+    const items = cappedRows.slice(start, start + limit);
+
+    return {
+      items,
+      total,
+      isSearchCapped,
+      searchPrefetchLimit: SEARCH_PREFETCH_LIMIT,
+    };
+  }
+
+  const debugSql = process.env.DEBUG_SQL === "true";
+
+  const { countQuery, isAdminView } = await buildPaginatedResourceBase({
+    type: filters?.type,
+    ageRange: filters?.ageRange,
+    duration: filters?.duration,
+    visibility: filters?.visibility,
+    includeInternal: filters?.includeInternal,
+    includePremium: filters?.includePremium,
+    category: filters?.category,
+    profileType: filters?.profileType,
+    collectionIds: filters?.collectionIds,
+    themeIds: filters?.themeIds,
+    adminView: filters?.adminView,
+  });
 
   if (debugSql) {
     console.log(
@@ -1416,6 +1571,7 @@ export async function getPaginatedResources(filters?: {
     ...filters,
     page,
     limit,
+    includeMeta: false,
   });
 
   return {
@@ -1448,8 +1604,38 @@ export async function getRecentResources(limit: number, includeInternal: boolean
   }
 
   const result = await query.orderBy(desc(resources.createdAt)).limit(limit);
+  const rows = result as any[];
 
-  return result;
+  const resourceIds = rows
+    .map((resource: any) => Number(resource?.id))
+    .filter((id: number) => Number.isFinite(id) && id > 0);
+
+  const realViewsByResourceId = new Map<number, number>();
+
+  if (resourceIds.length > 0) {
+    const realViewRows = await db
+      .select({
+        resourceId: resourceHistory.resourceId,
+        count: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(
+        and(
+          inArray(resourceHistory.resourceId, resourceIds),
+          eq(resourceHistory.action, "viewed")
+        )
+      )
+      .groupBy(resourceHistory.resourceId);
+
+    for (const row of realViewRows as any[]) {
+      realViewsByResourceId.set(Number(row.resourceId), Number(row.count ?? 0));
+    }
+  }
+
+  return rows.map((resource: any) => ({
+    ...resource,
+    realViews: realViewsByResourceId.get(Number(resource.id)) ?? 0,
+  }));
 }
 
 export async function getPopularResources(
@@ -1576,7 +1762,38 @@ export async function getHomeEditorialResources(params: {
     }
   }
 
-  return Array.from(deduped.values()).slice(0, limit);
+  const editorialResources = Array.from(deduped.values()).slice(0, limit);
+
+  const resourceIds = editorialResources
+    .map((resource: any) => Number(resource?.id))
+    .filter((id: number) => Number.isFinite(id) && id > 0);
+
+  const realViewsByResourceId = new Map<number, number>();
+
+  if (resourceIds.length > 0) {
+    const realViewRows = await db
+      .select({
+        resourceId: resourceHistory.resourceId,
+        count: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(
+        and(
+          inArray(resourceHistory.resourceId, resourceIds),
+          eq(resourceHistory.action, "viewed")
+        )
+      )
+      .groupBy(resourceHistory.resourceId);
+
+    for (const row of realViewRows as any[]) {
+      realViewsByResourceId.set(Number(row.resourceId), Number(row.count ?? 0));
+    }
+  }
+
+  return editorialResources.map((resource: any) => ({
+    ...resource,
+    realViews: realViewsByResourceId.get(Number(resource.id)) ?? 0,
+  }));
 }
 
 export async function getHomePopularResources(params: {
@@ -1602,7 +1819,36 @@ export async function getHomePopularResources(params: {
     )
     .limit(autoLimit);
 
-  return rows;
+  const resourceIds = (rows as any[])
+    .map((resource: any) => Number(resource?.id))
+    .filter((id: number) => Number.isFinite(id) && id > 0);
+
+  const realViewsByResourceId = new Map<number, number>();
+
+  if (resourceIds.length > 0) {
+    const realViewRows = await db
+      .select({
+        resourceId: resourceHistory.resourceId,
+        count: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(
+        and(
+          inArray(resourceHistory.resourceId, resourceIds),
+          eq(resourceHistory.action, "viewed")
+        )
+      )
+      .groupBy(resourceHistory.resourceId);
+
+    for (const row of realViewRows as any[]) {
+      realViewsByResourceId.set(Number(row.resourceId), Number(row.count ?? 0));
+    }
+  }
+
+  return (rows as any[]).map((resource: any) => ({
+    ...resource,
+    realViews: realViewsByResourceId.get(Number(resource.id)) ?? 0,
+  }));
 }
 
 export async function getResourceById(
@@ -1691,12 +1937,18 @@ export async function createResource(resource: any, themeIds: number[]) {
       ? "PUBLIC"
       : "INTERNAL_IFAC";
 
+  // ✅ On sort categoryNodeIds du payload DB direct
+  const rawCategoryNodeIds = Array.isArray(resource?.categoryNodeIds)
+    ? resource.categoryNodeIds
+    : [];
+
   // ✅ Defaults canoniques côté serveur
   // - statut par défaut : draft
   // - accessLevel par défaut : INTERNAL_IFAC
   // - visibility miroir strict de accessLevel / status
   const safeResource = {
     ...resource,
+    categoryNodeIds: undefined,
     status: rawStatus,
     accessLevel:
       rawStatus !== "approved" && canonicalAccessLevel === "PUBLIC"
@@ -1723,6 +1975,13 @@ export async function createResource(resource: any, themeIds: number[]) {
     );
   }
 
+  // ✅ Taxonomie relationnelle : branchement réel en base
+  if (rawCategoryNodeIds.length > 0) {
+    await setResourceCategoryNodeIds(resourceId, rawCategoryNodeIds);
+  } else {
+    await setResourceCategoryNodeIds(resourceId, []);
+  }
+
   return resourceId;
 }
 
@@ -1742,6 +2001,16 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   //   - INTERNAL_IFAC/PREMIUM -> INTERNAL_IFAC
   // =========================================================
   const patch: any = { ...(resource as any) };
+
+  // ✅ On sort categoryNodeIds du patch DB direct
+  const rawCategoryNodeIds =
+    (patch as any).categoryNodeIds !== undefined
+      ? (Array.isArray((patch as any).categoryNodeIds) ? (patch as any).categoryNodeIds : [])
+      : undefined;
+
+  if ((patch as any).categoryNodeIds !== undefined) {
+    delete (patch as any).categoryNodeIds;
+  }
 
   // 🔒 On lit l’info d’actor AVANT de supprimer le champ technique
   const actorRole = String((patch as any)?._actorRole ?? "").toLowerCase();
@@ -1765,13 +2034,10 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   const statutDemande =
     statutDemandeBrut !== undefined ? String(statutDemandeBrut).toLowerCase() : undefined;
 
-  // ✅ IMPORTANT: on retire les champs techniques AVANT toute logique métier
-  const patchKeysForLogic = Object.keys(patch).filter((k) => k !== "_actorRole");
+  const patchKeysForLogic = Object.keys(patch);
 
-  // Vrai si on modifie au moins un champ autre que "status"
   const modificationAutreQueStatut = patchKeysForLogic.some((cle) => cle !== "status");
 
-  // Vrai si on a demandé explicitement un changement de statut (et pas juste "status" remis tel quel)
   const changementStatutExplicite =
     statutDemande !== undefined && statutDemande !== statutActuel;
 
@@ -1783,7 +2049,6 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
     patch.status = "pending";
   }
 
-  // ✅ Normalisation canonique : l'ancien label "AUTHENTICATED" doit être traité comme "INTERNAL_IFAC"
   const rawNextAccessLevel = String(
     patch?.accessLevel ?? current?.accessLevel ?? "PUBLIC"
   ).toUpperCase();
@@ -1791,8 +2056,6 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   const nextAccessLevel =
     rawNextAccessLevel === "AUTHENTICATED" ? "INTERNAL_IFAC" : rawNextAccessLevel;
 
-  // ✅ Si la ressource en base est encore en legacy AUTHENTICATED et que l'appel ne touche pas accessLevel,
-  // on en profite pour la "réparer" automatiquement (évite les violations de contrainte).
   const currentAccessLevelUpper = String(current?.accessLevel ?? "").toUpperCase();
   if ((patch as any).accessLevel === undefined && currentAccessLevelUpper === "AUTHENTICATED") {
     (patch as any).accessLevel = "INTERNAL_IFAC";
@@ -1804,12 +2067,10 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   const hasVisibilityInPatch = patch.visibility !== undefined;
   const hasAccessLevelInPatch = patch.accessLevel !== undefined;
 
-  // 1) Si accessLevel change et visibility n'est pas fourni => on complète automatiquement
   if (hasAccessLevelInPatch && !hasVisibilityInPatch) {
     patch.visibility = canonicalVisibility;
   }
 
-  // 2) Si visibility est fourni mais incohérent avec accessLevel final => on force + warning
   if (hasVisibilityInPatch) {
     const requestedVisibility = String(patch.visibility ?? "").toUpperCase();
     if (requestedVisibility !== canonicalVisibility) {
@@ -1827,21 +2088,8 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   }
 
   // =========================================================
-  // ✅ Blindage DB (Pilier 10) : interdit draft + PUBLIC
-  // On valide sur l'état FINAL (patch + existant + garde-fou)
-  // =========================================================
-  // =========================================================
   // 🔐 PILIER 4 — Verrouillage des transitions de statut
-  // Transitions autorisées :
-  // draft -> pending
-  // pending -> approved
-  // pending -> rejected
-  // rejected -> draft
   // =========================================================
-
-  // ✅ Option 2 (validée) : Admin tout-puissant
-  // - Si l'update vient d'un admin, on autorise toutes les transitions.
-  // - Sinon, on garde le verrouillage strict.
   const isAdmin = isAdminActor;
 
   const previousStatusStrict = String(current?.status ?? "draft").toLowerCase();
@@ -1850,7 +2098,7 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
   const allowedTransitions: Record<string, string[]> = {
     draft: ["pending"],
     pending: ["approved", "rejected"],
-    approved: ["pending"], // modification automatique déjà gérée plus haut
+    approved: ["pending"],
     rejected: ["draft"],
   };
 
@@ -1869,16 +2117,10 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
     }
   }
 
-
   const nextVisibility = String(patch?.visibility ?? current?.visibility ?? "PUBLIC").toUpperCase();
 
   // =========================================================
   // 🔧 COHÉRENCE DB (CRITIQUE)
-  // Règle produit + contrainte DB :
-  // - Tant que la ressource n’est pas "approved", elle ne peut PAS être publique.
-  //   => accessLevel ≠ PUBLIC ET visibility = INTERNAL_IFAC
-  // - Quand elle est "approved", visibility doit miroir strict de accessLevel
-  //   => PUBLIC -> PUBLIC, INTERNAL_IFAC/PREMIUM -> INTERNAL_IFAC
   // =========================================================
   const finalAccessLevelUpper = String(
     patch?.accessLevel ?? current?.accessLevel ?? "PUBLIC"
@@ -1890,17 +2132,21 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
       : finalAccessLevelUpper;
 
   if (nextStatus !== "approved") {
-    // Non publié => jamais public (sinon on casse la contrainte chk_resources_visibility_matches_accessLevel)
     if (finalAccessLevel === "PUBLIC") {
       patch.accessLevel = "INTERNAL_IFAC";
     }
     patch.visibility = "INTERNAL_IFAC";
   } else {
-    // Publié => miroir strict
     patch.visibility = finalAccessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
   }
 
   await db.update(resources).set(patch).where(eq(resources.id, id));
+
+  // ✅ Taxonomie relationnelle : branchement réel en base
+  if (rawCategoryNodeIds !== undefined) {
+    await setResourceCategoryNodeIds(id, rawCategoryNodeIds);
+  }
+
   // =========================================================
   // 🧾 PILIER 4 — Journalisation automatique des changements de statut
   // =========================================================
@@ -1911,7 +2157,7 @@ export async function updateResource(id: number, resource: Partial<any>, themeId
     try {
       await addResourceHistory({
         resourceId: id,
-        userId: null, // on améliorera plus tard avec l'actor réel
+        userId: null,
         action: "STATUS_CHANGE",
         changes: JSON.stringify({
           from: previousStatus,
@@ -2839,6 +3085,91 @@ export async function updateResourceCategories(
   }
 }
 
+export async function setResourceCategoryNodeIds(
+  resourceId: number,
+  categoryNodeIds: number[]
+): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const cleanedIds = Array.from(
+    new Set(
+      (categoryNodeIds ?? [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    )
+  );
+
+  await db
+    .delete(resourceCategoryNodes)
+    .where(eq(resourceCategoryNodes.resourceId, resourceId));
+
+  if (cleanedIds.length === 0) {
+    await updateResourceCategories(resourceId, null);
+    return;
+  }
+
+  const rows = await db
+    .select({
+      id: categoryNodes.id,
+      slug: categoryNodes.slug,
+      parentId: categoryNodes.parentId,
+    })
+    .from(categoryNodes)
+    .where(inArray(categoryNodes.id, cleanedIds));
+
+  const nodesById = new Map<number, any>();
+  for (const row of rows) {
+    nodesById.set(Number(row.id), row);
+  }
+
+  const buildPath = (nodeId: number): string | null => {
+    const parts: string[] = [];
+    let current = nodesById.get(nodeId);
+
+    while (current) {
+      parts.unshift(String(current.slug ?? "").trim());
+      if (current.parentId == null) break;
+      current = nodesById.get(Number(current.parentId));
+    }
+
+    const safeParts = parts.filter(Boolean);
+    if (safeParts.length === 0) return null;
+
+    return safeParts.join("/");
+  };
+
+  await db.insert(resourceCategoryNodes).values(
+    cleanedIds.map((categoryNodeId) => ({
+      resourceId,
+      categoryNodeId,
+    }))
+  );
+
+  const firstPath = buildPath(cleanedIds[0]) ?? null;
+  await updateResourceCategories(resourceId, firstPath);
+}
+
+export async function getResourceCategoryNodeIds(
+  resourceId: number
+): Promise<number[]> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const rows = await db
+    .select({
+      categoryNodeId: resourceCategoryNodes.categoryNodeId,
+    })
+    .from(resourceCategoryNodes)
+    .where(eq(resourceCategoryNodes.resourceId, resourceId));
+
+  return rows.map((row) => Number(row.categoryNodeId));
+}
+
 
 // ============ PROFILE HELPERS ============
 
@@ -3348,6 +3679,52 @@ export async function getResourcesForUser(
   return resourcesWithCollections;
 }
 
+let categoryNodesCache:
+  | {
+      expiresAt: number;
+      rows: Array<{
+        id: number;
+        profileTypeId: number;
+        slug: string;
+        parentId: number | null;
+        isActive: number;
+      }>;
+    }
+  | null = null;
+
+async function getCachedCategoryNodes() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const now = Date.now();
+  if (categoryNodesCache && categoryNodesCache.expiresAt > now) {
+    return categoryNodesCache.rows;
+  }
+
+  const rows = await db
+    .select({
+      id: categoryNodes.id,
+      profileTypeId: categoryNodes.profileTypeId,
+      slug: categoryNodes.slug,
+      parentId: categoryNodes.parentId,
+      isActive: categoryNodes.isActive,
+    })
+    .from(categoryNodes);
+
+  categoryNodesCache = {
+    expiresAt: now + 60_000,
+    rows: rows as Array<{
+      id: number;
+      profileTypeId: number;
+      slug: string;
+      parentId: number | null;
+      isActive: number;
+    }>,
+  };
+
+  return categoryNodesCache.rows;
+}
+
 export async function listCategoryKeys(filters?: {
   includeInternal?: boolean;
   includePremium?: boolean;
@@ -3434,15 +3811,7 @@ export async function listCategoryKeys(filters?: {
   const rows = await query;
 
   // On recharge tous les category_nodes nécessaires pour reconstruire les chemins complets
-  const allNodes = await db
-    .select({
-      id: categoryNodes.id,
-      profileTypeId: categoryNodes.profileTypeId,
-      slug: categoryNodes.slug,
-      parentId: categoryNodes.parentId,
-      isActive: categoryNodes.isActive,
-    })
-    .from(categoryNodes);
+  const allNodes = await getCachedCategoryNodes();
 
   const nodesById = new Map<number, any>();
   for (const node of allNodes) {
