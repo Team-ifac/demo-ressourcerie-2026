@@ -272,8 +272,8 @@ export default function AdminCategories() {
       <div>
         <h1 className="text-2xl font-bold">Taxonomie (category_nodes)</h1>
         <p className="text-sm opacity-70">
-          Vue arborescente par profil. Ici on gère les catégories (structure). La visibilité
-          PUBLIC/AUTHENTICATED/PREMIUM est ailleurs.
+          Vue arborescente par profil. Ici on gère les catégories (structure). La gestion des accès
+          Public / Connectés / Premium se fait ailleurs.
         </p>
       </div>
 

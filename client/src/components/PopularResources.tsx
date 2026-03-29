@@ -69,7 +69,7 @@ export function PopularResources({ limit = 6 }: { limit?: number }) {
 
                     <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1 text-white text-xs font-medium">
                       <Eye className="w-3 h-3" />
-                      {Number(resource.viewCount ?? 0)}
+                      {Number(resource.realViews ?? 0)}
                     </div>
                   </div>
 
@@ -108,7 +108,7 @@ export function PopularResources({ limit = 6 }: { limit?: number }) {
 
                       <span className="flex items-center gap-1 font-medium">
                         <Eye className="w-3 h-3" />
-                        {Number(resource.viewCount ?? 0)} vue{Number(resource.viewCount ?? 0) > 1 ? "s" : ""}
+                        {Number(resource.realViews ?? 0)} vue{Number(resource.realViews ?? 0) > 1 ? "s" : ""}
                       </span>
                     </div>
                   </div>

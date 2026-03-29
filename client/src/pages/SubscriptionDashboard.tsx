@@ -5,18 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
-}
+
 
 export function SubscriptionDashboard() {
   const { user } = useAuth();
   const { data: hasSubscription, isLoading } = (trpc as any).subscription?.hasActiveSubscription?.useQuery?.() || { data: false, isLoading: false };
-  const createCheckoutMutation = (trpc as any).subscription?.createCheckout?.useMutation?.() || { mutate: () => {} };
+  const createCheckoutMutation = (trpc as any).subscription?.createCheckout?.useMutation?.() || { mutate: () => {}, isPending: false };
+
+  const getAppOrigin = () => {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+
+    return window.location.origin;
+  };
 
   if (!user) {
     return (
@@ -59,7 +61,7 @@ export function SubscriptionDashboard() {
             {hasSubscription ? (
               <div className="space-y-4">
                 <p className="text-muted-foreground">
-                  Vous avez une adhésion active à la Ressourcerie IFAC.
+                  Vous avez une adhésion active à la Ressourcerie ifac.
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Vous avez accès à toutes les ressources pédagogiques premium.
@@ -70,8 +72,9 @@ export function SubscriptionDashboard() {
                 <p className="text-muted-foreground mb-4">Vous n'avez pas encore d'adhésion active.</p>
                 <Button
                   onClick={() => {
-                    const successUrl = `${window.location.origin}/gestion-adhesion?success=true`;
-                    const cancelUrl = `${window.location.origin}/gestion-adhesion?canceled=true`;
+                    const origin = getAppOrigin();
+                    const successUrl = `${origin}/gestion-adhesion?success=true`;
+                    const cancelUrl = `${origin}/gestion-adhesion?canceled=true`;
                     createCheckoutMutation.mutate({
                       successUrl,
                       cancelUrl,

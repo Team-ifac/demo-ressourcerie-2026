@@ -12,7 +12,15 @@ interface SearchSuggestion {
   label: string;
 }
 
-export function AdvancedSearch() {
+interface AdvancedSearchProps {
+  compact?: boolean;
+  placeholder?: string;
+}
+
+export function AdvancedSearch({
+  compact = false,
+  placeholder,
+}: AdvancedSearchProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
@@ -20,7 +28,6 @@ export function AdvancedSearch() {
   const searchRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
 
-  // Récupérer les tags, thématiques et catégories réelles pour les suggestions
   const { data: tags } = trpc.tags.list.useQuery();
   const { data: themes } = trpc.themes.list.useQuery();
   const { data: categoryCounts = [] } =
@@ -28,67 +35,74 @@ export function AdvancedSearch() {
 
   const categories = categoryCounts.map((item) => item.key);
 
-  // Générer les suggestions en fonction de la recherche
   useEffect(() => {
-    if (query.length < 2) {
+    const trimmedQuery = query.trim();
+
+    if (trimmedQuery.length < 2) {
       setSuggestions([]);
       return;
     }
 
     const newSuggestions: SearchSuggestion[] = [];
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = trimmedQuery.toLowerCase();
 
-    // Ajouter la recherche par mot-clé
     newSuggestions.push({
       type: "keyword",
-      value: query,
-      label: `Rechercher "${query}"`,
+      value: trimmedQuery,
+      label: `Rechercher "${trimmedQuery}"`,
     });
 
-    // Suggestions de tags
-    if (tags) {
-      tags
-        .filter((tag) => tag.name.toLowerCase().includes(lowerQuery))
+    // IMPORTANT :
+    // Les suggestions "métier" (tag, thème, catégorie) ne doivent pas
+    // apparaître trop tôt, sinon une simple saisie partielle comme "ac"
+    // envoie vers un filtre peu compréhensible.
+    if (trimmedQuery.length >= 3) {
+      if (tags) {
+        tags
+          .filter((tag) => tag.name.toLowerCase().includes(lowerQuery))
+          .slice(0, 3)
+          .forEach((tag) => {
+            newSuggestions.push({
+              type: "tag",
+              value: tag.slug,
+              label: `Tag : ${tag.name}`,
+            });
+          });
+      }
+
+      if (themes) {
+        themes
+          .filter((theme) => theme.name.toLowerCase().includes(lowerQuery))
+          .slice(0, 3)
+          .forEach((theme) => {
+            newSuggestions.push({
+              type: "theme",
+              value: theme.slug,
+              label: `Thématique : ${theme.name}`,
+            });
+          });
+      }
+
+      categories
+        .filter((cat) => cat.toLowerCase().includes(lowerQuery))
         .slice(0, 3)
-        .forEach((tag) => {
+        .forEach((cat) => {
           newSuggestions.push({
-            type: "tag",
-            value: tag.slug,
-            label: tag.name,
+            type: "category",
+            value: cat,
+            label: `Catégorie : ${cat
+              .split("/")
+              .map((part) =>
+                part.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+              )
+              .join(" / ")}`,
           });
         });
     }
-
-    // Suggestions de thématiques
-    if (themes) {
-      themes
-        .filter((theme) => theme.name.toLowerCase().includes(lowerQuery))
-        .slice(0, 3)
-        .forEach((theme) => {
-          newSuggestions.push({
-            type: "theme",
-            value: theme.slug,
-            label: theme.name,
-          });
-        });
-    }
-
-    // Suggestions de catégories
-    categories
-      .filter((cat) => cat.toLowerCase().includes(lowerQuery))
-      .slice(0, 3)
-      .forEach((cat) => {
-        newSuggestions.push({
-          type: "category",
-          value: cat,
-          label: cat,
-        });
-      });
 
     setSuggestions(newSuggestions);
-  }, [query, tags, themes]);
+  }, [query, tags, themes, categories]);
 
-  // Fermer les suggestions quand on clique à l'extérieur
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -100,24 +114,22 @@ export function AdvancedSearch() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelectSuggestion = (suggestion: SearchSuggestion) => {
-    // Éviter les doublons
-    if (!selectedFilters.some((f) => f.value === suggestion.value && f.type === suggestion.type)) {
-      setSelectedFilters([...selectedFilters, suggestion]);
-    }
-    setQuery("");
-    setIsOpen(false);
-  };
-
-  const handleRemoveFilter = (filter: SearchSuggestion) => {
-    setSelectedFilters(selectedFilters.filter((f) => f !== filter));
-  };
-
-  const handleSearch = () => {
-    if (selectedFilters.length === 0 && query.length === 0) return;
-
-    // Construire l'URL de recherche avec les paramètres
+  const buildSearchUrl = (suggestion?: SearchSuggestion) => {
     const params = new URLSearchParams();
+
+    if (suggestion) {
+      if (suggestion.type === "keyword") {
+        params.append("q", suggestion.value);
+      } else if (suggestion.type === "tag") {
+        params.append("tag", suggestion.value);
+      } else if (suggestion.type === "theme") {
+        params.append("theme", suggestion.value);
+      } else if (suggestion.type === "category") {
+        params.append("categorie", suggestion.value);
+      }
+
+      return `/resources?${params.toString()}`;
+    }
 
     selectedFilters.forEach((filter) => {
       if (filter.type === "keyword") {
@@ -131,16 +143,45 @@ export function AdvancedSearch() {
       }
     });
 
-    // Ajouter la recherche en cours si elle n'est pas vide
     if (query.length > 0) {
       params.append("q", query);
     }
 
-    setLocation(`/resources?${params.toString()}`);
+    return `/resources?${params.toString()}`;
+  };
+
+  const navigateToSearch = (suggestion?: SearchSuggestion) => {
+    setIsOpen(false);
+    setLocation(buildSearchUrl(suggestion));
+  };
+
+  const handleSelectSuggestion = (suggestion: SearchSuggestion) => {
+    if (compact) {
+      navigateToSearch(suggestion);
+      return;
+    }
+
+    if (!selectedFilters.some((f) => f.value === suggestion.value && f.type === suggestion.type)) {
+      setSelectedFilters([...selectedFilters, suggestion]);
+    }
+
+    setQuery("");
+    setIsOpen(false);
+  };
+
+  const handleRemoveFilter = (filter: SearchSuggestion) => {
+    setSelectedFilters(selectedFilters.filter((f) => f !== filter));
+  };
+
+  const handleSearch = () => {
+    if (selectedFilters.length === 0 && query.length === 0) return;
+    navigateToSearch();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
+      e.preventDefault();
+
       if (suggestions.length > 0 && isOpen) {
         handleSelectSuggestion(suggestions[0]);
       } else {
@@ -175,10 +216,18 @@ export function AdvancedSearch() {
     }
   };
 
+  const effectivePlaceholder = placeholder
+    ? placeholder
+    : compact
+    ? "Rechercher..."
+    : "Rechercher par mots-clés, tags, thématiques...";
+
   return (
-    <div ref={searchRef} className="relative w-full max-w-2xl">
-      {/* Filtres sélectionnés */}
-      {selectedFilters.length > 0 && (
+    <div
+      ref={searchRef}
+      className={compact ? "relative w-full max-w-sm" : "relative w-full max-w-2xl"}
+    >
+      {!compact && selectedFilters.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedFilters.map((filter, index) => (
             <Badge
@@ -191,6 +240,7 @@ export function AdvancedSearch() {
               <button
                 onClick={() => handleRemoveFilter(filter)}
                 className="ml-1 hover:bg-background/20 rounded-full p-0.5"
+                type="button"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -199,13 +249,12 @@ export function AdvancedSearch() {
         </div>
       )}
 
-      {/* Barre de recherche */}
-      <div className="flex gap-2">
+      <div className={compact ? "relative" : "flex gap-2"}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Rechercher par mots-clés, tags, thématiques..."
+            placeholder={effectivePlaceholder}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -216,7 +265,6 @@ export function AdvancedSearch() {
             className="pl-10"
           />
 
-          {/* Suggestions */}
           {isOpen && suggestions.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
               {suggestions.map((suggestion, index) => (
@@ -224,6 +272,7 @@ export function AdvancedSearch() {
                   key={`${suggestion.type}-${suggestion.value}-${index}`}
                   onClick={() => handleSelectSuggestion(suggestion)}
                   className="w-full px-4 py-2 text-left hover:bg-accent flex items-center gap-2 border-b last:border-b-0"
+                  type="button"
                 >
                   {getIcon(suggestion.type)}
                   <span className="flex-1">{suggestion.label}</span>
@@ -239,10 +288,12 @@ export function AdvancedSearch() {
           )}
         </div>
 
-        <Button onClick={handleSearch} className="shrink-0">
-          <Search className="h-4 w-4 mr-2" />
-          Rechercher
-        </Button>
+        {!compact && (
+          <Button onClick={handleSearch} className="shrink-0" type="button">
+            <Search className="h-4 w-4 mr-2" />
+            Rechercher
+          </Button>
+        )}
       </div>
     </div>
   );

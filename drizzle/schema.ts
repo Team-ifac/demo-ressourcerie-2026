@@ -41,15 +41,22 @@ export const collectionProfiles = mysqlTable(
   ]
 );
 
-export const collectionResources = mysqlTable("collection_resources", {
-  collectionId: int()
-    .notNull()
-    .references(() => collections.id, { onDelete: "cascade" }),
-  resourceId: int()
-    .notNull()
-    .references(() => resources.id, { onDelete: "cascade" }),
-  addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-});
+export const collectionResources = mysqlTable(
+  "collection_resources",
+  {
+    collectionId: int()
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    resourceId: int()
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    addedAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.collectionId, table.resourceId] }),
+    index("idx_collection_resources_resource_id").on(table.resourceId),
+  ]
+);
 
 export const collections = mysqlTable("collections", {
   id: int().primaryKey().autoincrement().notNull(),
@@ -120,16 +127,28 @@ export const formateurs = mysqlTable(
   (table) => [index("email").on(table.email)]
 );
 
-export const resourceHistory = mysqlTable("resource_history", {
-  id: int().primaryKey().autoincrement().notNull(),
-  resourceId: int()
-    .notNull()
-    .references(() => resources.id, { onDelete: "cascade" }),
-  userId: int().notNull(),
-  action: varchar({ length: 50 }).notNull(),
-  changes: text(),
-  createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-});
+export const resourceHistory = mysqlTable(
+  "resource_history",
+  {
+    id: int().primaryKey().autoincrement().notNull(),
+    resourceId: int()
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    userId: int().notNull(),
+    action: varchar({ length: 50 }).notNull(),
+    changes: text(),
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_resource_history_resource_id").on(table.resourceId),
+    index("idx_resource_history_action").on(table.action),
+    index("idx_resource_history_created_at").on(table.createdAt),
+    index("idx_resource_history_resource_created_at").on(
+      table.resourceId,
+      table.createdAt
+    ),
+  ]
+);
 
 export const importHistory = mysqlTable(
   "import_history",
@@ -191,44 +210,68 @@ export const resourceTags = mysqlTable("resource_tags", {
   tagId: int().notNull(),
 });
 
-export const resourceThemes = mysqlTable("resource_themes", {
-  resourceId: int()
-    .notNull()
-    .references(() => resources.id, { onDelete: "cascade" }),
-  themeId: int()
-    .notNull()
-    .references(() => themes.id, { onDelete: "cascade" }),
-});
+export const resourceThemes = mysqlTable(
+  "resource_themes",
+  {
+    resourceId: int()
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    themeId: int()
+      .notNull()
+      .references(() => themes.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.resourceId, table.themeId] }),
+    index("idx_resource_themes_theme_id").on(table.themeId),
+  ]
+);
 
-export const resources = mysqlTable("resources", {
-  id: int().primaryKey().autoincrement().notNull(),
-  title: varchar({ length: 500 }).notNull(),
-  summary: text().notNull(),
-  content: text().notNull(),
-  type: varchar({ length: 100 }).notNull(),
-  ageRange: varchar({ length: 100 }),
-  duration: varchar({ length: 100 }),
-  level: varchar({ length: 100 }),
-  prepTime: varchar({ length: 100 }),
-  visibility: mysqlEnum(["PUBLIC", "INTERNAL_IFAC"]).default("PUBLIC").notNull(),
+export const resources = mysqlTable(
+  "resources",
+  {
+    id: int().primaryKey().autoincrement().notNull(),
+    title: varchar({ length: 500 }).notNull(),
+    summary: text().notNull(),
+    content: text().notNull(),
+    type: varchar({ length: 100 }).notNull(),
+    ageRange: varchar({ length: 100 }),
+    duration: varchar({ length: 100 }),
+    level: varchar({ length: 100 }),
+    prepTime: varchar({ length: 100 }),
+    visibility: mysqlEnum(["PUBLIC", "INTERNAL_IFAC"]).default("PUBLIC").notNull(),
 
-  thumbnailUrl: text(),
-  thumbnailKey: varchar({ length: 512 }),
+    thumbnailUrl: text(),
+    thumbnailKey: varchar({ length: 512 }),
 
-  fileUrl: text(),
-  storageKey: varchar({ length: 512 }),
+    fileUrl: text(),
+    storageKey: varchar({ length: 512 }),
 
-  createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
-  updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
-  category: text(),
-  status: mysqlEnum(["draft", "pending", "approved", "rejected"])
-  .default("draft")
-  .notNull(),
-  viewCount: int().default(0).notNull(),
-  accessLevel: mysqlEnum(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"])
-    .default("PUBLIC")
-    .notNull(),
-});
+    createdAt: timestamp({ mode: "string" }).defaultNow().notNull(),
+    updatedAt: timestamp({ mode: "string" }).defaultNow().onUpdateNow().notNull(),
+    category: text(),
+    status: mysqlEnum(["draft", "pending", "approved", "rejected"])
+      .default("draft")
+      .notNull(),
+    viewCount: int().default(0).notNull(),
+    accessLevel: mysqlEnum(["PUBLIC", "INTERNAL_IFAC", "PREMIUM"])
+      .default("PUBLIC")
+      .notNull(),
+  },
+  (table) => [
+    index("idx_resources_status").on(table.status),
+    index("idx_resources_access_level").on(table.accessLevel),
+    index("idx_resources_visibility").on(table.visibility),
+    index("idx_resources_type").on(table.type),
+    index("idx_resources_created_at").on(table.createdAt),
+    index("idx_resources_updated_at").on(table.updatedAt),
+    index("idx_resources_view_count").on(table.viewCount),
+    index("idx_resources_status_access_visibility").on(
+      table.status,
+      table.accessLevel,
+      table.visibility
+    ),
+  ]
+);
 
 export const subscriptions = mysqlTable(
   "subscriptions",
@@ -454,5 +497,6 @@ export const resourceCategoryNodes = mysqlTable(
   (table) => [
     primaryKey({ columns: [table.resourceId, table.categoryNodeId] }),
     index("idx_rcn_category").on(table.categoryNodeId),
+    index("idx_rcn_resource").on(table.resourceId),
   ]
 );

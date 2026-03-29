@@ -222,6 +222,72 @@ function tryGenerateOfficePreviewPdf(
     return { previewPdfPath: null, written: false };
   }
 }
+function getImportFileFamily(filePath: string):
+  | "pdf"
+  | "presentation"
+  | "spreadsheet"
+  | "document"
+  | "archive"
+  | "audio"
+  | "video"
+  | "image"
+  | "other" {
+  const ext = getFileExtensionLower(filePath);
+
+  if (ext === ".pdf") return "pdf";
+
+  if ([".ppt", ".pptx", ".pps", ".ppsx", ".odp", ".key"].includes(ext)) {
+    return "presentation";
+  }
+
+  if ([".xls", ".xlsx", ".xlsm", ".xlsb", ".csv", ".ods", ".tsv"].includes(ext)) {
+    return "spreadsheet";
+  }
+
+  if ([".doc", ".docx", ".docm", ".odt", ".rtf", ".txt", ".md"].includes(ext)) {
+    return "document";
+  }
+
+  if ([".zip", ".rar", ".7z", ".tar", ".gz"].includes(ext)) {
+    return "archive";
+  }
+
+  if ([".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"].includes(ext)) {
+    return "audio";
+  }
+
+  if ([".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v"].includes(ext)) {
+    return "video";
+  }
+
+  if ([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".bmp", ".tif", ".tiff", ".heic"].includes(ext)) {
+    return "image";
+  }
+
+  return "other";
+}
+
+function summarizeFilesByFamily(filePaths: string[]): Record<string, number> {
+  const summary = {
+    pdf: 0,
+    presentation: 0,
+    spreadsheet: 0,
+    document: 0,
+    archive: 0,
+    audio: 0,
+    video: 0,
+    image: 0,
+    other: 0,
+  };
+
+  for (const filePath of filePaths) {
+    const family = getImportFileFamily(filePath);
+    summary[family] += 1;
+  }
+
+  return summary;
+}
+
 function isSupportedImportFile(filePath: string): boolean {
   return SUPPORTED_IMPORT_EXTENSIONS.has(getFileExtensionLower(filePath));
 }
@@ -268,7 +334,14 @@ function normalizeFileName(input: string): string {
 function safeSegment(seg: string): string {
   // On garde le remplacement des slashs par sécurité,
   // puis on applique la normalisation pro.
-  return normalizeFileName((seg ?? "").replace(/\//g, "_"));
+  const normalized = normalizeFileName((seg ?? "").replace(/\//g, "_"));
+
+  // Dé-doublonnage défensif des extensions répétées
+  // Exemples :
+  // - fichier.pdf.pdf  -> fichier.pdf
+  // - tableau.xlsx.xlsx -> tableau.xlsx
+  // - doc.docx.docx -> doc.docx
+  return normalized.replace(/(\.[a-z0-9]+)\1+$/i, "$1");
 }
 
 /** Slug canonique (usage categoryKey) */
@@ -622,6 +695,145 @@ function buildCategoryPartsForTaxonomy(relParts: string[]): string[] {
     });
 }
 
+function buildCategoryPathsForTaxonomy(categoryPartsTitle: string[]): string[] {
+  const parts = categoryPartsTitle.length > 0 ? categoryPartsTitle : ["Autre"];
+  const slugParts = parts.map(slugifySegment).filter(Boolean);
+
+  const paths: string[] = [];
+  let currentPath = "";
+
+  for (const slug of slugParts) {
+    currentPath = currentPath ? `${currentPath}/${slug}` : slug;
+    paths.push(currentPath);
+  }
+
+  return paths;
+}
+
+async function reactivateSeenTaxonomyPathsSafe(
+  seenPathsByProfile: Map<ProfileType, Set<string>>
+): Promise<{ activated: number; syncedProfiles: number }> {
+  const db2 = await (db as any).getDb?.();
+  if (!db2 || seenPathsByProfile.size === 0) {
+    return { activated: 0, syncedProfiles: 0 };
+  }
+
+  const schema = await import("../../drizzle/schema").catch(() =>
+    import("../drizzle/schema" as any)
+  );
+
+  const { eq, inArray } = await import("drizzle-orm");
+
+  const categoryNodes =
+    (schema as any).categoryNodes ?? (schema as any).category_nodes;
+  const profileTypes =
+    (schema as any).profileTypes ?? (schema as any).profile_types;
+
+  if (!categoryNodes || !profileTypes) {
+    return { activated: 0, syncedProfiles: 0 };
+  }
+
+  const profileKeys = Array.from(seenPathsByProfile.keys());
+
+  const profileRows = (await db2
+    .select({
+      id: profileTypes.id,
+      key: profileTypes.key,
+    })
+    .from(profileTypes)) as Array<{ id: number; key: string }>;
+
+  let activated = 0;
+  let syncedProfiles = 0;
+
+  for (const profileKey of profileKeys) {
+    const profileRow = profileRows.find(
+      (row) => String(row.key ?? "") === profileKey
+    );
+
+    if (!profileRow?.id) continue;
+
+    const seenPaths = seenPathsByProfile.get(profileKey) ?? new Set<string>();
+
+    const rows = (await db2
+      .select({
+        id: categoryNodes.id,
+        parentId: categoryNodes.parentId,
+        slug: categoryNodes.slug,
+        isActive: categoryNodes.isActive,
+      })
+      .from(categoryNodes)
+      .where(eq(categoryNodes.profileTypeId, profileRow.id as any))) as Array<{
+      id: number;
+      parentId: number | null;
+      slug: string;
+      isActive: number;
+    }>;
+
+    const nodesById = new Map<
+      number,
+      { id: number; parentId: number | null; slug: string; isActive: number }
+    >();
+    const pathById = new Map<number, string>();
+
+    for (const row of rows) {
+      nodesById.set(Number(row.id), {
+        id: Number(row.id),
+        parentId: row.parentId === null ? null : Number(row.parentId),
+        slug: String(row.slug ?? "").trim(),
+        isActive: Number(row.isActive ?? 0),
+      });
+    }
+
+    const computePath = (nodeId: number): string => {
+      const cached = pathById.get(nodeId);
+      if (cached) return cached;
+
+      const node = nodesById.get(nodeId);
+      if (!node) return "";
+
+      const ownSlug = String(node.slug ?? "").trim();
+      if (!ownSlug) return "";
+
+      const parentPath =
+        node.parentId === null ? "" : computePath(Number(node.parentId));
+
+      const fullPath = parentPath ? `${parentPath}/${ownSlug}` : ownSlug;
+      pathById.set(nodeId, fullPath);
+      return fullPath;
+    };
+
+    const idsToActivate: number[] = [];
+
+    for (const row of rows) {
+      const nodeId = Number(row.id);
+      const fullPath = computePath(nodeId);
+      const shouldBeActive = seenPaths.has(fullPath);
+      const isCurrentlyActive = Number(row.isActive ?? 0) === 1;
+
+      // ✅ SAFE MODE : on réactive ce qui est vu dans l'import
+      if (shouldBeActive && !isCurrentlyActive) {
+        idsToActivate.push(nodeId);
+      }
+
+      // ❌ Désactivation automatique interdite
+      // On ne désactive rien tant qu'on n'a pas un mode explicite et sécurisé
+    }
+
+    if (idsToActivate.length > 0) {
+      await db2
+        .update(categoryNodes)
+        .set({ isActive: 1 } as any)
+        .where(inArray(categoryNodes.id, idsToActivate as any));
+
+      activated += idsToActivate.length;
+    }
+
+    syncedProfiles++;
+  }
+
+  return { activated, syncedProfiles };
+}
+
 async function ensureTaxonomyLink(
   resourceId: number,
   profileType: ProfileType,
@@ -823,6 +1035,10 @@ async function main() {
   // thumbsOnly force la génération même si mode=WRITE et même si tout est "SKIP"
   const thumbsEnabled = (mode === "WRITE" && !noThumbs) || thumbsOnly;
   const officePreviewsEnabled = mode === "WRITE";
+  const taxonomySafeReactivationEnabled =
+    mode === "WRITE" &&
+    !thumbsOnly &&
+    !(max && Number.isFinite(max) && max > 0);
 
   console.log("=== Import Option B (depuis dossier extrait) ===");
   console.log("EXTRACT_ROOT:", EXTRACT_ROOT);
@@ -830,6 +1046,10 @@ async function main() {
   console.log("MODE:", mode);
   if (mode === "AUDIT") console.log("AUDIT_LIMIT:", auditLimit);
   console.log("THUMBS:", thumbsEnabled ? "ENABLED" : "DISABLED");
+  console.log(
+    "TAXONOMY_SAFE_REACTIVATION:",
+    taxonomySafeReactivationEnabled ? "ENABLED" : "DISABLED"
+  );
 
   if (!fs.existsSync(RESSOURCES_ROOT)) {
     console.error("ERREUR: dossier 'ressources' introuvable.");
@@ -858,6 +1078,8 @@ async function main() {
     console.log("THUMBS_ONLY:", "ENABLED");
   }
 
+  const detectedFilesByFamily = summarizeFilesByFamily(importFilesAbs);
+
   if (importFilesAbs.length === 0) {
     console.error("ERREUR: aucun fichier importable détecté dans le dossier extrait.");
     process.exit(1);
@@ -880,6 +1102,7 @@ async function main() {
   let auditWouldUpdate = 0;
 
   const auditDetails: string[] = [];
+  const seenTaxonomyPathsByProfile = new Map<ProfileType, Set<string>>();
 
   for (const absFile of importFilesAbs) {
     try {
@@ -897,6 +1120,17 @@ async function main() {
 
       const categoryPartsForDisk = buildCategoryPartsForDisk(relParts);
       const categoryKey = buildCategoryKey(relParts);
+      const categoryPartsForTaxonomy = buildCategoryPartsForTaxonomy(relParts);
+      const categoryPathsForTaxonomy = buildCategoryPathsForTaxonomy(categoryPartsForTaxonomy);
+
+      if (!seenTaxonomyPathsByProfile.has(profile)) {
+        seenTaxonomyPathsByProfile.set(profile, new Set<string>());
+      }
+
+      const seenPathsForProfile = seenTaxonomyPathsByProfile.get(profile)!;
+      for (const categoryPath of categoryPathsForTaxonomy) {
+        seenPathsForProfile.add(categoryPath);
+      }
 
       const safeFilename = safeSegment(filename);
 
@@ -989,15 +1223,24 @@ async function main() {
         continue;
       }
 
-      // Mode DRY_RUN : affiche seulement
+      // Mode DRY_RUN : simule la logique réelle d'écriture sans rien modifier
       if (mode === "DRY_RUN") {
         if (alreadyInDb) {
-          skipped++;
-          console.log(`⏭️  [SKIP] ${title} -> fileUrl existe déjà`);
+          auditInDb++;
+
+          const same = filesAreIdentical(absFile, destAbs);
+
+          if (!same) {
+            auditWouldUpdate++;
+            console.log(`🔁 [UPDATE] ${title} -> fichier différent, serait remplacé`);
+          } else {
+            skipped++;
+            console.log(`⏭️  [SKIP] ${title} -> inchangé, serait ignoré`);
+          }
         } else {
-          imported++;
+          auditWouldImport++;
           console.log(
-            `✅ [${imported}/${importFilesAbs.length}] ${title} (${profile}, ${accessLevel}, ${status}) -> categoryKey=${categoryKey}`
+            `➕ [NEW] ${title} (${profile}, ${accessLevel}, ${status}) -> categoryKey=${categoryKey}`
           );
         }
         continue;
@@ -1005,12 +1248,15 @@ async function main() {
 
       // Mode WRITE
       if (alreadyInDb) {
+        auditInDb++;
+
         // NOUVEAUTÉ (Solution B) :
         // si le contenu du fichier a changé => on remplace le fichier sur disque
         ensureDir(destDir);
 
         const identical = filesAreIdentical(absFile, destAbs);
         if (!identical) {
+          auditWouldUpdate++;
           fs.copyFileSync(absFile, destAbs);
           updated++;
           console.log(`🔁 [UPDATE] ${title} -> fichier remplacé (fileUrl identique)`);
@@ -1038,6 +1284,30 @@ async function main() {
           }
         } else {
           skipped++;
+
+          // ✅ Même si le PDF est inchangé,
+          // on régénère le thumbnail s'il manque encore.
+          if (isPdfFile(destAbs) && thumbnailUrl) {
+            const expectedThumbAbs = path.join(
+              PROJECT_ROOT,
+              "client",
+              "public",
+              thumbnailUrl.replace(/^\/+/, "")
+            );
+
+            if (!fs.existsSync(expectedThumbAbs)) {
+              const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, {
+                enabled: thumbsEnabled,
+              });
+
+              if (gen.written) {
+                thumbsWritten++;
+                console.log(`🖼️ thumbnail généré (fichier inchangé) pour ${destAbs}`);
+              } else {
+                thumbsSkipped++;
+              }
+            }
+          }
 
           // ✅ Même si le fichier bureautique est inchangé,
           // on régénère le preview PDF s'il manque encore.
@@ -1067,22 +1337,22 @@ async function main() {
 
       // thumbnailUrl / storageKey / canonicalVisibility déjà calculés plus haut
 
-const resourceId = await db.createResource(
-  {
-    title,
-    summary,
-    content: "",
-    type: "document",
-    visibility: canonicalVisibility,
-    accessLevel,
-    status,
-    fileUrl,
-    storageKey,
-    thumbnailUrl,
-    category: categoryKey,
-  } as any,
-  []
-);
+      const resourceId = await db.createResource(
+        {
+          title,
+          summary,
+          content: "",
+          type: "document",
+          visibility: canonicalVisibility,
+          accessLevel,
+          status,
+          fileUrl,
+          storageKey,
+          thumbnailUrl,
+          category: categoryKey,
+        } as any,
+        []
+      );
 
       await db.setResourceProfiles(resourceId, [profile]);
 
@@ -1284,29 +1554,29 @@ const resourceId = await db.createResource(
       }
 
       // ✅ PILIER 3 — branchement taxonomy DB (idempotent)
-      const categoryPartsForTaxonomy = buildCategoryPartsForTaxonomy(relParts);
       await ensureTaxonomyLink(resourceId, profile, categoryPartsForTaxonomy);
 
       // ✅ PILIER 2 béton : génère la vignette canonique si possible
-if (isPdfFile(destAbs)) {
-  const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, {
-    enabled: thumbsEnabled,
-  });
-  if (gen.written) thumbsWritten++;
-  else thumbsSkipped++;
-}
+      if (isPdfFile(destAbs)) {
+        const gen = tryGenerateImportedThumbPng(destAbs, fileUrl, {
+          enabled: thumbsEnabled,
+        });
+        if (gen.written) thumbsWritten++;
+        else thumbsSkipped++;
+      }
 
-// 🆕 PILIER PREVIEW BUREAUTIQUE
-if (isOfficePreviewConvertible(destAbs)) {
-  const preview = tryGenerateOfficePreviewPdf(destAbs, {
-    enabled: officePreviewsEnabled,
-  });
+      // 🆕 PILIER PREVIEW BUREAUTIQUE
+      if (isOfficePreviewConvertible(destAbs)) {
+        const preview = tryGenerateOfficePreviewPdf(destAbs, {
+          enabled: officePreviewsEnabled,
+        });
 
-  if (preview.written) {
-    console.log(`🧾 preview PDF généré pour ${destAbs}`);
-  }
-}
+        if (preview.written) {
+          console.log(`🧾 preview PDF généré pour ${destAbs}`);
+        }
+      }
 
+      auditWouldImport++;
       imported++;
       console.log(
         `✅ [${imported}/${importFilesAbs.length}] ${title} (${profile}, ${accessLevel}, ${status}) -> categoryKey=${categoryKey}`
@@ -1345,6 +1615,17 @@ if (isOfficePreviewConvertible(destAbs)) {
     }
   }
 
+  if (taxonomySafeReactivationEnabled) {
+    const syncResult = await reactivateSeenTaxonomyPathsSafe(
+      seenTaxonomyPathsByProfile
+    );
+
+    console.log("=== TAXONOMY SAFE REACTIVATION ===");
+    console.log("Profils analysés:", syncResult.syncedProfiles);
+    console.log("Catégories réactivées:", syncResult.activated);
+    console.log("Catégories désactivées automatiquement:", 0);
+  }
+
   if (mode === "AUDIT") {
     console.log("=== AUDIT (Option B) : disque vs base (fileUrl) ===");
     for (const line of auditDetails) console.log(line);
@@ -1367,6 +1648,7 @@ if (isOfficePreviewConvertible(destAbs)) {
       ressourcesRoot: RESSOURCES_ROOT,
       detectedFiles: importFilesAbs.length,
       detectedPdfs: importFilesAbs.filter((p) => isPdfFile(p)).length,
+      detectedFilesByFamily,
       inDb: auditInDb,
       wouldImport: auditWouldImport,
       wouldUpdate: auditWouldUpdate,
@@ -1396,9 +1678,60 @@ if (isOfficePreviewConvertible(destAbs)) {
     process.exit(0);
   }
 
+  if (mode === "DRY_RUN") {
+    console.log("=== DRY RUN SUMMARY ===");
+    console.log("Fichiers importables détectés:", importFilesAbs.length);
+    console.log("Déjà en base (fileUrl):", auditInDb);
+    console.log("Nouveaux (seraient importés):", auditWouldImport);
+    console.log("Modifiés (seraient remplacés):", auditWouldUpdate);
+    console.log("Skippés (inchangés):", skipped);
+    console.log("Échecs:", failed);
+
+    try {
+      const outDir = path.join(PROJECT_ROOT, "import_tmp");
+      ensureDir(outDir);
+
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const outPath = path.join(outDir, `import_run_optionB_${stamp}.json`);
+
+      const payload = {
+        extractRoot: EXTRACT_ROOT,
+        ressourcesRoot: RESSOURCES_ROOT,
+        detectedFiles: importFilesAbs.length,
+        detectedPdfs: importFilesAbs.filter((p) => isPdfFile(p)).length,
+        detectedFilesByFamily,
+        mode,
+        inDb: auditInDb,
+        wouldImport: auditWouldImport,
+        wouldUpdate: auditWouldUpdate,
+        imported: 0,
+        updated: 0,
+        skipped,
+        failed,
+        thumbs: {
+          enabled: thumbsEnabled,
+          written: thumbsWritten,
+          skipped: thumbsSkipped,
+        },
+      };
+
+      fs.writeFileSync(outPath, JSON.stringify(payload, null, 2), "utf-8");
+      console.log("IMPORT_RUN_LOG_WRITTEN:", outPath);
+    } catch (e) {
+      console.warn("IMPORT_RUN_LOG_WRITE_FAILED:", (e as any)?.message ?? e);
+    }
+
+    process.exit(failed > 0 ? 1 : 0);
+  }
+
+  console.log("=== WRITE SUMMARY ===");
+  console.log("Fichiers importables détectés:", importFilesAbs.length);
+  console.log("Déjà en base (fileUrl):", auditInDb);
+  console.log("Nouveaux (importés):", auditWouldImport);
+  console.log("Modifiés (remplacés):", auditWouldUpdate);
   console.log("=== FIN IMPORT ===");
   console.log("Importés (nouveaux):", imported);
-  console.log("Mis à jour (PDF remplacés):", updated);
+  console.log("Mis à jour (fichiers remplacés):", updated);
   console.log("Skippés (inchangés):", skipped);
   console.log("Échecs:", failed);
   console.log("Thumbs écrits:", thumbsWritten);
@@ -1417,7 +1750,11 @@ if (isOfficePreviewConvertible(destAbs)) {
       ressourcesRoot: RESSOURCES_ROOT,
       detectedFiles: importFilesAbs.length,
       detectedPdfs: importFilesAbs.filter((p) => isPdfFile(p)).length,
+      detectedFilesByFamily,
       mode,
+      inDb: auditInDb,
+      wouldImport: auditWouldImport,
+      wouldUpdate: auditWouldUpdate,
       imported,
       updated,
       skipped,

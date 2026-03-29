@@ -69,33 +69,253 @@ function normalizeProfileSlug(slug: string | undefined): CanonProfileType | null
   return null;
 }
 
-function humanizeCategoryLabel(slug: string): string {
-  return slug
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (l) => l.toUpperCase());
+function humanizeCategoryLabel(label: string): string {
+  const raw = String(label ?? "").trim();
+  if (!raw) return "";
+
+  const normalized = raw
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const lower = normalized.toLowerCase();
+
+  const words = lower.split(" ").filter(Boolean);
+
+  const formatted = words.map((word, index) => {
+    if (!word) return word;
+
+    if (["de", "des", "du", "et", "en", "la", "le", "les", "aux"].includes(word)) {
+      return index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+    }
+
+    if (word === "ifac") return "ifac";
+    if (word === "bafa") return "BAFA";
+    if (word === "acm") return "ACM";
+    if (word === "co") return "Co";
+
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  });
+
+  let result = formatted.join(" ");
+
+  result = result
+    .replace(/\bD ([AEIOUYaeiouy])/g, "D’$1")
+    .replace(/\bL ([AEIOUYaeiouy])/g, "L’$1")
+    .replace(/\bQu ([AEIOUYaeiouy])/g, "Qu’$1")
+    .replace(/\bC ([AEIOUYaeiouy])/g, "C’$1")
+    .replace(/\bJ ([AEIOUYaeiouy])/g, "J’$1")
+    .replace(/\bN ([AEIOUYaeiouy])/g, "N’$1")
+    .replace(/\bS ([AEIOUYaeiouy])/g, "S’$1")
+    .replace(/\bMenee\b/g, "Menée")
+    .replace(/\bReunion\b/g, "Réunion")
+    .replace(/\bReflexion\b/g, "Réflexion")
+    .replace(/\bGenerale\b/g, "Générale")
+    .replace(/\bRegie\b/g, "Régie")
+    .replace(/\bDifferentes\b/g, "Différentes")
+    .replace(/\bActivites\b/g, "Activités")
+    .replace(/\bActivite\b/g, "Activité")
+    .replace(/\bPedagogique\b/g, "Pédagogique")
+    .replace(/\bPedagogie\b/g, "Pédagogie")
+    .replace(/\bEmotions\b/g, "Émotions")
+    .replace(/\bEtude\b/g, "Étude")
+    .replace(/\bEquipe\b/g, "Équipe")
+    .replace(/\bAnimation\b/g, "Animation");
+
+  return result;
+}
+
+function normalizeDisplayLabel(label: string, fallbackSlug?: string): string {
+  const raw = String(label ?? "").trim();
+
+  if (!raw && fallbackSlug) {
+    return humanizeCategoryLabel(fallbackSlug);
+  }
+
+  const looksTechnical =
+    raw.includes("-") ||
+    raw.includes("_") ||
+    /^[A-Z][a-z]+(?: [A-Z][a-z]+)+$/.test(raw) ||
+    /\bD\b/.test(raw) ||
+    /\bL\b/.test(raw);
+
+  if (looksTechnical) {
+    return humanizeCategoryLabel(raw);
+  }
+
+  return raw;
 }
 
 type GroupCard = {
-  groupKey: string;          // ex: "temps-d-apports-et-de-reflexion"
-  groupLabel: string;        // ex: "Temps D Apports Et De Reflexion" (humanized)
-  sampleSubs: string[];      // ex: ["connaissance-des-publics", "menee-de-jeux"]
+  groupKey: string;
+  groupLabel: string;
+  sampleSubs: string[];
 };
 
 export default function ProfileCategories() {
   const params = useParams();
   const [, navigate] = useLocation();
 
+  type CategoryTreeNode = {
+    id: number;
+    parentId: number | null;
+    parentIdKey: string;
+    slug: string;
+    title: string;
+    description?: string | null;
+    sortOrder: number;
+    isActive: number;
+    children: CategoryTreeNode[];
+  };
+
+  const profileId = normalizeProfileSlug(params.profile);
+  const dbProfileType =
+    profileId && profileId !== "decouvrir" ? profileId : undefined;
+
   // sécurité: page profil => connecté
   const { data: me, isLoading: meLoading } = trpc.auth.me.useQuery();
+
+  const { data: categoryTree = [], isLoading } =
+    trpc.resources.getCategoryTreeByProfile.useQuery(
+      dbProfileType
+        ? { profileType: dbProfileType as "animateur" | "formateur" | "directeur" | "stagiaire_bafa" }
+        : undefined as never,
+      {
+        staleTime: 60_000,
+        enabled: !!dbProfileType && !!me,
+      }
+    );
 
   useEffect(() => {
     if (!meLoading && !me) navigate("/auth/choice");
   }, [meLoading, me, navigate]);
 
+    const groupCards: GroupCard[] = useMemo(() => {
+    const nodes = Array.isArray(categoryTree) ? (categoryTree as CategoryTreeNode[]) : [];
+
+    const collectAllNodes = (input: CategoryTreeNode[]): CategoryTreeNode[] => {
+      const result: CategoryTreeNode[] = [];
+
+      const visit = (node: CategoryTreeNode) => {
+        result.push(node);
+
+        if (Array.isArray(node.children) && node.children.length > 0) {
+          node.children.forEach(visit);
+        }
+      };
+
+      input.forEach(visit);
+      return result;
+    };
+
+    const allNodes = collectAllNodes(nodes);
+
+    const rootCandidates = allNodes.filter((node) => {
+      const slug = String(node.slug ?? "").trim().toLowerCase();
+      const title = String(node.title ?? "").trim().toLowerCase();
+
+      return (
+        Number(node.isActive ?? 0) === 1 &&
+        node.parentId === null &&
+        slug !== "document" &&
+        title !== "document"
+      );
+    });
+
+    const uniqueRoots = Array.from(
+      rootCandidates.reduce((map, node) => {
+        const key = String(node.slug ?? "").trim().toLowerCase();
+        if (!key) return map;
+
+        const existing = map.get(key);
+
+        if (!existing) {
+          map.set(key, node);
+          return map;
+        }
+
+        const existingSort = Number(existing.sortOrder ?? 0);
+        const currentSort = Number(node.sortOrder ?? 0);
+
+        if (currentSort < existingSort) {
+          map.set(key, node);
+          return map;
+        }
+
+        if (currentSort === existingSort && Number(node.id) < Number(existing.id)) {
+          map.set(key, node);
+        }
+
+        return map;
+      }, new Map<string, CategoryTreeNode>())
+      .values()
+    );
+
+    return uniqueRoots
+      .slice()
+      .sort((a, b) => {
+        if ((a.sortOrder ?? 0) !== (b.sortOrder ?? 0)) {
+          return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        }
+        return String(a.title ?? "").localeCompare(String(b.title ?? ""));
+      })
+      .map((node) => {
+        const uniqueChildren = Array.from(
+          (Array.isArray(node.children) ? node.children : []).reduce((map, child) => {
+            const childKey = String(child.slug ?? "").trim().toLowerCase();
+            if (!childKey) return map;
+            if (Number(child.isActive ?? 0) !== 1) return map;
+
+            const existing = map.get(childKey);
+
+            if (!existing) {
+              map.set(childKey, child);
+              return map;
+            }
+
+            const existingSort = Number(existing.sortOrder ?? 0);
+            const currentSort = Number(child.sortOrder ?? 0);
+
+            if (currentSort < existingSort) {
+              map.set(childKey, child);
+              return map;
+            }
+
+            if (currentSort === existingSort && Number(child.id) < Number(existing.id)) {
+              map.set(childKey, child);
+            }
+
+            return map;
+          }, new Map<string, CategoryTreeNode>()).values()
+        );
+
+        return {
+          groupKey: String(node.slug ?? "").trim(),
+          groupLabel:
+            String(node.title ?? "").trim().length > 0
+              ? String(node.title)
+              : humanizeCategoryLabel(String(node.slug ?? "")),
+          sampleSubs: Array.from(uniqueChildren)
+            .slice()
+            .sort((a, b) => {
+              if ((a.sortOrder ?? 0) !== (b.sortOrder ?? 0)) {
+                return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+              }
+              return String(a.title ?? "").localeCompare(String(b.title ?? ""));
+            })
+            .map(
+              (child) =>
+                String(child.title ?? "").trim() ||
+                humanizeCategoryLabel(String(child.slug ?? ""))
+            )
+            .slice(0, 6),
+        };
+      })
+      .filter((card) => !!card.groupKey);
+  }, [categoryTree]);
+
   if (meLoading) return null;
   if (!me) return null;
-
-  const profileId = normalizeProfileSlug(params.profile);
 
   if (!profileId) {
     return (
@@ -106,38 +326,6 @@ export default function ProfileCategories() {
   }
 
   const profileInfo = PROFILE_INFO[profileId];
-
-  // On lit les catégories réelles depuis la base, filtrées par profil.
-  // (Pour "decouvrir", on ne force pas de profil ici : on montre tout.)
-  const dbProfileType = profileId === "decouvrir" ? undefined : (profileId as any);
-
-  const { data: categoryKeys = [], isLoading } = trpc.resources.listCategories.useQuery(
-    dbProfileType ? { profileType: dbProfileType } : undefined,
-    { staleTime: 60_000 }
-  );
-
-  const groupCards: GroupCard[] = useMemo(() => {
-    // categoryKey en base = ex "temps-d-apports-et-de-reflexion/connaissance-des-publics"
-    const map = new Map<string, Set<string>>();
-
-    for (const key of categoryKeys) {
-      if (!key || typeof key !== "string") continue;
-
-      const [group, sub] = key.split("/");
-      if (!group) continue;
-
-      if (!map.has(group)) map.set(group, new Set<string>());
-      if (sub) map.get(group)!.add(sub);
-    }
-
-    return Array.from(map.entries())
-      .map(([group, subs]) => ({
-        groupKey: group,
-        groupLabel: humanizeCategoryLabel(group),
-        sampleSubs: Array.from(subs).sort((a, b) => a.localeCompare(b)).slice(0, 6),
-      }))
-      .sort((a, b) => a.groupLabel.localeCompare(b.groupLabel));
-  }, [categoryKeys]);
 
   return (
     <div className="min-h-screen">
@@ -206,7 +394,7 @@ export default function ProfileCategories() {
           )}
 
           <div className="mt-12 text-center">
-            <Link href="/ressources">
+            <Link href="/resources">
               <button className="text-primary hover:underline">
                 Voir toutes les ressources sans filtre →
               </button>

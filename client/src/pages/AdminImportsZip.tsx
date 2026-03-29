@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,19 @@ type AuditResult = {
   mode: "AUDIT";
   extractRoot: string;
   ressourcesRoot: string;
+  detectedFiles: number;
   detectedPdfs: number;
+  detectedFilesByFamily?: {
+    pdf: number;
+    presentation: number;
+    spreadsheet: number;
+    document: number;
+    archive: number;
+    audio: number;
+    video: number;
+    image: number;
+    other: number;
+  };
   inDb: number;
   wouldImport: number;
   wouldUpdate: number;
@@ -80,8 +92,25 @@ export default function AdminImportsZip() {
   const [history, setHistory] = useState<ImportHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const canRun = useMemo(() => Boolean(file) && !isRunning, [file, isRunning]);
+  const canRun = Boolean(file) && !isRunning;
+
+  async function readApiPayload(resp: Response) {
+    const rawText = await resp.text();
+
+    if (!rawText) return null;
+
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return {
+        ok: false,
+        error: `Réponse non JSON (HTTP ${resp.status})`,
+        details: rawText,
+      };
+    }
+  }
 
   useEffect(() => {
     if (!user || user.role !== "admin") return;
@@ -110,10 +139,16 @@ export default function AdminImportsZip() {
         credentials: "include",
       });
 
-      const payload = await resp.json();
+      const payload = await readApiPayload(resp);
 
       if (!resp.ok) {
-        throw new Error(`Erreur HTTP ${resp.status}`);
+        throw new Error(
+          String(
+            payload && typeof payload === "object" && "error" in payload
+              ? (payload as any).error
+              : `Erreur HTTP ${resp.status}`,
+          ),
+        );
       }
 
       const rows =
@@ -153,13 +188,14 @@ export default function AdminImportsZip() {
 
       const resp = await fetch(`/api/admin/import-zip-optionb${qs}`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/zip",
         },
         body: buf,
       });
 
-      const data = (await resp.json()) as any;
+      const data = (await readApiPayload(resp)) as any;
 
       if (!resp.ok || !data?.ok) {
         setResult({
@@ -187,11 +223,14 @@ export default function AdminImportsZip() {
       });
     } finally {
       setIsRunning(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
   const audit = result?.auditResult ?? null;
-
+  const auditFamilies = audit?.detectedFilesByFamily ?? null;
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1 py-8">
@@ -220,8 +259,9 @@ export default function AdminImportsZip() {
             </CardHeader>
             <CardContent className="space-y-4">
               <input
+                ref={fileInputRef}
                 type="file"
-                accept=".zip,application/zip"
+                accept=".zip,application/zip,application/x-zip-compressed"
                 onChange={(e) => {
                   const f = e.target.files?.[0] ?? null;
                   setFile(f);
@@ -303,7 +343,11 @@ export default function AdminImportsZip() {
               <CardContent className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-lg border p-4">
-                    <div className="text-sm text-muted-foreground">PDFs détectés</div>
+                    <div className="text-sm text-muted-foreground">Fichiers détectés</div>
+                    <div className="text-2xl font-bold">{audit.detectedFiles}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">PDF détectés</div>
                     <div className="text-2xl font-bold">{audit.detectedPdfs}</div>
                   </div>
                   <div className="rounded-lg border p-4">
@@ -311,12 +355,58 @@ export default function AdminImportsZip() {
                     <div className="text-2xl font-bold">{audit.inDb}</div>
                   </div>
                   <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Fichiers à mettre à jour</div>
+                    <div className="text-2xl font-bold">{audit.wouldUpdate}</div>
+                  </div>
+                </div>
+
+                {auditFamilies ? (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Présentations</div>
+                      <div className="text-2xl font-bold">{auditFamilies.presentation}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Tableurs</div>
+                      <div className="text-2xl font-bold">{auditFamilies.spreadsheet}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Documents texte</div>
+                      <div className="text-2xl font-bold">{auditFamilies.document}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Images</div>
+                      <div className="text-2xl font-bold">{auditFamilies.image}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Audio</div>
+                      <div className="text-2xl font-bold">{auditFamilies.audio}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Vidéos</div>
+                      <div className="text-2xl font-bold">{auditFamilies.video}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Archives</div>
+                      <div className="text-2xl font-bold">{auditFamilies.archive}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Autres</div>
+                      <div className="text-2xl font-bold">{auditFamilies.other}</div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+                  <div className="rounded-lg border p-4">
                     <div className="text-sm text-muted-foreground">Nouveaux à importer</div>
                     <div className="text-2xl font-bold">{audit.wouldImport}</div>
                   </div>
                   <div className="rounded-lg border p-4">
-                    <div className="text-sm text-muted-foreground">Fichiers à mettre à jour</div>
-                    <div className="text-2xl font-bold">{audit.wouldUpdate}</div>
+                    <div className="text-sm text-muted-foreground">Détails affichés</div>
+                    <div className="text-2xl font-bold">
+                      {audit.detailsShown} <span className="text-base font-normal text-muted-foreground">/ {audit.detailsTotal}</span>
+                    </div>
                   </div>
                 </div>
 

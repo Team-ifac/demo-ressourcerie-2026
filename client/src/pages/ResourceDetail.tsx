@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+
+import { useEffect } from "react";
 import { useRoute } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -40,11 +41,13 @@ import { getLoginUrl } from "@/const";
 
 export default function ResourceDetail() {
   const [, params] = useRoute("/resources/:id");
-  const resourceId = parseInt(params?.id || "0");
+  const resourceIdRaw = params?.id ?? "0";
+  const resourceId = Number(resourceIdRaw);
+  const hasValidResourceId = Number.isInteger(resourceId) && resourceId > 0;
 
   const { isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
-    const hasRegisteredViewRef = useRef<number | null>(null);
+
   const {
     data: resource,
     isLoading,
@@ -52,7 +55,7 @@ export default function ResourceDetail() {
   } = trpc.resources.getById.useQuery(
     { id: resourceId },
     {
-      enabled: resourceId > 0,
+      enabled: hasValidResourceId,
       retry: false,
       staleTime: 1000 * 60 * 5,
       refetchOnMount: false,
@@ -60,56 +63,10 @@ export default function ResourceDetail() {
       refetchOnReconnect: false,
     }
   );
-  useEffect(() => {
-    if (!resourceId || resourceId <= 0) return;
-    if (!resource) return;
-    if (!resource.canOpen) return;
 
-    const storageKey = `resource-view-counted:v4:${resourceId}`;
-
-    if (hasRegisteredViewRef.current === resourceId) {
-      return;
-    }
-
-    if (sessionStorage.getItem(storageKey) === "1") {
-      hasRegisteredViewRef.current = resourceId;
-      return;
-    }
-
-    hasRegisteredViewRef.current = resourceId;
-    sessionStorage.setItem(storageKey, "pending");
-
-    let cancelled = false;
-
-    const registerView = async () => {
-      try {
-        const response = await fetch(`/api/resources/register-view/${resourceId}`, {
-          method: "POST",
-          credentials: "include",
-        });
-
-        if (!response.ok) {
-          throw new Error("register_view_failed");
-        }
-
-        if (!cancelled) {
-          sessionStorage.setItem(storageKey, "1");
-        }
-      } catch {
-        hasRegisteredViewRef.current = null;
-        sessionStorage.removeItem(storageKey);
-      }
-    };
-
-    registerView();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [resourceId, resource]);
   const { data: favoriteCheck } = trpc.favorites.check.useQuery(
     { resourceId },
-    { enabled: isAuthenticated && resourceId > 0 }
+    { enabled: isAuthenticated && hasValidResourceId }
   );
 
   const addFavoriteMutation = trpc.favorites.add.useMutation({
@@ -146,7 +103,7 @@ export default function ResourceDetail() {
   const previewUrlQuery = trpc.resources.getFileUrl.useQuery(
     { id: resourceId },
     {
-      enabled: resourceId > 0 && !!resource?.hasFile && !!resource?.canOpen,
+      enabled: false,
       retry: false,
     }
   );
@@ -160,8 +117,30 @@ export default function ResourceDetail() {
     }
   );
 
-  const previewUrl = previewUrlQuery.data?.url ?? null;
   const resolvedFileKind = String(resource?.fileKind ?? "").toLowerCase();
+
+  const previewUrl =
+    ["pdf", "image", "video", "audio"].includes(resolvedFileKind)
+      ? `/api/resources/preview/${resourceId}`
+      : previewUrlQuery.data?.url ?? null;
+
+  useEffect(() => {
+    if (!hasValidResourceId) return;
+    if (!resource) return;
+    if (!resource.hasFile) return;
+    if (!resource.canOpen) return;
+    if (!["pdf", "image", "video", "audio"].includes(resolvedFileKind)) return;
+    if (previewUrlQuery.data?.url) return;
+    if (previewUrlQuery.isFetching) return;
+
+    void previewUrlQuery.refetch();
+  }, [
+    hasValidResourceId,
+    resource,
+    resolvedFileKind,
+    previewUrlQuery,
+  ]);
+
 function getActionLabel(fileKind?: string | null, fileExtension?: string | null) {
   const kind = String(fileKind ?? "").toLowerCase();
   const ext = String(fileExtension ?? "").toLowerCase();
@@ -231,6 +210,25 @@ function getActionLabel(fileKind?: string | null, fileExtension?: string | null)
       toast.error("Impossible de récupérer le fichier");
     }
   };
+
+  if (!hasValidResourceId) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <main className="flex-1 py-8">
+          <div className="container">
+            <Card className="py-12">
+              <CardContent className="text-center space-y-2">
+                <p className="text-lg font-medium">Ressource non trouvée</p>
+                <p className="text-muted-foreground">
+                  Cette ressource n&apos;existe pas ou l&apos;URL est invalide.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -391,56 +389,78 @@ function getActionLabel(fileKind?: string | null, fileExtension?: string | null)
                   </CardHeader>
 
                   <CardContent className="space-y-4">
-                    {resolvedFileKind === "pdf" && previewUrl && (
-                      <div className="rounded-lg overflow-hidden border bg-background">
-                        <iframe
-                          src={previewUrl}
-                          title={resource.title}
-                          className="w-full h-[700px]"
-                        />
-                      </div>
-                    )}
-
-                    {resolvedFileKind === "image" && previewUrl && (
-                      <div className="rounded-lg overflow-hidden border bg-background">
-                        <img
-                          src={previewUrl}
-                          alt={resource.title}
-                          className="w-full max-h-[700px] object-contain bg-black/5"
-                        />
-                      </div>
-                    )}
-
-                    {resolvedFileKind === "video" && previewUrl && (
-                      <div className="rounded-lg overflow-hidden border bg-background p-2">
-                        <video
-                          controls
-                          preload="metadata"
-                          className="w-full max-h-[700px] rounded-md bg-black"
-                        >
-                          <source src={previewUrl} />
-                          Votre navigateur ne prend pas en charge la lecture vidéo.
-                        </video>
-                      </div>
-                    )}
-
-                    {resolvedFileKind === "audio" && previewUrl && (
-                      <div className="rounded-lg border bg-background p-6 space-y-4">
-                        <div className="flex items-center gap-3">
-                          <Music className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">Aperçu audio</p>
-                            <p className="text-sm text-muted-foreground">
-                              Lecture directe dans la fiche ressource
-                            </p>
+                    {["pdf", "image", "video", "audio"].includes(resolvedFileKind) && (
+                      <>
+                        {previewUrlQuery.isFetching ? (
+                          <div className="rounded-lg border bg-background p-6">
+                            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Chargement de l’aperçu…
+                            </div>
                           </div>
-                        </div>
+                        ) : previewUrl ? (
+                          resolvedFileKind === "pdf" ? (
+                            <div className="rounded-lg overflow-hidden border bg-background">
+                              <iframe
+                                src={previewUrl}
+                                title={`${resource.title} - aperçu PDF`}
+                                className="w-full h-[700px]"
+                              />
+                            </div>
+                          ) : resolvedFileKind === "image" ? (
+                            <div className="rounded-lg overflow-hidden border bg-background">
+                              <img
+                                src={previewUrl}
+                                alt={resource.title}
+                                className="w-full max-h-[700px] object-contain bg-white"
+                              />
+                            </div>
+                          ) : resolvedFileKind === "video" ? (
+                            <div className="rounded-lg overflow-hidden border bg-background p-2">
+                              <video
+                                src={previewUrl}
+                                controls
+                                className="w-full max-h-[700px] bg-black rounded-md"
+                              />
+                            </div>
+                          ) : resolvedFileKind === "audio" ? (
+                            <div className="rounded-lg border bg-background p-6 space-y-4">
+                              <div className="flex items-start gap-3">
+                                <Music className="h-5 w-5 text-muted-foreground mt-0.5" />
+                                <div className="space-y-1">
+                                  <p className="font-medium">Aperçu audio</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Écoutez directement la ressource depuis la fiche.
+                                  </p>
+                                </div>
+                              </div>
+                              <audio src={previewUrl} controls className="w-full" />
+                            </div>
+                          ) : null
+                        ) : (
+                          <div className="rounded-lg border bg-background p-6 space-y-4">
+                            <div className="flex items-start gap-3">
+                              {resolvedFileKind === "audio" ? (
+                                <Music className="h-5 w-5 text-muted-foreground mt-0.5" />
+                              ) : resolvedFileKind === "video" ? (
+                                <Video className="h-5 w-5 text-muted-foreground mt-0.5" />
+                              ) : resolvedFileKind === "image" ? (
+                                <ImageIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
+                              ) : (
+                                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                              )}
 
-                        <audio controls preload="metadata" className="w-full">
-                          <source src={previewUrl} />
-                          Votre navigateur ne prend pas en charge la lecture audio.
-                        </audio>
-                      </div>
+                              <div className="space-y-1">
+                                <p className="font-medium">Aperçu indisponible</p>
+                                <p className="text-sm text-muted-foreground">
+                                  L’aperçu n’a pas pu être chargé pour ce fichier. Utilisez le bouton
+                                  d’action pour ouvrir ou télécharger la ressource.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
                      {(resolvedFileKind === "powerpoint" ||

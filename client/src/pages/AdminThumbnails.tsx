@@ -6,51 +6,50 @@ import { trpc } from "@/lib/trpc";
 import { AlertCircle, CheckCircle2, Loader2, SkipForward } from "lucide-react";
 
 export default function AdminThumbnails() {
-  const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   const generateThumbnailsMutation = trpc.admin.generateThumbnails.useMutation({
     onSuccess: (data) => {
       setResults(data);
-      setIsGenerating(false);
     },
     onError: (error) => {
       setError(error.message);
-      setIsGenerating(false);
     },
   });
 
+  const isGenerating = generateThumbnailsMutation.isPending;
+  const summary = results?.summary;
+  const resultItems = Array.isArray(results?.results) ? results.results : [];
+
   const handleGenerateThumbnails = async () => {
-    setIsGenerating(true);
     setError(null);
     setResults(null);
-    
+
     try {
       await generateThumbnailsMutation.mutateAsync({
-        resourceIds: undefined, // Générer pour toutes les ressources
+        resourceIds: undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
-      setIsGenerating(false);
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Génération des images de couverture</h1>
+        <h1 className="text-3xl font-bold">Génération des miniatures</h1>
         <p className="text-gray-600 mt-2">
-          Générez automatiquement des images de couverture pour toutes les ressources
+          Générez automatiquement des miniatures et aperçus pour les ressources qui en ont besoin
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Générer les images</CardTitle>
+          <CardTitle>Générer les miniatures</CardTitle>
           <CardDescription>
-            Cette opération créera des images de couverture uniques pour chaque ressource
-            sans image existante.
+            Cette opération lance la génération des miniatures et aperçus pour les ressources
+            qui n’en disposent pas encore.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -73,16 +72,16 @@ export default function AdminThumbnails() {
                 Génération en cours...
               </>
             ) : (
-              "Générer les images de couverture"
+              "Générer les miniatures"
             )}
           </Button>
 
-          {results && (
+          {summary && (
             <div className="space-y-4 mt-6">
               <Alert>
                 <CheckCircle2 className="h-4 w-4" />
                 <AlertDescription>
-                  Génération terminée : {results.summary.success} réussies, {results.summary.skipped} ignorées, {results.summary.failed} erreurs
+                  Génération terminée : {summary.success ?? 0} réussies, {summary.skipped ?? 0} ignorées, {summary.failed ?? 0} erreurs
                 </AlertDescription>
               </Alert>
 
@@ -91,7 +90,7 @@ export default function AdminThumbnails() {
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-green-600">
-                        {results.summary.success}
+                        {summary.success ?? 0}
                       </div>
                       <p className="text-sm text-gray-600">Réussies</p>
                     </div>
@@ -102,7 +101,7 @@ export default function AdminThumbnails() {
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-yellow-600">
-                        {results.summary.skipped}
+                        {summary.skipped ?? 0}
                       </div>
                       <p className="text-sm text-gray-600">Ignorées</p>
                     </div>
@@ -113,7 +112,7 @@ export default function AdminThumbnails() {
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <div className="text-3xl font-bold text-red-600">
-                        {results.summary.failed}
+                        {summary.failed ?? 0}
                       </div>
                       <p className="text-sm text-gray-600">Erreurs</p>
                     </div>
@@ -123,15 +122,15 @@ export default function AdminThumbnails() {
 
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 <h3 className="font-semibold">Détails :</h3>
-                {results.results.map((result: any, index: number) => (
+                {resultItems.map((result: any, index: number) => (
                   <div
                     key={index}
                     className={`p-3 rounded-lg text-sm ${
                       result.status === "success"
                         ? "bg-green-50 text-green-800"
                         : result.status === "skipped"
-                        ? "bg-yellow-50 text-yellow-800"
-                        : "bg-red-50 text-red-800"
+                          ? "bg-yellow-50 text-yellow-800"
+                          : "bg-red-50 text-red-800"
                     }`}
                   >
                     <div className="flex items-center gap-2">

@@ -19,11 +19,12 @@ export function FavoriteButton({
 }: FavoriteButtonProps) {
   const { user } = useAuth();
   const utils = trpc.useUtils();
+  const hasValidResourceId = Number.isInteger(resourceId) && resourceId > 0;
 
   const { data: favoriteData, isLoading: isCheckingFavorite } = 
     trpc.favorites.check.useQuery(
       { resourceId },
-      { enabled: !!user }
+      { enabled: !!user && hasValidResourceId }
     );
   
   const isFavorite = favoriteData?.isFavorite ?? false;
@@ -53,6 +54,11 @@ export function FavoriteButton({
   const handleToggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!hasValidResourceId) {
+      toast.error("Ressource invalide");
+      return;
+    }
 
     if (!user) {
       toast.error("Connectez-vous pour ajouter des favoris");

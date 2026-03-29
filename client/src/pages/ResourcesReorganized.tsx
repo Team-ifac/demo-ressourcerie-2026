@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 import { Download, Globe, Lock, RotateCcw, Save } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/_core/hooks/useAuth";
+
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { useFilterPreferences } from "@/hooks/useFilterPreferences";
 import { readingLabel } from "@/lib/resourcePolicy";
@@ -23,6 +23,19 @@ import { AGE_RANGES, DURATIONS, RESOURCE_TYPES } from "@shared/resourceMeta";
 
 type ProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
 type ProfileFilter = "" | ProfileType;
+
+function normalizeProfileFilter(value: string | null): ProfileFilter {
+  if (
+    value === "animateur" ||
+    value === "formateur" ||
+    value === "directeur" ||
+    value === "stagiaire_bafa"
+  ) {
+    return value;
+  }
+
+  return "";
+}
 
 type CategoryGroup = {
   groupLabel: string;
@@ -32,7 +45,30 @@ type CategoryGroup = {
 const PAGE_SIZE = 24;
 
 function humanizeCategoryLabel(slug: string): string {
-  return slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  return slug
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+function slugifySegment(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’']/g, "-")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+}
+
+function normalizeCategoryFilter(value: string | null): string {
+  if (!value) return "";
+
+  return decodeURIComponent(value)
+    .split("/")
+    .map((part) => slugifySegment(part))
+    .filter(Boolean)
+    .join("/");
 }
 
 function buildCategoryGroups(categories: string[]): CategoryGroup[] {
@@ -72,45 +108,56 @@ const PROFILE_LABELS: Record<ProfileType, string> = {
 };
 
 export default function ResourcesReorganized() {
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [location, navigate] = useLocation();
+
+  const categoryFromUrl = useMemo(() => {
+    const params = new URLSearchParams(window.location.search || "");
+    return normalizeCategoryFilter(params.get("categorie"));
+  }, [location]);
+
+  const searchFromUrl = useMemo(() => {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw = params.get("q");
+    return raw ? decodeURIComponent(raw) : "";
+  }, [location]);
+
+  const profileFromUrl = useMemo<ProfileFilter>(() => {
+    const params = new URLSearchParams(window.location.search || "");
+    return normalizeProfileFilter(params.get("profil"));
+  }, [location]);
+
+  const [search, setSearch] = useState(searchFromUrl || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchFromUrl || "");
   const [selectedThemes, setSelectedThemes] = useState<number[]>([]);
   const [selectedType, setSelectedType] = useState("");
   const [selectedAgeRange, setSelectedAgeRange] = useState("");
   const [selectedDuration, setSelectedDuration] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedProfile, setSelectedProfile] = useState<ProfileFilter>("");
+  const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || "");
+  const [selectedProfile, setSelectedProfile] = useState<ProfileFilter>(profileFromUrl);
   const [page, setPage] = useState(1);
 
-  const { user } = useAuth();
-  const { data: userProfile } = trpc.profiles.getUserProfile.useQuery(undefined, {
-    enabled: !!user,
-  });
 
-  const didInitProfile = useRef(false);
 
-  useEffect(() => {
-    if (didInitProfile.current) return;
-
-    const p = (userProfile?.profileType ?? "") as ProfileFilter;
-    if (p) {
-      setSelectedProfile(p);
-      didInitProfile.current = true;
-    }
-  }, [userProfile]);
-
-  const [location] = useLocation();
-
-  const categoryFromUrl = useMemo(() => {
-    const params = new URLSearchParams(location.split("?")[1] || "");
-    const raw = params.get("categorie");
-    return raw ? decodeURIComponent(raw) : undefined;
-  }, [location]);
+  // IMPORTANT :
+  // le catalogue doit démarrer en mode neutre :
+  // aucun profil sélectionné par défaut.
+  // Donc on ne force jamais le profil du compte connecté ici.
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl || "");
     setPage(1);
   }, [categoryFromUrl]);
+
+  useEffect(() => {
+    setSearch(searchFromUrl || "");
+    setDebouncedSearch(searchFromUrl || "");
+    setPage(1);
+  }, [searchFromUrl]);
+
+  useEffect(() => {
+    setSelectedProfile(profileFromUrl);
+    setPage(1);
+  }, [profileFromUrl]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -122,27 +169,76 @@ export default function ResourcesReorganized() {
     };
   }, [search]);
 
+
   const { data: categories = [] } = trpc.resources.listCategories.useQuery(
     {
-      profileType: selectedProfile || undefined,
+      profileType: selectedProfile === "" ? undefined : selectedProfile,
     },
     {
       staleTime: 60_000,
     }
   );
 
+  const categoryGroups = useMemo(() => {
+    const normalizedCategories = categories.map((category) =>
+      normalizeCategoryFilter(category)
+    );
+
+    const baseGroups = buildCategoryGroups(normalizedCategories);
+
+    if (!selectedCategory) {
+      return baseGroups;
+    }
+
+    const alreadyExists = normalizedCategories.includes(selectedCategory);
+    if (alreadyExists) {
+      return baseGroups;
+    }
+
+    const [group, sub] = selectedCategory.split("/");
+    if (!group || !sub) {
+      return baseGroups;
+    }
+
+    const groupLabel = humanizeCategoryLabel(group);
+    const itemLabel = humanizeCategoryLabel(sub);
+
+    const existingGroup = baseGroups.find((g) => g.groupLabel === groupLabel);
+
+    if (existingGroup) {
+      const itemExists = existingGroup.items.some(
+        (item) => item.value === selectedCategory
+      );
+
+      if (!itemExists) {
+        existingGroup.items = [...existingGroup.items, { value: selectedCategory, label: itemLabel }]
+          .sort((a, b) => a.label.localeCompare(b.label));
+      }
+
+      return [...baseGroups].sort((a, b) => a.groupLabel.localeCompare(b.groupLabel));
+    }
+
+    return [
+      ...baseGroups,
+      {
+        groupLabel,
+        items: [{ value: selectedCategory, label: itemLabel }],
+      },
+    ].sort((a, b) => a.groupLabel.localeCompare(b.groupLabel));
+  }, [categories, selectedCategory]);
+
   const { data: themes = [] } = trpc.themes.list.useQuery(undefined, {
     staleTime: 60_000,
   });
 
   const { data: paginatedData, isLoading } = trpc.resources.listPaginated.useQuery({
-    search: debouncedSearch || undefined,
+    search: debouncedSearch.trim() || undefined,
     themeIds: selectedThemes.length > 0 ? selectedThemes : undefined,
     type: selectedType || undefined,
     ageRange: selectedAgeRange || undefined,
     duration: selectedDuration || undefined,
     category: selectedCategory || undefined,
-    profileType: selectedProfile || undefined,
+    profileType: selectedProfile === "" ? undefined : selectedProfile,
     page,
     limit: PAGE_SIZE,
   });
@@ -152,10 +248,40 @@ export default function ResourcesReorganized() {
 
   const { savePreferences, resetPreferences } = useFilterPreferences();
 
-  const defaultProfile: ProfileFilter = (userProfile?.profileType ?? "") as ProfileFilter;
+  const defaultProfile: ProfileFilter = "";
+
+  const syncCatalogueUrl = ({
+    nextSearch,
+    nextProfile,
+    nextCategory,
+  }: {
+    nextSearch: string;
+    nextProfile: ProfileFilter;
+    nextCategory: string;
+  }) => {
+    const params = new URLSearchParams();
+
+    const trimmedSearch = nextSearch.trim();
+
+    if (trimmedSearch) {
+      params.set("q", trimmedSearch);
+    }
+
+    if (nextProfile) {
+      params.set("profil", nextProfile);
+    }
+
+    if (nextCategory) {
+      params.set("categorie", nextCategory);
+    }
+
+    const query = params.toString();
+    navigate(query ? `/resources?${query}` : "/resources", { replace: true });
+  };
 
   const clearFilters = () => {
     setSearch("");
+    setDebouncedSearch("");
     setSelectedThemes([]);
     setSelectedType("");
     setSelectedAgeRange("");
@@ -164,6 +290,11 @@ export default function ResourcesReorganized() {
     setSelectedProfile(defaultProfile);
     setPage(1);
     resetPreferences();
+    syncCatalogueUrl({
+      nextSearch: "",
+      nextProfile: defaultProfile,
+      nextCategory: "",
+    });
   };
 
   const hasFilters =
@@ -268,7 +399,39 @@ export default function ResourcesReorganized() {
       </Link>
     );
   }
+  const paginationBlock =
+    pagination && pagination.totalPages > 1 ? (
+      <div className="flex flex-col items-center gap-3 pt-2">
+        <p className="text-sm text-muted-foreground">
+          Page {pagination.page} sur {pagination.totalPages} — {pagination.total} ressource
+          {pagination.total > 1 ? "s" : ""}
+        </p>
 
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={!pagination.hasPreviousPage}
+          >
+            Précédent
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() =>
+              setPage((current) =>
+                pagination.totalPages > 0
+                  ? Math.min(pagination.totalPages, current + 1)
+                  : current
+              )
+            }
+            disabled={!pagination.hasNextPage}
+          >
+            Suivant
+          </Button>
+        </div>
+      </div>
+    ) : null;
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1 py-8">
@@ -278,181 +441,215 @@ export default function ResourcesReorganized() {
           <h1 className="text-4xl font-bold">Catalogue de ressources</h1>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle>Filtres</CardTitle>
+              <CardDescription>
+                Affine rapidement le catalogue avec une recherche et des filtres compacts.
+              </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <Input
-                placeholder="Rechercher…"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Recherche
+                  </label>
+                  <Input
+                    placeholder="Rechercher…"
+                    value={search}
+                    onChange={(e) => {
+                      const nextSearch = e.target.value;
+                      setSearch(nextSearch);
+                      setPage(1);
+                      syncCatalogueUrl({
+                        nextSearch,
+                        nextProfile: selectedProfile,
+                        nextCategory: selectedCategory,
+                      });
+                    }}
+                  />
+                </div>
 
-              <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">Profil</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Profil
+                    </label>
 
-                <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={selectedProfile}
-                  onChange={(e) => {
-                    setSelectedProfile(e.target.value as ProfileFilter);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Tous les profils</option>
-                  <option value="animateur">{PROFILE_LABELS.animateur}</option>
-                  <option value="directeur">{PROFILE_LABELS.directeur}</option>
-                  <option value="formateur">{PROFILE_LABELS.formateur}</option>
-                  <option value="stagiaire_bafa">{PROFILE_LABELS.stagiaire_bafa}</option>
-                </select>
+                    <select
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      value={selectedProfile}
+                      onChange={(e) => {
+                        const nextProfile = normalizeProfileFilter(e.target.value);
+                        setSelectedProfile(nextProfile);
+                        setPage(1);
+                        syncCatalogueUrl({
+                          nextSearch: search,
+                          nextProfile,
+                          nextCategory: selectedCategory,
+                        });
+                      }}
+                    >
+                      <option value="">Tous les profils</option>
+                      <option value="animateur">{PROFILE_LABELS.animateur}</option>
+                      <option value="directeur">{PROFILE_LABELS.directeur}</option>
+                      <option value="formateur">{PROFILE_LABELS.formateur}</option>
+                      <option value="stagiaire_bafa">{PROFILE_LABELS.stagiaire_bafa}</option>
+                    </select>
+                  </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Astuce : pour vérifier l’import “Stagiaire BAFA”, sélectionne ce profil ici.
-                </p>
-              </div>
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Thème
+                    </label>
 
-              <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">Thème</label>
+                    <select
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      value={selectedThemes[0] ? String(selectedThemes[0]) : ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedThemes(value ? [Number(value)] : []);
+                        setPage(1);
+                      }}
+                    >
+                      <option value="">Tous les thèmes</option>
 
-                <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={selectedThemes[0] ? String(selectedThemes[0]) : ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setSelectedThemes(value ? [Number(value)] : []);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Tous les thèmes</option>
-
-                  {themes.map((theme: any) => (
-                    <option key={theme.id} value={theme.id}>
-                      {theme.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">Type de ressource</label>
-
-                <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={selectedType}
-                  onChange={(e) => {
-                    setSelectedType(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Tous les types</option>
-
-                  {RESOURCE_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">Tranche d’âge</label>
-
-                <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={selectedAgeRange}
-                  onChange={(e) => {
-                    setSelectedAgeRange(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Toutes les tranches d’âge</option>
-
-                  {AGE_RANGES.map((ageRange) => (
-                    <option key={ageRange} value={ageRange}>
-                      {ageRange}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">Durée</label>
-
-                <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={selectedDuration}
-                  onChange={(e) => {
-                    setSelectedDuration(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Toutes les durées</option>
-
-                  {DURATIONS.map((duration) => (
-                    <option key={duration} value={duration}>
-                      {duration}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm text-muted-foreground">Catégorie</label>
-
-                <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Toutes les catégories</option>
-
-                  {buildCategoryGroups(categories).map((g) => (
-                    <optgroup key={g.groupLabel} label={g.groupLabel}>
-                      {g.items.map((it) => (
-                        <option key={it.value} value={it.value}>
-                          {it.label}
+                      {themes.map((theme: any) => (
+                        <option key={theme.id} value={theme.id}>
+                          {theme.name}
                         </option>
                       ))}
-                    </optgroup>
-                  ))}
-                </select>
+                    </select>
+                  </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Astuce : les catégories sont regroupées par grande famille.
-                </p>
-              </div>
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Type
+                    </label>
 
-              <div className="flex gap-2">
-                {hasFilters && (
-                  <Button variant="outline" onClick={clearFilters}>
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Réinitialiser
+                    <select
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      value={selectedType}
+                      onChange={(e) => {
+                        setSelectedType(e.target.value);
+                        setPage(1);
+                      }}
+                    >
+                      <option value="">Tous les types</option>
+
+                      {RESOURCE_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Tranche d’âge
+                    </label>
+
+                    <select
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      value={selectedAgeRange}
+                      onChange={(e) => {
+                        setSelectedAgeRange(e.target.value);
+                        setPage(1);
+                      }}
+                    >
+                      <option value="">Toutes les tranches d’âge</option>
+
+                      {AGE_RANGES.map((ageRange) => (
+                        <option key={ageRange} value={ageRange}>
+                          {ageRange}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Durée
+                    </label>
+
+                    <select
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      value={selectedDuration}
+                      onChange={(e) => {
+                        setSelectedDuration(e.target.value);
+                        setPage(1);
+                      }}
+                    >
+                      <option value="">Toutes les durées</option>
+
+                      {DURATIONS.map((duration) => (
+                        <option key={duration} value={duration}>
+                          {duration}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Catégorie
+                    </label>
+
+                    <select
+                      className="h-10 rounded-md border bg-background px-3 text-sm"
+                      value={selectedCategory}
+                      onChange={(e) => {
+                        const nextCategory = normalizeCategoryFilter(e.target.value);
+                        setSelectedCategory(nextCategory);
+                        setPage(1);
+                        syncCatalogueUrl({
+                          nextSearch: search,
+                          nextProfile: selectedProfile,
+                          nextCategory,
+                        });
+                      }}
+                    >
+                      <option value="">Toutes les catégories</option>
+
+                      {categoryGroups.map((g) => (
+                        <optgroup key={g.groupLabel} label={g.groupLabel}>
+                          {g.items.map((it) => (
+                            <option key={it.value} value={it.value}>
+                              {it.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                  {hasFilters && (
+                    <Button variant="outline" onClick={clearFilters}>
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Réinitialiser
+                    </Button>
+                  )}
+
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      savePreferences({
+                        search,
+                        selectedThemes,
+                        selectedType,
+                        selectedAgeRange,
+                        selectedDuration,
+                        selectedCategory,
+                      })
+                    }
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Sauvegarder
                   </Button>
-                )}
-
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    savePreferences({
-                      search,
-                      selectedThemes,
-                      selectedType,
-                      selectedAgeRange,
-                      selectedDuration,
-                      selectedCategory,
-                    })
-                  }
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Sauvegarder
-                </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -461,6 +658,7 @@ export default function ResourcesReorganized() {
             <p>Chargement…</p>
           ) : (
             <>
+              {paginationBlock}
               {resources.length === 0 ? (
                 <p className="text-muted-foreground">Aucune ressource trouvée.</p>
               ) : (
@@ -469,38 +667,7 @@ export default function ResourcesReorganized() {
                 </div>
               )}
 
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex flex-col items-center gap-3 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Page {pagination.page} sur {pagination.totalPages} — {pagination.total} ressource
-                    {pagination.total > 1 ? "s" : ""}
-                  </p>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setPage((current) => Math.max(1, current - 1))}
-                      disabled={!pagination.hasPreviousPage}
-                    >
-                      Précédent
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        setPage((current) =>
-                          pagination.totalPages > 0
-                            ? Math.min(pagination.totalPages, current + 1)
-                            : current
-                        )
-                      }
-                      disabled={!pagination.hasNextPage}
-                    >
-                      Suivant
-                    </Button>
-                  </div>
-                </div>
-              )}
+                            {paginationBlock}
             </>
           )}
         </div>

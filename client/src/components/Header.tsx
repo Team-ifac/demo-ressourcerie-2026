@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Heart, LogOut, Settings, User, Moon, Sun, Search, ExternalLink } from "lucide-react";
+import { Heart, LogOut, Settings, User, Moon, Sun, ExternalLink, BookOpen } from "lucide-react";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { Link, useLocation } from "wouter";
 import {
   DropdownMenu,
@@ -19,14 +20,9 @@ export function Header() {
   const [location] = useLocation();
   const { theme, toggleTheme } = useTheme();
   const logoutMutation = trpc.auth.logout.useMutation();
-  const [searchQuery, setSearchQuery] = useState("");
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      window.location.href = `/resources?q=${encodeURIComponent(searchQuery)}`;
-    }
-  };
+
+
 
   const handleLogout = async () => {
     await logoutMutation.mutateAsync();
@@ -45,40 +41,43 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-3">
-            <img src="/logo-ifac.png" alt="Logo IFAC" className="h-10 w-auto" />
-            <span className="font-semibold text-xl">Ressourcerie IFAC</span>
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center">
+            <img src="/logo-ifac.png" alt="Logo ifac" className="h-10 w-auto" />
           </Link>
 
           <nav className="flex items-center gap-1">
             <Link href="/">
               <Button
-                variant={isActive("/") ? "default" : "ghost"}
+                variant={isActive("/") ? "secondary" : "ghost"}
                 size="sm"
                 className="text-base"
               >
                 Accueil
               </Button>
             </Link>
-            <Link href="/about">
+
+            <Link href="/resources">
               <Button
-                variant={isActive("/about") ? "default" : "ghost"}
+                variant={isActive("/resources") ? "default" : "ghost"}
                 size="sm"
-                className="text-base"
+                className="text-base gap-2"
               >
-                À propos
+                <BookOpen className="h-4 w-4" />
+                Catalogue
               </Button>
             </Link>
+
             <Link href="/aide">
               <Button
                 variant={isActive("/aide") ? "default" : "ghost"}
                 size="sm"
                 className="text-base"
               >
-                Aide
+                FAQ
               </Button>
             </Link>
+
             <Link href="/parcours">
               <Button
                 variant={isActive("/parcours") ? "default" : "ghost"}
@@ -101,18 +100,19 @@ export function Header() {
               </Button>
             </a>
 
-            <form onSubmit={handleSearch} className="ml-4 flex items-center">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Rechercher..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-3 py-1.5 text-sm border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-                />
-              </div>
-            </form>
+            <Link href="/about">
+              <Button
+                variant={isActive("/about") ? "default" : "ghost"}
+                size="sm"
+                className="ml-1 text-base"
+              >
+                À propos
+              </Button>
+            </Link>
+
+            <div className="ml-4 flex items-center">
+              <AdvancedSearch compact placeholder="Rechercher..." />
+            </div>
           </nav>
         </div>
 
@@ -160,9 +160,9 @@ export function Header() {
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/parametres">
+                      <Link href="/gestion-adhesion">
                         <Settings className="mr-2 h-4 w-4" />
-                        Parametres
+                        Gérer mon adhésion
                       </Link>
                     </DropdownMenuItem>
                     {user.role === "admin" && (

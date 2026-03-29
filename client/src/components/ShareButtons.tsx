@@ -32,7 +32,19 @@ export function ShareButtons({
 }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
 
-  const fullUrl = `${window.location.origin}${url}`;
+  const getFullUrl = () => {
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+
+    if (typeof window === "undefined") {
+      return url;
+    }
+
+    return `${window.location.origin}${url}`;
+  };
+
+  const fullUrl = getFullUrl();
   const encodedUrl = encodeURIComponent(fullUrl);
   const encodedTitle = encodeURIComponent(title);
   const encodedDescription = encodeURIComponent(description || title);
@@ -44,10 +56,14 @@ export function ShareButtons({
     email: `mailto:?subject=${encodedTitle}&body=${encodedDescription}%0A%0A${encodedUrl}`,
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(fullUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Échec silencieux : on évite de casser l’UI
+    }
   };
 
   const handleShare = (network: string) => {

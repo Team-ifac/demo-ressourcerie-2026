@@ -303,14 +303,14 @@ export default function Admin() {
                     <div>
                       <CardTitle>Gestion des profils</CardTitle>
                       <CardDescription>
-                        Profils métiers de la ressourcerie
+                        Profils métiers et arborescence pédagogique
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <Button asChild className="w-full bg-sky-600 hover:bg-sky-700">
-                    <Link href="/admin/profils">Gérer les profils</Link>
+                    <Link href="/admin/categories">Gérer les profils</Link>
                   </Button>
                 </CardContent>
               </Card>

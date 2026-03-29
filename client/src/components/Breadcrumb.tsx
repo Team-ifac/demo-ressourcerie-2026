@@ -11,15 +11,20 @@ interface BreadcrumbProps {
 }
 
 export function Breadcrumb({ items }: BreadcrumbProps) {
+  const normalizedItems =
+    items.length > 0 && items[0]?.href === "/" && items[0]?.label.trim().toLowerCase() === "accueil"
+      ? items.slice(1)
+      : items;
+
   return (
     <nav aria-label="Fil d'Ariane" className="breadcrumb">
       <Link href="/" className="breadcrumb-link">
         <Home className="h-4 w-4" />
       </Link>
-      
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1;
-        
+
+      {normalizedItems.map((item, index) => {
+        const isLast = index === normalizedItems.length - 1;
+
         return (
           <div key={index} className="flex items-center gap-2">
             <ChevronRight className="h-4 w-4 breadcrumb-separator" />

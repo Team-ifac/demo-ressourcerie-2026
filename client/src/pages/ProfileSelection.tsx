@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { trpc } from '@/lib/trpc';
-import { useAuth } from '@/_core/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { trpc } from '../lib/trpc';
+import { useAuth } from '../_core/hooks/useAuth';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
 import { Loader2 } from 'lucide-react';
 
 type ProfileType = 'animateur' | 'formateur' | 'directeur' | 'stagiaire_bafa';

@@ -54,7 +54,7 @@ export default function Library() {
                   </p>
                 </div>
                 <Button asChild className="mt-4">
-                  <Link href="/ressources">Explorer les ressources</Link>
+                  <Link href="/resources">Explorer les ressources</Link>
                 </Button>
               </CardContent>
             </Card>

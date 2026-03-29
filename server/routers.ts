@@ -1412,15 +1412,15 @@ const filters: any = {
 
         const includePremium = isAdmin || allowed.includes("PREMIUM");
 
-        // 1) Si un profil est demandé, on le respecte
-        let requestedProfileType = input?.profileType;
+        // 1) On respecte uniquement un profil explicitement demandé par l'écran.
+        // IMPORTANT :
+        // le catalogue doit démarrer en mode neutre = tous les profils.
+        // Donc on ne force JAMAIS le profil du compte connecté par défaut ici.
+        const requestedProfileType = input?.profileType;
 
-        // 2) Sinon, profil du user connecté
-        if (!requestedProfileType && myProfileType) {
-          requestedProfileType = myProfileType as any;
-        }
-
-        // 3) Règle spéciale "formateur" : accessible uniquement si admin OU formateur
+        // 2) Règle spéciale "formateur" :
+        // accessible uniquement si admin OU formateur, mais seulement
+        // si l'écran demande explicitement ce profil.
         if (requestedProfileType === "formateur" && !isAdmin) {
           if (!isLogged || myProfileType !== "formateur") {
             return [];
@@ -1470,11 +1470,10 @@ const filters: any = {
 
         const includePremium = isAdmin || allowed.includes("PREMIUM");
 
-        let requestedProfileType = input?.profileType;
-
-        if (!requestedProfileType && myProfileType) {
-          requestedProfileType = myProfileType as any;
-        }
+        // IMPORTANT :
+        // pour le catalogue, on ne force pas le profil du compte connecté.
+        // Sans profil explicitement demandé, on reste en mode neutre = tous les profils.
+        const requestedProfileType = input?.profileType;
 
         if (requestedProfileType === "formateur" && !isAdmin) {
           if (!isLogged || myProfileType !== "formateur") {
@@ -1500,6 +1499,81 @@ const filters: any = {
 
         return categories;
       }),
+
+ getCategoryTreeByProfile: publicProcedure
+  .input(
+    z.object({
+      profileType: z.enum(["animateur", "formateur", "directeur", "stagiaire_bafa"]),
+    })
+  )
+  .query(async ({ input, ctx }) => {
+    const { isLogged, isAdmin, myProfileType } =
+      await getEntitlementsFromCtx(ctx);
+
+    const requestedProfileType = input.profileType;
+
+    if (requestedProfileType === "formateur" && !isAdmin) {
+      if (!isLogged || myProfileType !== "formateur") {
+        return [];
+      }
+    }
+
+    const dbConn = await db.getDb();
+    if (!dbConn) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Database not available",
+      });
+    }
+
+    const { categoryNodes, profileTypes } =
+      await import("../drizzle/schema");
+    const { eq, and } = await import("drizzle-orm");
+
+    const profileRows = await dbConn
+      .select()
+      .from(profileTypes)
+      .where(eq(profileTypes.key, requestedProfileType))
+      .limit(1);
+
+    const profile = profileRows[0];
+    if (!profile) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Profil introuvable : ${requestedProfileType}`,
+      });
+    }
+
+    const rows = await dbConn
+      .select()
+      .from(categoryNodes)
+      .where(
+        and(
+          eq(categoryNodes.profileTypeId, profile.id),
+          eq(categoryNodes.isActive, 1)
+        )
+      )
+      .orderBy(categoryNodes.sortOrder, categoryNodes.id);
+
+    const byId = new Map<number, any>();
+    const roots: any[] = [];
+
+    for (const row of rows) {
+      byId.set(row.id, { ...row, children: [] });
+    }
+
+    for (const node of Array.from(byId.values())) {
+      const isRoot = node.parentId == null || node.parentIdKey === "__ROOT__";
+
+      if (!isRoot && node.parentId != null && byId.has(node.parentId)) {
+        byId.get(node.parentId).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+
+    return roots;
+  }),
 
     // ✅ "Dernières ressources ajoutées" : OPTION PRO => VIEW ONLY
     getRecent: publicProcedure
@@ -1558,12 +1632,50 @@ const filters: any = {
               return canViewResource({ visibility, entitlements });
             });
 
-        return filtered
+        const recentResources = filtered
           .sort(
             (a: any, b: any) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           )
           .slice(0, limit);
+
+        const resourceIds = recentResources
+          .map((resource: any) => Number(resource?.id))
+          .filter((id: number) => Number.isFinite(id) && id > 0);
+
+        const realViewsByResourceId = new Map<number, number>();
+
+        if (resourceIds.length > 0) {
+          const dbConn = await db.getDb();
+
+          if (dbConn) {
+            const { resourceHistory } = await import("../drizzle/schema");
+            const { and, eq, inArray, sql } = await import("drizzle-orm");
+
+            const realViewRows = await dbConn
+              .select({
+                resourceId: resourceHistory.resourceId,
+                count: sql<number>`count(*)`,
+              })
+              .from(resourceHistory)
+              .where(
+                and(
+                  inArray(resourceHistory.resourceId, resourceIds),
+                  eq(resourceHistory.action, "viewed")
+                )
+              )
+              .groupBy(resourceHistory.resourceId);
+
+            for (const row of realViewRows as any[]) {
+              realViewsByResourceId.set(Number(row.resourceId), Number(row.count ?? 0));
+            }
+          }
+        }
+
+        return recentResources.map((resource: any) => ({
+          ...resource,
+          realViews: realViewsByResourceId.get(Number(resource.id)) ?? 0,
+        }));
       }),
 
     // ✅ Popular : OPTION PRO => VIEW ONLY
@@ -1836,12 +1948,50 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
               return canViewResource({ visibility, entitlements: ent });
             });
 
-        return filtered
+        const recentResources = filtered
           .sort(
             (a: any, b: any) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           )
           .slice(0, limit);
+
+        const resourceIds = recentResources
+          .map((resource: any) => Number(resource?.id))
+          .filter((id: number) => Number.isFinite(id) && id > 0);
+
+        const realViewsByResourceId = new Map<number, number>();
+
+        if (resourceIds.length > 0) {
+          const dbConn = await db.getDb();
+
+          if (dbConn) {
+            const { resourceHistory } = await import("../drizzle/schema");
+            const { and, eq, inArray, sql } = await import("drizzle-orm");
+
+            const realViewRows = await dbConn
+              .select({
+                resourceId: resourceHistory.resourceId,
+                count: sql<number>`count(*)`,
+              })
+              .from(resourceHistory)
+              .where(
+                and(
+                  inArray(resourceHistory.resourceId, resourceIds),
+                  eq(resourceHistory.action, "viewed")
+                )
+              )
+              .groupBy(resourceHistory.resourceId);
+
+            for (const row of realViewRows as any[]) {
+              realViewsByResourceId.set(Number(row.resourceId), Number(row.count ?? 0));
+            }
+          }
+        }
+
+        return recentResources.map((resource: any) => ({
+          ...resource,
+          realViews: realViewsByResourceId.get(Number(resource.id)) ?? 0,
+        }));
             }),
 
     getHomePlatformStats: publicProcedure
@@ -1859,17 +2009,84 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
 
         const totalVisibleResources = visibleResources.length;
 
-        const totalVisibleViews = visibleResources.reduce(
-          (sum: number, resource: any) =>
-            sum + Number(resource?.viewCount ?? resource?.views ?? 0),
-          0
-        );
+        // ✅ SOURCE DE VÉRITÉ : resource_history (audit-proof)
+        const dbConn = await db.getDb();
 
-        const totalVisibleDownloads = visibleResources.reduce(
-          (sum: number, resource: any) =>
-            sum + Number(resource?.downloadCount ?? 0),
-          0
-        );
+        let totalVisibleViews = 0;
+
+        if (dbConn) {
+          try {
+            const { sql } = await import("drizzle-orm");
+
+            const result: any = await dbConn.execute(sql`
+              SELECT COUNT(*) AS count
+              FROM resource_history
+              WHERE action = 'viewed'
+            `);
+
+            const rows =
+              Array.isArray(result?.rows)
+                ? result.rows
+                : Array.isArray(result?.[0])
+                  ? result[0]
+                  : Array.isArray(result)
+                    ? result
+                    : [];
+
+            const row = rows?.[0];
+
+            totalVisibleViews = Number(
+              row?.count ?? row?.COUNT ?? Object.values(row ?? {})[0] ?? 0
+            );
+          } catch (e) {
+            console.warn("[getHomePlatformStats] view count fallback:", e);
+
+            // fallback sécurité (ne casse pas la prod)
+            totalVisibleViews = visibleResources.reduce(
+              (sum: number, resource: any) =>
+                sum + Number(resource?.viewCount ?? resource?.views ?? 0),
+              0
+            );
+          }
+        }
+
+        let totalVisibleDownloads = 0;
+
+if (dbConn) {
+  try {
+    const { sql } = await import("drizzle-orm");
+
+    const result: any = await dbConn.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM resource_history
+      WHERE action = 'downloaded'
+    `);
+
+    const rows =
+      Array.isArray(result?.rows)
+        ? result.rows
+        : Array.isArray(result?.[0])
+          ? result[0]
+          : Array.isArray(result)
+            ? result
+            : [];
+
+    const row = rows?.[0];
+
+    totalVisibleDownloads = Number(
+      row?.count ?? row?.COUNT ?? Object.values(row ?? {})[0] ?? 0
+    );
+  } catch (e) {
+    console.warn("[getHomePlatformStats] download count fallback:", e);
+
+    // fallback sécurité (ne casse pas la prod)
+    totalVisibleDownloads = visibleResources.reduce(
+      (sum: number, resource: any) =>
+        sum + Number(resource?.downloadCount ?? 0),
+      0
+    );
+  }
+}
 
         const totalUsers = (await db.getAllUsers()).length;
 
@@ -2284,11 +2501,12 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
           status: z.enum(["draft", "pending", "approved", "rejected"]).optional(),
 
           themeIds: z.array(z.number()),
+          categoryNodeIds: z.array(z.number()).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
         return debugMutation("resources.create", input, async () => {
-          const { themeIds, ...resourceData } = input;
+          const { themeIds, categoryNodeIds, ...resourceData } = input;
 
           // ==================================================
           // 🔒 Verrouillage anti-régression (PRO)
@@ -2353,6 +2571,10 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
 
           const id = await db.createResource(safeResourceData, themeIds);
 
+          if (Array.isArray(categoryNodeIds)) {
+            await db.setResourceCategoryNodeIds(id, categoryNodeIds);
+          }
+
           const changes: string[] = [];
           changes.push("création ressource");
           if (resourceData.accessLevel) changes.push("accès défini");
@@ -2360,6 +2582,8 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
             changes.push(`statut demandé: ${requestedStatus} → appliqué: ${effectiveStatus}`);
           else
             changes.push(`statut appliqué: ${effectiveStatus}`);
+          if (Array.isArray(categoryNodeIds) && categoryNodeIds.length > 0)
+            changes.push("catégories relationnelles définies");
 
           await db.addResourceHistory({
             resourceId: id,
@@ -2401,12 +2625,13 @@ listPopular: publicProcedure.query(async ({ ctx }) => {
           status: z.enum(["draft", "pending", "approved", "rejected"]).optional(),
 
           themeIds: z.array(z.number()).optional(),
+          categoryNodeIds: z.array(z.number()).optional(),
         })
       )
             .mutation(async ({ input, ctx }) => {
         return debugMutation("resources.update", input, async () => {
 
-        const { id, themeIds, ...resourceData } = input;
+        const { id, themeIds, categoryNodeIds, ...resourceData } = input;
 
         // ==================================================
         // 🔒 Verrouillage anti-régression (PRO)
@@ -2529,6 +2754,7 @@ if (requestedStatus !== undefined) {
         if (input.status)
           changes.push(`statut demandé: ${requestedStatus}`);
         if (themeIds) changes.push("thématiques modifiées");
+        if (categoryNodeIds) changes.push("catégories relationnelles modifiées");
 
         await db.updateResource(
   id,
@@ -2538,6 +2764,10 @@ if (requestedStatus !== undefined) {
   } as any,
   themeIds
 );
+
+        if (Array.isArray(categoryNodeIds)) {
+          await db.setResourceCategoryNodeIds(id, categoryNodeIds);
+        }
 
         await db.addResourceHistory({
           resourceId: id,

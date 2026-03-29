@@ -143,11 +143,11 @@ export default function AdminIfacALaUne() {
   const featuredIds = new Set(featuredResources.map((resource) => Number(resource.id)));
 
   const allResources = ((allResourcesQuery.data ?? []) as ResourceRow[]) || [];
+  const normalizedSearch = search.trim().toLowerCase();
 
   const filteredAvailableResources = allResources
     .filter((resource) => !featuredIds.has(Number(resource.id)))
     .filter((resource) => {
-      const normalizedSearch = search.trim().toLowerCase();
       if (!normalizedSearch) return true;
 
       const title = String(resource.title ?? "").toLowerCase();

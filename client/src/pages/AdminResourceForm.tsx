@@ -27,6 +27,19 @@ import {
 
 import { STATUS_LABELS, allowedNextStatuses, normalizeStatus, type StatusValue } from "@shared/editorialStatus";
 
+type CategoryNode = {
+  id: number;
+  parentId: number | null;
+  parentIdKey: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  sortOrder: number;
+  isActive: number;
+  createdAt: string;
+  children: CategoryNode[];
+};
+
 export default function AdminResourceForm() {
   const [, params] = useRoute("/admin/ressources/:id");
   const [, navigate] = useLocation();
@@ -54,6 +67,8 @@ export default function AdminResourceForm() {
   const handlePrepTimeChange = (value: string) => {
     setPrepTime(isInList(PREP_TIMES, value) ? value : "");
   };
+
+
 
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -121,12 +136,14 @@ export default function AdminResourceForm() {
       setLevel(resource.level || "");
       setPrepTime(resource.prepTime || "");
       // (Épuré) Visibilité & statut gérés via l'admin en masse (/admin/access-levels)
-            setThumbnailUrl(resource.thumbnailUrl || "");
+      setThumbnailUrl(resource.thumbnailUrl || "");
       setThumbnailKey((resource as any).thumbnailKey || "");
       setFileUrl((resource as any).fileUrl || "");
       setStorageKey((resource as any).storageKey || "");
       setSelectedThemes(resource.themes?.map((t: any) => t.id) || []);
       setStatus(normalizeStatus((resource as any).status));
+
+
     }
   }, [resource]);
 
@@ -198,31 +215,31 @@ export default function AdminResourceForm() {
     }
 
     const common = {
-  title,
-  summary,
-  content,
+      title,
+      summary,
+      content,
 
-  // ✅ Obligatoire côté API (types). Piloté via /admin/access-levels.
-  // ✅ Gouvernance UI : si pas "approved", interdit d’être PUBLIC → on force INTERNAL_IFAC
-  visibility: isEdit
-    ? status === "approved"
-      ? (resource?.visibility ?? "INTERNAL_IFAC")
-      : "INTERNAL_IFAC"
-    : "INTERNAL_IFAC",
+      // ✅ Obligatoire côté API (types). Piloté via /admin/access-levels.
+      // ✅ Gouvernance UI : si pas "approved", interdit d’être PUBLIC → on force INTERNAL_IFAC
+      visibility: isEdit
+        ? status === "approved"
+          ? (resource?.visibility ?? "INTERNAL_IFAC")
+          : "INTERNAL_IFAC"
+        : "INTERNAL_IFAC",
 
-  status: isEdit ? status : "draft",
+      status: isEdit ? status : "draft",
 
-  thumbnailUrl: thumbnailUrl ? thumbnailUrl : undefined,
-  thumbnailKey: thumbnailKey ? thumbnailKey : undefined,
+      thumbnailUrl: thumbnailUrl ? thumbnailUrl : undefined,
+      thumbnailKey: thumbnailKey ? thumbnailKey : undefined,
 
-  // ✅ Pilier 12 bis : canonique = storageKey (et jamais fileUrl)
-  storageKey: storageKey ? storageKey : undefined,
+      // ✅ Pilier 12 bis : canonique = storageKey (et jamais fileUrl)
+      storageKey: storageKey ? storageKey : undefined,
 
-  themeIds: selectedThemes,
-};
+      themeIds: selectedThemes,
+    };
 
-// ✅ Blindage PRO : ne JAMAIS envoyer fileUrl (même undefined)
-delete (common as any).fileUrl;
+    // ✅ Blindage PRO : ne JAMAIS envoyer fileUrl (même undefined)
+    delete (common as any).fileUrl;
 
     if (isEdit) {
       // ✅ En édition : on ne touche pas aux caractéristiques via l’UI,
@@ -469,6 +486,8 @@ const updateData = {
     </CardContent>
   </Card>
 )}
+
+
 
             <Card className="shadow-elegant">
               <CardHeader>

@@ -59,9 +59,16 @@ function normalizeLeadingSlash(p: string) {
   return p.startsWith("/") ? p : `/${p}`;
 }
 const resourceViewRegisterThrottle = new Map<string, number>();
-const RESOURCE_VIEW_REGISTER_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const RESOURCE_VIEW_REGISTER_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-function buildRegisterViewThrottleKey(req: express.Request, userId: number | null, resourceId: number): string {
+const resourceDownloadRegisterThrottle = new Map<string, number>();
+const RESOURCE_DOWNLOAD_REGISTER_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function buildRegisterViewThrottleKey(
+  req: express.Request,
+  userId: number | null,
+  resourceId: number
+): string {
   if (userId) {
     return `user:${userId}:resource:${resourceId}`;
   }
@@ -104,6 +111,117 @@ function shouldRegisterResourceView(
   }
 
   return true;
+}
+
+function buildRegisterDownloadThrottleKey(
+  req: express.Request,
+  userId: number | null,
+  resourceId: number
+): string {
+  if (userId) {
+    return `user:${userId}:resource:${resourceId}`;
+  }
+
+  const xf = req.headers["x-forwarded-for"];
+  const ip =
+    (typeof xf === "string" ? xf.split(",")[0].trim() : null) ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    "unknown";
+
+  const userAgent = String(req.headers["user-agent"] ?? "unknown")
+    .slice(0, 200)
+    .trim();
+
+  return `anon:${ip}:${userAgent}:resource:${resourceId}`;
+}
+
+function shouldRegisterResourceDownload(
+  req: express.Request,
+  userId: number | null,
+  resourceId: number
+): boolean {
+  const now = Date.now();
+  const key = buildRegisterDownloadThrottleKey(req, userId, resourceId);
+  const lastSeenAt = resourceDownloadRegisterThrottle.get(key);
+
+  if (lastSeenAt && now - lastSeenAt < RESOURCE_DOWNLOAD_REGISTER_TTL_MS) {
+    return false;
+  }
+
+  resourceDownloadRegisterThrottle.set(key, now);
+
+  if (resourceDownloadRegisterThrottle.size > 5000) {
+    resourceDownloadRegisterThrottle.forEach((ts, entryKey) => {
+      if (now - ts > RESOURCE_DOWNLOAD_REGISTER_TTL_MS) {
+        resourceDownloadRegisterThrottle.delete(entryKey);
+      }
+    });
+  }
+
+  return true;
+}
+
+async function incrementResourceViewCountOnly(
+  req: express.Request,
+  resourceId: number,
+  userId: number | null,
+  actor: { id: number; role?: string } | null,
+  log: any
+): Promise<void> {
+  try {
+    const shouldRegister = shouldRegisterResourceView(req, userId, resourceId);
+
+    if (!shouldRegister) {
+      log.info(
+        {
+          event: "resource_view_auto_register_throttled",
+          resourceId,
+          actor,
+        },
+        "Resource auto-view throttled"
+      );
+      return;
+    }
+
+    try {
+      await db.addResourceHistory({
+        resourceId,
+        userId,
+        action: "viewed",
+        changes: "Consultation implicite avant téléchargement",
+      });
+    } catch (historyError) {
+      log.warn(
+        {
+          event: "resource_view_auto_history_failed",
+          resourceId,
+          actor,
+          details: String((historyError as any)?.message ?? historyError),
+        },
+        "Auto view history write failed"
+      );
+    }
+
+    log.info(
+      {
+        event: "resource_view_auto_registered",
+        resourceId,
+        actor,
+      },
+      "Resource auto-view registered"
+    );
+  } catch (e) {
+    log.warn(
+      {
+        event: "resource_view_auto_increment_skipped",
+        resourceId,
+        actor,
+        details: String((e as any)?.message ?? e),
+      },
+      "Auto view increment skipped"
+    );
+  }
 }
 /**
  * Résolution PRO du fileUrl:
@@ -632,10 +750,13 @@ app.use("/api", apiLimiter);
 
         const stdoutText = String(importRes.stdout || "");
 
-        const extractCount = (label: string) => {
-          const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const match = stdoutText.match(new RegExp(`${escaped}\\s*:\\s*(\\d+)`, "i"));
-          return match ? Number(match[1]) : 0;
+        const extractCount = (...labels: string[]) => {
+          for (const label of labels) {
+            const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const match = stdoutText.match(new RegExp(`${escaped}\\s*:\\s*(\\d+)`, "i"));
+            if (match) return Number(match[1]);
+          }
+          return 0;
         };
 
         const actionType: "AUDIT" | "DRY_RUN" | "WRITE" = audit
@@ -644,19 +765,35 @@ app.use("/api", apiLimiter);
           ? "DRY_RUN"
           : "WRITE";
 
+        const parsedDetectedPdfs =
+          auditResult?.detectedPdfs ??
+          extractCount("Dont PDF", "PDF détectés", "PDFs détectés");
+
+        const parsedInDb =
+          auditResult?.inDb ??
+          extractCount("Déjà en base (fileUrl)", "Déjà en base");
+
+        const parsedWouldImport =
+          auditResult?.wouldImport ??
+          extractCount("Nouveaux (seraient importés)", "À importer");
+
+        const parsedWouldUpdate =
+          auditResult?.wouldUpdate ??
+          extractCount("Modifiés (seraient remplacés)", "À mettre à jour");
+
         try {
           await db.addImportHistory({
             userId: Number(me.id),
             actionType,
             zipFileName: path.basename(zipPath),
             extractRoot,
-            detectedPdfs: auditResult?.detectedPdfs ?? extractCount("PDFs détectés"),
-            inDb: auditResult?.inDb ?? 0,
-            wouldImport: auditResult?.wouldImport ?? 0,
-            wouldUpdate: auditResult?.wouldUpdate ?? 0,
-            imported: extractCount("Importés (nouveaux)"),
-            updated: extractCount("Mis à jour (PDF remplacés)"),
-            skipped: extractCount("Skippés (inchangés)"),
+            detectedPdfs: parsedDetectedPdfs,
+            inDb: parsedInDb,
+            wouldImport: parsedWouldImport,
+            wouldUpdate: parsedWouldUpdate,
+            imported: extractCount("Importés (nouveaux)", "Importés"),
+            updated: extractCount("Mis à jour (fichiers remplacés)", "Mis à jour (PDF remplacés)", "Mis à jour"),
+            skipped: extractCount("Skippés (inchangés)", "Skippés"),
             failed: extractCount("Échecs"),
             rawOutput: stdoutText,
           });
@@ -747,39 +884,65 @@ app.use("/api", apiLimiter);
         return res.status(404).send("Not found");
       }
 
-      const incrementResourceDownloadCountOnly = async (resourceId: number) => {
+      const registerExplicitOpen = async (resourceId: number): Promise<boolean> => {
+        const actor = me ? { id: me.id, role: me.role } : null;
+
+        const shouldRegister = shouldRegisterResourceDownload(req, me?.id ?? null, resourceId);
+
+        if (!shouldRegister) {
+          log.info(
+            {
+              event: "resource_download_throttled",
+              resourceId,
+              actor,
+            },
+            "Resource download throttled"
+          );
+          return false;
+        }
+
         try {
           const dbConn = await db.getDb();
-          if (!dbConn) return;
 
-          const schema = await import("../../drizzle/schema");
-          const resourcesTable =
-            (schema as any).resources ||
-            (schema as any).resourcesTable ||
-            (schema as any).resources_table;
+          if (dbConn) {
+            const schema = await import("../../drizzle/schema");
+            const resourcesTable =
+              (schema as any).resources ||
+              (schema as any).resourcesTable ||
+              (schema as any).resources_table;
 
-          if (!resourcesTable?.id || !resourcesTable?.downloadCount) {
-            return;
+            if (resourcesTable?.id) {
+              const { eq, sql } = await import("drizzle-orm");
+              const patch: Record<string, any> = {};
+
+              if (resourcesTable.downloadCount) {
+                patch.downloadCount = sql`COALESCE(${resourcesTable.downloadCount}, 0) + 1`;
+              }
+
+              if (resourcesTable.viewCount) {
+                patch.viewCount = sql`COALESCE(${resourcesTable.viewCount}, 0) + 1`;
+              }
+
+              if (Object.keys(patch).length > 0) {
+                await dbConn
+                  .update(resourcesTable)
+                  .set(patch as any)
+                  .where(eq(resourcesTable.id, resourceId as any));
+              }
+            }
           }
-
-          const { eq, sql } = await import("drizzle-orm");
-
-          await dbConn
-            .update(resourcesTable)
-            .set({
-              downloadCount: sql`COALESCE(${resourcesTable.downloadCount}, 0) + 1`,
-            } as any)
-            .where(eq(resourcesTable.id, resourceId as any));
         } catch (e) {
           logger.warn(
             {
-              event: "resource_download_count_increment_skipped",
+              event: "resource_open_counters_increment_skipped",
               resourceId,
               details: String((e as any)?.message ?? e),
             },
-            "Download count increment skipped"
+            "Open counters increment skipped"
           );
         }
+
+        return true;
       };
 
       // Log de tentative (audit)
@@ -862,25 +1025,34 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
 
       // 1) redirect (http(s) direct OU storageGet)
       if (target.kind === "redirect") {
-        await incrementResourceDownloadCountOnly(id);
+        const didRegisterOpen = await registerExplicitOpen(id);
 
-        try {
-          await db.addResourceHistory({
-            resourceId: id,
-            userId: me?.id ?? null,
-            action: "downloaded",
-            changes: `Téléchargement effectué (redirect)`,
-          });
-        } catch (historyError) {
-          log.warn(
-            {
-              event: "resource_download_history_failed",
+        if (didRegisterOpen) {
+          try {
+            await db.addResourceHistory({
               resourceId: id,
-              actor: me ? { id: me.id, role: me.role } : null,
-              details: String((historyError as any)?.message ?? historyError),
-            },
-            "Download history write failed"
-          );
+              userId: me?.id ?? null,
+              action: "viewed",
+              changes: "Consultation lors d’une ouverture explicite",
+            });
+
+            await db.addResourceHistory({
+              resourceId: id,
+              userId: me?.id ?? null,
+              action: "downloaded",
+              changes: `Téléchargement effectué (redirect)`,
+            });
+          } catch (historyError) {
+            log.warn(
+              {
+                event: "resource_download_history_failed",
+                resourceId: id,
+                actor: me ? { id: me.id, role: me.role } : null,
+                details: String((historyError as any)?.message ?? historyError),
+              },
+              "Download history write failed"
+            );
+          }
         }
 
         // ⚠️ On ne loggue pas l’URL (peut être signée)
@@ -965,7 +1137,7 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
       res.setHeader("Content-Type", contentType);
       res.setHeader("X-Content-Type-Options", "nosniff");
 
-      await incrementResourceDownloadCountOnly(id);
+      const didRegisterOpen = await registerExplicitOpen(id);
 
       const stream = fs.createReadStream(resolvedAbsPath);
       stream.on("error", (e) => {
@@ -983,23 +1155,32 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
       });
 
       stream.on("close", async () => {
-        try {
-          await db.addResourceHistory({
-            resourceId: id,
-            userId: me?.id ?? null,
-            action: "downloaded",
-            changes: `Téléchargement effectué (${disposition === "inline" ? "lecture directe" : "téléchargement fichier"})`,
-          });
-        } catch (historyError) {
-          log.warn(
-            {
-              event: "resource_download_history_failed",
+        if (didRegisterOpen) {
+          try {
+            await db.addResourceHistory({
               resourceId: id,
-              actor: me ? { id: me.id, role: me.role } : null,
-              details: String((historyError as any)?.message ?? historyError),
-            },
-            "Download history write failed"
-          );
+              userId: me?.id ?? null,
+              action: "viewed",
+              changes: "Consultation lors d’une ouverture explicite",
+            });
+
+            await db.addResourceHistory({
+              resourceId: id,
+              userId: me?.id ?? null,
+              action: "downloaded",
+              changes: `Téléchargement effectué (${disposition === "inline" ? "lecture directe" : "téléchargement fichier"})`,
+            });
+          } catch (historyError) {
+            log.warn(
+              {
+                event: "resource_download_history_failed",
+                resourceId: id,
+                actor: me ? { id: me.id, role: me.role } : null,
+                details: String((historyError as any)?.message ?? historyError),
+              },
+              "Download history write failed"
+            );
+          }
         }
 
         log.info(
@@ -1048,6 +1229,212 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
       return res.status(500).send("Internal error");
     }
   });
+
+  app.get("/api/resources/preview/:id", async (req, res) => {
+    const requestId = (req as any)?.id;
+    const log = logger.child({ requestId, route: "GET /api/resources/preview/:id" });
+
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id)) {
+        log.warn({ event: "resource_preview_invalid_id", resourceIdRaw: req.params.id }, "Invalid resource id");
+        return res.status(400).send("Invalid resource id");
+      }
+
+      const ctx = await createContext({ req, res } as any);
+      const me: any = (ctx as any)?.me ?? (ctx as any)?.user ?? null;
+
+      const resource: any = await db.getResourceById(id, {
+        includeInternal: true,
+        includePremium: true,
+        isAdmin: true,
+      });
+
+      if (!resource) {
+        log.info(
+          {
+            event: "resource_preview_not_found",
+            resourceId: id,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
+          "Resource not found"
+        );
+        return res.status(404).send("Not found");
+      }
+
+      const { buildEntitlementsForUser } = await import("./entitlements");
+      const entState = await buildEntitlementsForUser(me);
+
+      const meWithEntitlements = me
+        ? { ...me, entitlements: entState.entitlements }
+        : null;
+
+      if (!canDownloadResource({ resource, me: meWithEntitlements })) {
+        log.warn(
+          {
+            event: "resource_preview_forbidden",
+            resourceId: id,
+            actor: me ? { id: me.id, role: me.role } : null,
+            resource: { accessLevel: resource.accessLevel, status: resource.status },
+          },
+          "Preview forbidden"
+        );
+        return res.status(404).send("Not found");
+      }
+
+      const storageKeyRaw: string | undefined = (resource as any)?.storageKey ?? undefined;
+      const fileUrlRaw: string | undefined = (resource as any)?.fileUrl ?? undefined;
+
+      const pick = (v?: string) => (v && String(v).trim().length > 0 ? String(v).trim() : undefined);
+      const chosen = pick(storageKeyRaw) ?? pick(fileUrlRaw);
+
+      if (!chosen) {
+        log.info(
+          { event: "resource_preview_no_file", resourceId: id, actor: me ? { id: me.id, role: me.role } : null },
+          "No file for this resource"
+        );
+        return res.status(404).send("No file for this resource");
+      }
+
+      const target = await resolveDownloadTarget(chosen);
+
+      if (target.kind === "redirect") {
+        log.info(
+          {
+            event: "resource_preview_redirect",
+            resourceId: id,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
+          "Preview redirect"
+        );
+        return res.redirect(302, target.url);
+      }
+
+      const resolvedAbsPath = target.absPath;
+
+      if (!fs.existsSync(resolvedAbsPath)) {
+        log.warn(
+          { event: "resource_preview_file_missing", resourceId: id, filename: target.filename, actor: me ? { id: me.id, role: me.role } : null },
+          "File missing on server"
+        );
+        return res.status(404).send("File not found on server");
+      }
+
+      const filename = target.filename;
+      const lowerFilename = filename.toLowerCase();
+
+      const getContentType = (name: string): string => {
+        if (name.endsWith(".pdf")) return "application/pdf";
+        if (name.endsWith(".png")) return "image/png";
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        if (name.endsWith(".webp")) return "image/webp";
+        if (name.endsWith(".gif")) return "image/gif";
+        if (name.endsWith(".svg")) return "image/svg+xml";
+        if (name.endsWith(".mp3")) return "audio/mpeg";
+        if (name.endsWith(".wav")) return "audio/wav";
+        if (name.endsWith(".ogg")) return "audio/ogg";
+        if (name.endsWith(".mp4")) return "video/mp4";
+        if (name.endsWith(".webm")) return "video/webm";
+        if (name.endsWith(".txt")) return "text/plain; charset=utf-8";
+        return "application/octet-stream";
+      };
+
+      const canInline = (name: string): boolean => {
+        return (
+          name.endsWith(".pdf") ||
+          name.endsWith(".png") ||
+          name.endsWith(".jpg") ||
+          name.endsWith(".jpeg") ||
+          name.endsWith(".webp") ||
+          name.endsWith(".gif") ||
+          name.endsWith(".svg") ||
+          name.endsWith(".mp3") ||
+          name.endsWith(".wav") ||
+          name.endsWith(".ogg") ||
+          name.endsWith(".mp4") ||
+          name.endsWith(".webm") ||
+          name.endsWith(".txt")
+        );
+      };
+
+      const contentType = getContentType(lowerFilename);
+
+      if (!canInline(lowerFilename)) {
+        log.warn(
+          {
+            event: "resource_preview_not_supported",
+            resourceId: id,
+            filename,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
+          "Preview not supported for this file type"
+        );
+        return res.status(404).send("Preview not available");
+      }
+
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+
+      const stream = fs.createReadStream(resolvedAbsPath);
+      stream.on("error", (e) => {
+        log.error(
+          {
+            event: "resource_preview_stream_error",
+            resourceId: id,
+            filename,
+            err: e,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
+          "Error reading preview file"
+        );
+        res.status(500).send("Error reading file");
+      });
+
+      stream.on("close", () => {
+        log.info(
+          {
+            event: "resource_preview_completed",
+            resourceId: id,
+            contentType,
+            filename,
+            actor: me ? { id: me.id, role: me.role } : null,
+          },
+          "Preview completed"
+        );
+      });
+
+      stream.pipe(res);
+    } catch (err: any) {
+      const msg = String(err?.message || "");
+      const code = err?.code || err?.name;
+
+      if (msg === "EMPTY_FILEURL" || msg === "EMPTY_IMPORTED_PATH") {
+        log.info({ event: "resource_preview_no_file", err, resourceIdRaw: req.params.id }, "No file for this resource");
+        return res.status(404).send("No file for this resource");
+      }
+      if (msg === "INVALID_PATH_TRAVERSAL") {
+        log.warn({ event: "resource_preview_invalid_path", err, resourceIdRaw: req.params.id }, "Invalid path traversal");
+        return res.status(400).send("Invalid path");
+      }
+
+      if (code === "FORBIDDEN" || msg.includes("Accès non autorisé")) {
+        log.warn(
+          { event: "resource_preview_forbidden_error", err, resourceIdRaw: req.params.id },
+          "Forbidden (masked as NOT_FOUND)"
+        );
+        return res.status(404).send("Not found");
+      }
+      if (code === "NOT_FOUND" || msg.includes("non trouvée")) {
+        log.info({ event: "resource_preview_not_found_error", err, resourceIdRaw: req.params.id }, "Not found");
+        return res.status(404).send("Not found");
+      }
+
+      log.error({ event: "resource_preview_error", err, resourceIdRaw: req.params.id }, "Internal error");
+      return res.status(500).send("Internal error");
+    }
+  });
+
   app.post("/api/resources/register-view/:id", async (req, res) => {
     const requestId = (req as any)?.id;
     const log = logger.child({ requestId, route: "POST /api/resources/register-view/:id" });
@@ -1097,29 +1484,38 @@ if (!canDownloadResource({ resource, me: meWithEntitlements })) {
         return res.json({ ok: true, throttled: true });
       }
 
-      const dbConn = await db.getDb();
-      if (!dbConn) {
-        return res.status(500).json({ ok: false, error: "Database not available" });
+      try {
+        const dbConn = await db.getDb();
+
+        if (dbConn) {
+                    const schema = await import("../../drizzle/schema");
+          const resourcesTable =
+            (schema as any).resources ||
+            (schema as any).resourcesTable ||
+            (schema as any).resources_table;
+
+          if (resourcesTable?.id && resourcesTable?.viewCount) {
+            const { eq, sql } = await import("drizzle-orm");
+
+            await dbConn
+              .update(resourcesTable)
+              .set({
+                viewCount: sql`COALESCE(${resourcesTable.viewCount}, 0) + 1`,
+              } as any)
+              .where(eq(resourcesTable.id, id as any));
+          }
+        }
+      } catch (viewCountError) {
+        log.warn(
+          {
+            event: "resource_view_count_increment_failed",
+            resourceId: id,
+            actor: me ? { id: me.id, role: me.role } : null,
+            details: String((viewCountError as any)?.message ?? viewCountError),
+          },
+          "View count increment failed"
+        );
       }
-
-      const schema = await import("../../drizzle/schema");
-      const resourcesTable =
-        (schema as any).resources ||
-        (schema as any).resourcesTable ||
-        (schema as any).resources_table;
-
-      if (!resourcesTable?.id || !resourcesTable?.viewCount) {
-        return res.status(500).json({ ok: false, error: "viewCount column not available" });
-      }
-
-      const { eq, sql } = await import("drizzle-orm");
-
-      await dbConn
-        .update(resourcesTable)
-        .set({
-          viewCount: sql`COALESCE(${resourcesTable.viewCount}, 0) + 1`,
-        } as any)
-        .where(eq(resourcesTable.id, id as any));
 
       try {
         await db.addResourceHistory({

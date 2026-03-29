@@ -14,7 +14,12 @@ import {
 import { trpc } from "@/lib/trpc";
 
 export default function AdminAnalytics() {
-  const statsQuery = trpc.admin.stats.getPlatformStats.useQuery();
+  const statsQuery = trpc.admin.stats.getPlatformStats.useQuery(undefined, {
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
 
   const stats = (statsQuery.data ?? {}) as any;
   const counters = (stats.counters ?? {}) as any;
@@ -25,6 +30,9 @@ export default function AdminAnalytics() {
   const totalViews = Number(counters.totalViews ?? 0);
   const publishedResources = Number(counters.publishedResources ?? 0);
   const pendingResources = Number(counters.pendingResources ?? 0);
+  const neverViewedCount = Number(counters.neverViewedCount ?? 0);
+  const neverDownloadedCount = Number(counters.neverDownloadedCount ?? 0);
+  const unusedResourcesCount = Number(counters.unusedResourcesCount ?? 0);
 
   const publicationRate =
     totalResources > 0 ? Math.round((publishedResources / totalResources) * 100) : 0;
@@ -53,6 +61,7 @@ const platformActivityLevel =
         status: resource.status ?? null,
         accessLevel: resource.accessLevel ?? null,
         downloadCount: Number(resource.downloadCount ?? 0),
+        viewCount: Number(resource.viewCount ?? 0),
       }))
     : [];
 
@@ -63,6 +72,7 @@ const platformActivityLevel =
         status: resource.status ?? null,
         accessLevel: resource.accessLevel ?? null,
         viewCount: Number(resource.viewCount ?? 0),
+        downloadCount: Number(resource.downloadCount ?? 0),
       }))
     : [];
 
@@ -80,6 +90,28 @@ const platformActivityLevel =
       }))
     : [];
 
+  const neverViewed = Array.isArray(stats.neverViewed)
+    ? stats.neverViewed.map((resource: any, index: number) => ({
+        id: resource.id ?? index,
+        title: resource.title ?? "Ressource sans titre",
+        status: resource.status ?? null,
+        accessLevel: resource.accessLevel ?? null,
+        viewCount: Number(resource.viewCount ?? 0),
+        createdAt: resource.createdAt ?? null,
+      }))
+    : [];
+
+  const neverDownloaded = Array.isArray(stats.neverDownloaded)
+    ? stats.neverDownloaded.map((resource: any, index: number) => ({
+        id: resource.id ?? index,
+        title: resource.title ?? "Ressource sans titre",
+        status: resource.status ?? null,
+        accessLevel: resource.accessLevel ?? null,
+        viewCount: Number(resource.viewCount ?? 0),
+        createdAt: resource.createdAt ?? null,
+      }))
+    : [];
+
   const maxRecentDownloads = Math.max(
     1,
     ...recentDownloads.map((item: { day: string; count: number }) => item.count)
@@ -89,6 +121,34 @@ const platformActivityLevel =
     1,
     ...recentViews.map((item: { day: string; count: number }) => item.count)
   );
+
+  const totalRecentDownloads = recentDownloads.reduce(
+    (sum: number, item: { day: string; count: number }) => sum + item.count,
+    0
+  );
+
+  const totalRecentViews = recentViews.reduce(
+    (sum: number, item: { day: string; count: number }) => sum + item.count,
+    0
+  );
+
+  const averageRecentDownloadsPerDay =
+    recentDownloads.length > 0
+      ? (totalRecentDownloads / recentDownloads.length).toFixed(1)
+      : "0.0";
+
+  const averageRecentViewsPerDay =
+    recentViews.length > 0
+      ? (totalRecentViews / recentViews.length).toFixed(1)
+      : "0.0";
+
+  const activeDownloadDays = recentDownloads.filter(
+    (item: { day: string; count: number }) => item.count > 0
+  ).length;
+
+  const activeViewDays = recentViews.filter(
+    (item: { day: string; count: number }) => item.count > 0
+  ).length;
 
   const formatShortDay = (day: string) => {
     const value = String(day ?? "");
@@ -110,14 +170,47 @@ const platformActivityLevel =
     return "—";
   };
 
+  const getConversionRateValue = (downloadCount: number, viewCount: number) => {
+    if (viewCount <= 0) return 0;
+    return Math.round((downloadCount / viewCount) * 100);
+  };
+
+  const formatConversionRate = (downloadCount: number, viewCount: number) => {
+    if (viewCount <= 0) return "—";
+    return `${getConversionRateValue(downloadCount, viewCount)}%`;
+  };
+
+  const getConversionBadgeVariant = (
+    value: number
+  ): "default" | "secondary" | "destructive" => {
+    if (value >= 15) return "default";       // Bon
+    if (value >= 5) return "secondary";      // Moyen
+    return "destructive";                   // Faible
+  };
+
+  const getConversionLabel = (value: number) => {
+    if (value >= 15) return "Bon";
+    if (value >= 5) return "Moyen";
+    return "Faible";
+  };
+
+  const getConversionDisplayText = (downloadCount: number, viewCount: number) => {
+    if (viewCount < 10) {
+      return "Faible (peu de données)";
+    }
+
+    const rateValue = getConversionRateValue(downloadCount, viewCount);
+    return `${getConversionLabel(rateValue)} ${formatConversionRate(downloadCount, viewCount)}`;
+  };
+
   if (statsQuery.isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <main className="flex-1 py-8">
           <div className="container space-y-8">
             <div>
-              <Breadcrumb items={[{ label: "Admin" }, { label: "Analytics" }]} />
-              <h1 className="text-4xl font-bold mt-4">Dashboard Analytics</h1>
+              <Breadcrumb items={[{ label: "Administration" }, { label: "Analytics" }]} />
+              <h1 className="text-4xl font-bold mt-4">Pilotage de la plateforme</h1>
               <p className="text-muted-foreground mt-2">
                 Chargement des statistiques plateforme...
               </p>
@@ -134,8 +227,8 @@ const platformActivityLevel =
         <main className="flex-1 py-8">
           <div className="container space-y-8">
             <div>
-              <Breadcrumb items={[{ label: "Admin" }, { label: "Analytics" }]} />
-              <h1 className="text-4xl font-bold mt-4">Dashboard Analytics</h1>
+              <Breadcrumb items={[{ label: "Administration" }, { label: "Analytics" }]} />
+              <h1 className="text-4xl font-bold mt-4">Pilotage de la plateforme</h1>
               <p className="text-destructive mt-2">
                 Erreur lors du chargement des statistiques plateforme.
               </p>
@@ -151,7 +244,7 @@ const platformActivityLevel =
       <main className="flex-1 py-8">
         <div className="container space-y-8">
           <div>
-            <Breadcrumb items={[{ label: "Admin" }, { label: "Analytics" }]} />
+            <Breadcrumb items={[{ label: "Administration" }, { label: "Analytics" }]} />
             <h1 className="text-4xl font-bold mt-4">Pilotage de la plateforme</h1>
             <p className="text-muted-foreground mt-2">
               Vue consolidée de l’activité réelle de la ressourcerie ifac :
@@ -164,12 +257,12 @@ const platformActivityLevel =
               <CardContent className="pt-6">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Téléchargements</p>
+                    <p className="text-sm text-muted-foreground">Téléchargements globaux</p>
                     <Download className="h-4 w-4 text-green-500" />
                   </div>
                   <p className="text-3xl font-bold">{totalDownloads}</p>
                   <p className="text-xs text-muted-foreground">
-                    Donnée backend réelle
+                    Historique global de la plateforme
                   </p>
                 </div>
               </CardContent>
@@ -324,7 +417,7 @@ const platformActivityLevel =
                   Lecture stratégique rapide de l’usage réel de la ressourcerie ifac
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardContent className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-muted-foreground">Niveau d’activité</p>
                   <p className="text-2xl font-bold mt-2">{platformActivityLevel}</p>
@@ -352,6 +445,30 @@ const platformActivityLevel =
                     Indicateur concret d’appropriation des ressources par les équipes.
                   </p>
                 </div>
+
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground">Jamais vues</p>
+                  <p className="text-2xl font-bold mt-2">{neverViewedCount}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Ressources encore jamais consultées.
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground">Jamais téléchargées</p>
+                  <p className="text-2xl font-bold mt-2">{neverDownloadedCount}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Ressources jamais exploitées en téléchargement.
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <p className="text-sm text-muted-foreground">Totalement inutilisées</p>
+                  <p className="text-2xl font-bold mt-2">{unusedResourcesCount}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Ni vues ni téléchargées à ce jour.
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
@@ -359,85 +476,121 @@ const platformActivityLevel =
               <CardHeader>
                 <CardTitle>Activité des 30 derniers jours</CardTitle>
                 <CardDescription>
-                  Visualisation synthétique des téléchargements et des vues sur les 30 derniers jours.
+                  Lecture synthétique et visualisation quotidienne des téléchargements et des vues sur les 30 derniers jours.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="font-medium">Téléchargements par jour</p>
-                    <p className="text-xs text-muted-foreground">
-                      Max : {maxRecentDownloads}
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Téléchargements sur 30 jours</p>
+                    <p className="text-2xl font-bold mt-2">{totalRecentDownloads}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Cumul des téléchargements récents observés.
                     </p>
                   </div>
 
-                  <div className="space-y-2 max-h-96 overflow-auto pr-1">
-                    {recentDownloads.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Aucune donnée disponible.
-                      </p>
-                    ) : (
-                      recentDownloads.map((item: { day: string; count: number }) => (
-                        <div key={`download-${item.day}`} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              {formatShortDay(item.day)}
-                            </span>
-                            <span className="font-medium">{item.count}</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-emerald-500 transition-all"
-                              style={{
-                                width: `${Math.max(
-                                  item.count > 0 ? 4 : 0,
-                                  (item.count / maxRecentDownloads) * 100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))
-                    )}
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Vues sur 30 jours</p>
+                    <p className="text-2xl font-bold mt-2">{totalRecentViews}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Cumul des consultations récentes observées.
+                    </p>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Moyenne téléchargements / jour</p>
+                    <p className="text-2xl font-bold mt-2">{averageRecentDownloadsPerDay}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {activeDownloadDays} jour{activeDownloadDays > 1 ? "s" : ""} actif{activeDownloadDays > 1 ? "s" : ""} sur la période.
+                    </p>
+                  </div>
+
+                  <div className="p-4 border rounded-lg">
+                    <p className="text-sm text-muted-foreground">Moyenne vues / jour</p>
+                    <p className="text-2xl font-bold mt-2">{averageRecentViewsPerDay}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {activeViewDays} jour{activeViewDays > 1 ? "s" : ""} actif{activeViewDays > 1 ? "s" : ""} sur la période.
+                    </p>
                   </div>
                 </div>
 
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="font-medium">Vues par jour</p>
-                    <p className="text-xs text-muted-foreground">
-                      Max : {maxRecentViews}
-                    </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="font-medium">Téléchargements par jour</p>
+                      <p className="text-xs text-muted-foreground">
+                        Max : {maxRecentDownloads}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2 max-h-96 overflow-auto pr-1">
+                      {recentDownloads.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Aucune donnée disponible.
+                        </p>
+                      ) : (
+                        recentDownloads.map((item: { day: string; count: number }) => (
+                          <div key={`download-${item.day}`} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                {formatShortDay(item.day)}
+                              </span>
+                              <span className="font-medium">{item.count}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-emerald-500 transition-all"
+                                style={{
+                                  width: `${Math.max(
+                                    item.count > 0 ? 4 : 0,
+                                    (item.count / maxRecentDownloads) * 100
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
 
-                  <div className="space-y-2 max-h-96 overflow-auto pr-1">
-                    {recentViews.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Aucune donnée disponible.
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="font-medium">Vues par jour</p>
+                      <p className="text-xs text-muted-foreground">
+                        Max : {maxRecentViews}
                       </p>
-                    ) : (
-                      recentViews.map((item: { day: string; count: number }) => (
-                        <div key={`view-${item.day}`} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              {formatShortDay(item.day)}
-                            </span>
-                            <span className="font-medium">{item.count}</span>
+                    </div>
+
+                    <div className="space-y-2 max-h-96 overflow-auto pr-1">
+                      {recentViews.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Aucune donnée disponible.
+                        </p>
+                      ) : (
+                        recentViews.map((item: { day: string; count: number }) => (
+                          <div key={`view-${item.day}`} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                {formatShortDay(item.day)}
+                              </span>
+                              <span className="font-medium">{item.count}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-blue-500 transition-all"
+                                style={{
+                                  width: `${Math.max(
+                                    item.count > 0 ? 4 : 0,
+                                    (item.count / maxRecentViews) * 100
+                                  )}%`,
+                                }}
+                              />
+                            </div>
                           </div>
-                          <div className="h-2 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-blue-500 transition-all"
-                              style={{
-                                width: `${Math.max(
-                                  item.count > 0 ? 4 : 0,
-                                  (item.count / maxRecentViews) * 100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))
-                    )}
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -491,6 +644,22 @@ const platformActivityLevel =
                           <p className="text-sm text-muted-foreground">
                             téléchargements
                           </p>
+<div className="mt-2 flex justify-end">
+  <Badge
+    variant={getConversionBadgeVariant(
+      getConversionRateValue(
+        Number(resource.downloadCount ?? 0),
+        Number(resource.viewCount ?? 0)
+      )
+    )}
+    className="px-2 py-1 text-xs font-semibold"
+  >
+    {getConversionDisplayText(
+      Number(resource.downloadCount ?? 0),
+      Number(resource.viewCount ?? 0)
+    )}
+  </Badge>
+</div>
                         </div>
                       </div>
                     ))
@@ -547,6 +716,22 @@ const platformActivityLevel =
                           <p className="text-sm text-muted-foreground">
                             vues
                           </p>
+                          <div className="mt-2 flex justify-end">
+  <Badge
+    variant={getConversionBadgeVariant(
+      getConversionRateValue(
+        Number(resource.downloadCount ?? 0),
+        Number(resource.viewCount ?? 0)
+      )
+    )}
+    className="px-2 py-1 text-xs font-semibold"
+  >
+    {getConversionDisplayText(
+      Number(resource.downloadCount ?? 0),
+      Number(resource.viewCount ?? 0)
+    )}
+  </Badge>
+</div>
                         </div>
                       </div>
                     ))
@@ -554,6 +739,94 @@ const platformActivityLevel =
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Ressources jamais vues</CardTitle>
+                <CardDescription>
+                  Ressources encore invisibles dans le parcours utilisateur
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {neverViewed.length === 0 ? (
+                    <div className="p-4 border rounded-lg text-sm text-muted-foreground">
+                      Toutes les ressources ont déjà été consultées au moins une fois.
+                    </div>
+                  ) : (
+                    neverViewed.map((resource: any) => (
+                      <div
+                        key={resource.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium break-words">{resource.title}</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <Badge variant="secondary">
+                              {formatAccessLevel(resource.accessLevel)}
+                            </Badge>
+                            <Badge variant="outline">
+                              {formatStatus(resource.status)}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="font-bold">{resource.viewCount}</p>
+                          <p className="text-sm text-muted-foreground">vue</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Ressources jamais téléchargées</CardTitle>
+                <CardDescription>
+                  Ressources consultables mais jamais encore téléchargées
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {neverDownloaded.length === 0 ? (
+                    <div className="p-4 border rounded-lg text-sm text-muted-foreground">
+                      Toutes les ressources ont déjà été téléchargées au moins une fois.
+                    </div>
+                  ) : (
+                    neverDownloaded.map((resource: any) => (
+                      <div
+                        key={resource.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium break-words">{resource.title}</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <Badge variant="secondary">
+                              {formatAccessLevel(resource.accessLevel)}
+                            </Badge>
+                            <Badge variant="outline">
+                              {formatStatus(resource.status)}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="font-bold">{resource.viewCount}</p>
+                          <p className="text-sm text-muted-foreground">vues avant téléchargement</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+
+
+
           </div>
         </div>
       </main>

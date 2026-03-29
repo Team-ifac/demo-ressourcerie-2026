@@ -18,11 +18,22 @@ export function QRCodeGenerator({
   const [isGenerating, setIsGenerating] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
 
+  const getFullUrl = () => {
+    if (/^https?:\/\//i.test(url)) {
+      return url;
+    }
+
+    if (typeof window === "undefined") {
+      return url;
+    }
+
+    return `${window.location.origin}${url}`;
+  };
+
   const generateQRCode = async () => {
     setIsGenerating(true);
     try {
-      // Utiliser l'API QR Code de Google Charts (gratuit et sans dépendances)
-      const fullUrl = `${window.location.origin}${url}`;
+      const fullUrl = getFullUrl();
       const encodedUrl = encodeURIComponent(fullUrl);
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedUrl}`;
       setQrCodeUrl(qrUrl);
@@ -112,7 +123,7 @@ export function QRCodeGenerator({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground text-center">
-                URL encodée : {window.location.origin}{url}
+                URL encodée : {getFullUrl()}
               </p>
             </div>
           )}

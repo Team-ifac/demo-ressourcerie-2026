@@ -61,13 +61,20 @@ export default function AdminCollectionsManagement() {
   // Filtrer les ressources disponibles (non dans la collection)
   const availableResources = useMemo(() => {
     if (!allResources || !collectionData) return [];
+    const normalizedSearch = searchQuery.toLowerCase();
     const resourceIdsInCollection = new Set(collectionData.resources.map((r: any) => r.id));
+
     return allResources
       .filter((r: any) => !resourceIdsInCollection.has(r.id))
-      .filter((r: any) => 
-        r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.summary.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      .filter((r: any) => {
+        const title = String(r?.title ?? "").toLowerCase();
+        const summary = String(r?.summary ?? "").toLowerCase();
+
+        return (
+          title.includes(normalizedSearch) ||
+          summary.includes(normalizedSearch)
+        );
+      });
   }, [allResources, collectionData, searchQuery]);
 
   const toggleCollectionExpanded = (collectionId: number) => {

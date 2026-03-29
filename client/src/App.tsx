@@ -83,10 +83,14 @@ function Router() {
     <Switch>
       {/* Pages publiques */}
       <Route path="/" component={Home} />
-      <Route path="/resources" component={ResourcesReorganized} />
-      <Route path="/resources/:id" component={ResourceDetail} />
-      <Route path="/ressources" component={ResourcesReorganized} />
-      <Route path="/ressources/:id" component={ResourceDetail} />
+<Route path="/resources" component={ResourcesReorganized} />
+<Route path="/resources/:id" component={ResourceDetail} />
+<Route path="/ressources">
+  <Redirect to="/resources" />
+</Route>
+<Route path="/ressources/:id">
+  {(params) => <Redirect to={`/resources/${params.id}`} />}
+</Route>
       <Route path="/about" component={About} />
 
       {/* Auth */}
@@ -98,7 +102,10 @@ function Router() {
       <Route path="/auth/set-password/:token" component={AuthSetPassword} />
 
       {/* Navigation */}
-      <Route path="/profil/:profile" component={ProfileCategories} />
+      <Route path="/categorie/profil/:profile" component={ProfileCategories} />
+      <Route path="/profil/:profile">
+        {(params) => <Redirect to={`/categorie/profil/${params.profile}`} />}
+      </Route>
       <Route path="/besoin/:need" component={NeedCategories} />
       <Route path="/categorie/:type/:key/:category" component={CategoryResources} />
 
@@ -158,11 +165,6 @@ function Router() {
           <AdminCollectionsManagement />
         </AdminGuard>
       </Route>
-      <Route path="/admin/collections">
-  <AdminGuard>
-    <AdminCollectionsManagement />
-  </AdminGuard>
-</Route>
 
       {/* ✅ Bonus : si quelqu’un tape /admin/resources (anglais ancien), on redirige vers la bonne page */}
       <Route path="/admin/resources">

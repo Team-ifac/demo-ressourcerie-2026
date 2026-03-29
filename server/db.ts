@@ -139,218 +139,224 @@ export async function getAdminPlatformStats(limit: number = 10) {
 
   const safeLimit = Math.max(1, Math.min(50, limit));
 
-  const totalResourcesRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resources);
+  const [
+    totalResourcesRows,
+    publishedResourcesRows,
+    pendingResourcesRows,
+    totalViewsRows,
+    totalUsersRows,
+    totalDownloadsRows,
+    neverViewedCountRows,
+    neverDownloadedCountRows,
+    unusedResourcesCountRows,
+  ] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resources),
 
-  const publishedResourcesRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resources)
-    .where(eq(resources.status, "approved"));
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resources)
+      .where(eq(resources.status, "approved")),
 
-  const pendingResourcesRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resources)
-    .where(sql`${resources.status} in ('draft', 'pending')`);
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resources)
+      .where(sql`${resources.status} in ('draft', 'pending')`),
 
-  const totalViewsRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resourceHistory)
-    .where(eq(resourceHistory.action, "viewed"));
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(eq(resourceHistory.action, "viewed")),
 
-  const totalUsersRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(users);
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(users),
 
-  const totalDownloadsRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resourceHistory)
-    .where(eq(resourceHistory.action, "downloaded"));
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(eq(resourceHistory.action, "downloaded")),
 
-  const neverViewedCountRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resources)
-    .where(
-      sql`NOT EXISTS (
-        SELECT 1
-        FROM resource_history rh
-        WHERE rh.resourceId = ${resources.id}
-          AND rh.action = 'viewed'
-      )`
-    );
-
-  const neverDownloadedCountRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resources)
-    .where(
-      sql`NOT EXISTS (
-        SELECT 1
-        FROM resource_history rh
-        WHERE rh.resourceId = ${resources.id}
-          AND rh.action = 'downloaded'
-      )`
-    );
-
-  const unusedResourcesCountRows = await db
-    .select({
-      total: sql<number>`count(*)`,
-    })
-    .from(resources)
-    .where(
-      sql`NOT EXISTS (
-            SELECT 1
-            FROM resource_history rh
-            WHERE rh.resourceId = ${resources.id}
-              AND rh.action = 'viewed'
-          )
-          AND NOT EXISTS (
-            SELECT 1
-            FROM resource_history rh
-            WHERE rh.resourceId = ${resources.id}
-              AND rh.action = 'downloaded'
-          )`
-    );
-
-    const topViewedRows = await db
-    .select({
-      id: resources.id,
-      title: resources.title,
-      status: resources.status,
-      accessLevel: resources.accessLevel,
-      viewCount: sql<number>`count(*)`,
-    })
-    .from(resourceHistory)
-    .innerJoin(resources, eq(resourceHistory.resourceId, resources.id))
-    .where(eq(resourceHistory.action, "viewed"))
-    .groupBy(
-      resources.id,
-      resources.title,
-      resources.status,
-      resources.accessLevel,
-      resources.createdAt
-    )
-    .orderBy(
-      desc(sql`count(*)`),
-      desc(resources.createdAt)
-    )
-    .limit(safeLimit);
-
-  const topDownloadedRows = await db
-    .select({
-      id: resources.id,
-      title: resources.title,
-      status: resources.status,
-      accessLevel: resources.accessLevel,
-      downloadCount: sql<number>`count(*)`,
-    })
-    .from(resourceHistory)
-    .innerJoin(resources, eq(resourceHistory.resourceId, resources.id))
-    .where(eq(resourceHistory.action, "downloaded"))
-    .groupBy(
-      resources.id,
-      resources.title,
-      resources.status,
-      resources.accessLevel,
-      resources.createdAt
-    )
-    .orderBy(
-      desc(sql`count(*)`),
-      desc(resources.createdAt)
-    )
-    .limit(safeLimit);
-
-  const neverViewedRows = await db
-    .select({
-      id: resources.id,
-      title: resources.title,
-      status: resources.status,
-      accessLevel: resources.accessLevel,
-      viewCount: sql<number>`0`,
-      createdAt: resources.createdAt,
-    })
-    .from(resources)
-    .where(
-      sql`NOT EXISTS (
-        SELECT 1
-        FROM resource_history rh
-        WHERE rh.resourceId = ${resources.id}
-          AND rh.action = 'viewed'
-      )`
-    )
-    .orderBy(desc(resources.createdAt))
-    .limit(safeLimit);
-
-  const neverDownloadedRows = await db
-    .select({
-      id: resources.id,
-      title: resources.title,
-      status: resources.status,
-      accessLevel: resources.accessLevel,
-      viewCount: sql<number>`(
-        SELECT count(*)
-        FROM resource_history rh
-        WHERE rh.resourceId = ${resources.id}
-          AND rh.action = 'viewed'
-      )`,
-      createdAt: resources.createdAt,
-    })
-    .from(resources)
-    .where(
-      sql`NOT EXISTS (
-        SELECT 1
-        FROM resource_history rh
-        WHERE rh.resourceId = ${resources.id}
-          AND rh.action = 'downloaded'
-      )`
-    )
-    .orderBy(desc(resources.createdAt))
-    .limit(safeLimit);
-
-  const recentDownloadRows = await db
-    .select({
-      day: sql<string>`DATE(${resourceHistory.createdAt})`,
-      count: sql<number>`count(*)`,
-    })
-    .from(resourceHistory)
-    .where(
-      and(
-        eq(resourceHistory.action, "downloaded"),
-        sql`${resourceHistory.createdAt} >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)`
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resources)
+      .leftJoin(
+        resourceHistory,
+        and(
+          eq(resourceHistory.resourceId, resources.id),
+          eq(resourceHistory.action, "viewed")
+        )
       )
-    )
-    .groupBy(sql`DATE(${resourceHistory.createdAt})`)
-    .orderBy(sql`DATE(${resourceHistory.createdAt})`);
+      .where(sql`${resourceHistory.id} IS NULL`),
 
-  const recentViewRows = await db
-    .select({
-      day: sql<string>`DATE(${resourceHistory.createdAt})`,
-      count: sql<number>`count(*)`,
-    })
-    .from(resourceHistory)
-    .where(
-      and(
-        eq(resourceHistory.action, "viewed"),
-        sql`${resourceHistory.createdAt} >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)`
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resources)
+      .leftJoin(
+        resourceHistory,
+        and(
+          eq(resourceHistory.resourceId, resources.id),
+          eq(resourceHistory.action, "downloaded")
+        )
       )
-    )
-    .groupBy(sql`DATE(${resourceHistory.createdAt})`)
-    .orderBy(sql`DATE(${resourceHistory.createdAt})`);
+      .where(sql`${resourceHistory.id} IS NULL`),
+
+    db
+      .select({
+        total: sql<number>`count(*)`,
+      })
+      .from(resources)
+      .leftJoin(
+        resourceHistory,
+        eq(resourceHistory.resourceId, resources.id)
+      )
+      .where(sql`${resourceHistory.id} IS NULL`),
+  ]);
+
+  const [
+    topViewedRows,
+    topDownloadedRows,
+    neverViewedRows,
+    neverDownloadedRows,
+    recentDownloadRows,
+    recentViewRows,
+  ] = await Promise.all([
+    db
+      .select({
+        id: resources.id,
+        title: resources.title,
+        status: resources.status,
+        accessLevel: resources.accessLevel,
+        viewCount: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .innerJoin(resources, eq(resourceHistory.resourceId, resources.id))
+      .where(eq(resourceHistory.action, "viewed"))
+      .groupBy(
+        resources.id,
+        resources.title,
+        resources.status,
+        resources.accessLevel,
+        resources.createdAt
+      )
+      .orderBy(desc(sql`count(*)`), desc(resources.createdAt))
+      .limit(safeLimit),
+
+    db
+      .select({
+        id: resources.id,
+        title: resources.title,
+        status: resources.status,
+        accessLevel: resources.accessLevel,
+        downloadCount: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .innerJoin(resources, eq(resourceHistory.resourceId, resources.id))
+      .where(eq(resourceHistory.action, "downloaded"))
+      .groupBy(
+        resources.id,
+        resources.title,
+        resources.status,
+        resources.accessLevel,
+        resources.createdAt
+      )
+      .orderBy(desc(sql`count(*)`), desc(resources.createdAt))
+      .limit(safeLimit),
+
+    db
+      .select({
+        id: resources.id,
+        title: resources.title,
+        status: resources.status,
+        accessLevel: resources.accessLevel,
+        viewCount: sql<number>`0`,
+        createdAt: resources.createdAt,
+      })
+      .from(resources)
+      .where(
+        sql`NOT EXISTS (
+          SELECT 1
+          FROM resource_history rh
+          WHERE rh.resourceId = ${resources.id}
+            AND rh.action = 'viewed'
+        )`
+      )
+      .orderBy(desc(resources.createdAt))
+      .limit(safeLimit),
+
+    db
+      .select({
+        id: resources.id,
+        title: resources.title,
+        status: resources.status,
+        accessLevel: resources.accessLevel,
+        viewCount: sql<number>`(
+          SELECT count(*)
+          FROM resource_history rh
+          WHERE rh.resourceId = ${resources.id}
+            AND rh.action = 'viewed'
+        )`,
+        createdAt: resources.createdAt,
+      })
+      .from(resources)
+      .where(
+        sql`NOT EXISTS (
+          SELECT 1
+          FROM resource_history rh
+          WHERE rh.resourceId = ${resources.id}
+            AND rh.action = 'downloaded'
+        )`
+      )
+      .orderBy(desc(resources.createdAt))
+      .limit(safeLimit),
+
+    db
+      .select({
+        day: sql<string>`DATE(${resourceHistory.createdAt})`,
+        count: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(
+        and(
+          eq(resourceHistory.action, "downloaded"),
+          sql`${resourceHistory.createdAt} >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)`
+        )
+      )
+      .groupBy(sql`DATE(${resourceHistory.createdAt})`)
+      .orderBy(sql`DATE(${resourceHistory.createdAt})`),
+
+    db
+      .select({
+        day: sql<string>`DATE(${resourceHistory.createdAt})`,
+        count: sql<number>`count(*)`,
+      })
+      .from(resourceHistory)
+      .where(
+        and(
+          eq(resourceHistory.action, "viewed"),
+          sql`${resourceHistory.createdAt} >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)`
+        )
+      )
+      .groupBy(sql`DATE(${resourceHistory.createdAt})`)
+      .orderBy(sql`DATE(${resourceHistory.createdAt})`),
+  ]);
 
   const buildLast30Days = () => {
     const days: string[] = [];
@@ -617,7 +623,549 @@ export async function deleteTheme(id: number) {
 
 // 🔒 Token interne pour activer la vue admin dans getAllResources (impossible à forger via JSON)
 export const ADMIN_VIEW_TOKEN = Symbol("ADMIN_VIEW_TOKEN");
+function buildStandardVisibilityCondition(params: {
+  visibility?: "PUBLIC" | "INTERNAL_IFAC";
+  includeInternal?: boolean;
+}) {
+  if (params?.visibility) {
+    return eq(resources.visibility, params.visibility);
+  }
 
+  if (!params?.includeInternal) {
+    return eq(resources.visibility, "PUBLIC");
+  }
+
+  return null;
+}
+function buildStandardStatusCondition(isAdminView: boolean) {
+  if (isAdminView) {
+    return null;
+  }
+
+  return eq(resources.status, "approved");
+}
+function buildStandardAccessLevelCondition(params: {
+  includeInternal?: boolean;
+  includePremium?: boolean;
+}) {
+  const internalOrLegacyAuthenticated = or(
+    eq(resources.accessLevel, "INTERNAL_IFAC"),
+    eq(resources.accessLevel as any, "AUTHENTICATED" as any)
+  );
+
+  if (!params?.includeInternal) {
+    return eq(resources.accessLevel, "PUBLIC");
+  }
+
+  if (params?.includePremium) {
+    return or(
+      eq(resources.accessLevel, "PUBLIC"),
+      internalOrLegacyAuthenticated,
+      eq(resources.accessLevel, "PREMIUM")
+    );
+  }
+
+  return or(
+    eq(resources.accessLevel, "PUBLIC"),
+    internalOrLegacyAuthenticated
+  );
+}
+async function resolveTaxonomyResourceIdsByCategoryKey(
+  db: Awaited<ReturnType<typeof getDb>>,
+  categoryKey: string
+) {
+  const allCategoryNodesRows = await getCachedCategoryNodes();
+
+  const nodesById = new Map<number, any>();
+  for (const node of allCategoryNodesRows) {
+    nodesById.set(node.id, node);
+  }
+
+  const buildPath = (nodeId: number): string | null => {
+    const parts: string[] = [];
+    let current = nodesById.get(nodeId);
+
+    while (current) {
+      parts.unshift(current.slug);
+      if (current.parentId == null) break;
+      current = nodesById.get(current.parentId);
+    }
+
+    if (parts.length === 0) return null;
+    return parts.join("/");
+  };
+
+  const matchingCategoryNodeIds = allCategoryNodesRows
+    .filter((node) => node.isActive === 1)
+    .filter((node) => {
+      const path = buildPath(node.id);
+      return path === categoryKey;
+    })
+    .map((node) => node.id);
+
+  if (matchingCategoryNodeIds.length === 0) {
+    return [];
+  }
+
+  const linkedRows = await db
+    .select({
+      resourceId: resourceCategoryNodes.resourceId,
+    })
+    .from(resourceCategoryNodes)
+    .where(inArray(resourceCategoryNodes.categoryNodeId, matchingCategoryNodeIds));
+
+  return Array.from(
+    new Set(linkedRows.map((row) => Number(row.resourceId)))
+  );
+}
+async function applySearchRelevanceSorting(
+  db: Awaited<ReturnType<typeof getDb>>,
+  resourcesWithMeta: any[],
+  rawSearchInput: string
+) {
+  const normalizeSearchText = (value: unknown): string =>
+    String(value ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+  const normalizedSearch = normalizeSearchText(rawSearchInput);
+
+  const { tags, resourceTags } = await import("../drizzle/schema");
+
+  const scoredResourceIds = resourcesWithMeta.map((resource: any) => Number(resource.id));
+
+  const tagsByResourceId = new Map<number, string[]>();
+  const profilesByResourceId = new Map<number, string[]>();
+
+  if (scoredResourceIds.length > 0) {
+    const tagRows = await db
+      .select({
+        resourceId: resourceTags.resourceId,
+        name: tags.name,
+        slug: tags.slug,
+      })
+      .from(resourceTags)
+      .innerJoin(tags, eq(resourceTags.tagId, tags.id))
+      .where(inArray(resourceTags.resourceId, scoredResourceIds));
+
+    for (const row of tagRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      const existing = tagsByResourceId.get(resourceId) ?? [];
+
+      if (row.name) {
+        existing.push(normalizeSearchText(row.name));
+      }
+
+      if (row.slug) {
+        existing.push(normalizeSearchText(row.slug));
+      }
+
+      tagsByResourceId.set(resourceId, existing);
+    }
+
+    const profileRows = await db
+      .select({
+        resourceId: resourceProfiles.resourceId,
+        key: profileTypes.key,
+      })
+      .from(resourceProfiles)
+      .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
+      .where(inArray(resourceProfiles.resourceId, scoredResourceIds));
+
+    for (const row of profileRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      const existing = profilesByResourceId.get(resourceId) ?? [];
+
+      if (row.key) {
+        existing.push(normalizeSearchText(row.key));
+      }
+
+      profilesByResourceId.set(resourceId, existing);
+    }
+  }
+
+  const scoredResources = resourcesWithMeta.map((resource: any) => {
+    const resourceId = Number(resource.id);
+
+    const titleText = normalizeSearchText(resource.title);
+    const summaryText = normalizeSearchText(resource.summary);
+    const contentText = normalizeSearchText(resource.content);
+    const categoryText = normalizeSearchText(resource.category);
+
+    const themeTexts = Array.isArray(resource.themes)
+      ? resource.themes.map((theme: any) => normalizeSearchText(theme?.name))
+      : [];
+
+    const tagTexts = tagsByResourceId.get(resourceId) ?? [];
+    const profileTexts = profilesByResourceId.get(resourceId) ?? [];
+
+    let score = 0;
+
+    // 🎯 priorité maximale : titre
+    if (titleText === normalizedSearch) score += 200;
+    else if (titleText.startsWith(normalizedSearch)) score += 140;
+    else if (titleText.includes(normalizedSearch)) score += 100;
+
+    // 🎯 tags très importants
+    if (tagTexts.some((tagText: string) => tagText === normalizedSearch)) score += 110;
+    else if (tagTexts.some((tagText: string) => tagText.includes(normalizedSearch))) score += 85;
+
+    // 🎯 thèmes très importants
+    if (themeTexts.some((themeText: string) => themeText === normalizedSearch)) score += 95;
+    else if (themeTexts.some((themeText: string) => themeText.includes(normalizedSearch))) score += 70;
+
+    // 🎯 profils
+    if (profileTexts.some((profileText: string) => profileText === normalizedSearch)) score += 80;
+    else if (profileTexts.some((profileText: string) => profileText.includes(normalizedSearch))) score += 60;
+
+    // 🎯 catégorie
+    if (categoryText === normalizedSearch) score += 70;
+    else if (categoryText.includes(normalizedSearch)) score += 50;
+
+    // 🎯 résumé
+    if (summaryText.includes(normalizedSearch)) score += 30;
+
+    // 🎯 contenu
+    if (contentText.includes(normalizedSearch)) score += 10;
+
+    return {
+      ...resource,
+      _searchScore: score,
+    };
+  });
+
+  scoredResources.sort((a: any, b: any) => {
+    if (b._searchScore !== a._searchScore) {
+      return b._searchScore - a._searchScore;
+    }
+
+    return (
+      new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+    );
+  });
+
+  return scoredResources.map(({ _searchScore, ...resource }: any) => resource);
+}
+async function buildSearchConditions(
+  db: Awaited<ReturnType<typeof getDb>>,
+  rawSearchInput: string
+) {
+  const { tags, resourceTags } = await import("../drizzle/schema");
+
+  const normalizeSearchValue = (value: string): string =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const rawSearch = rawSearchInput.trim();
+  const normalizedRawSearch = normalizeSearchValue(rawSearch);
+
+  const words = normalizedRawSearch
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2)
+    .slice(0, 6);
+
+  const wordVariants = words.flatMap((w) => {
+    const variants = [w];
+
+    if (w.length >= 4) {
+      if (w.endsWith("s")) {
+        variants.push(w.slice(0, -1));
+      } else {
+        variants.push(`${w}s`);
+      }
+    }
+
+    return variants;
+  });
+
+  const searchVariants = Array.from(
+    new Set(
+      [normalizedRawSearch, ...wordVariants]
+        .map((v) => v.trim())
+        .filter((v) => v.length >= 2)
+        .slice(0, 12)
+    )
+  );
+
+  const searchTerms = searchVariants.map((v) => `%${v}%`);
+
+  const [
+    themeMatches,
+    categoryNodeMatches,
+    tagMatches,
+    profileMatches,
+  ] = searchTerms.length > 0
+    ? await Promise.all([
+        db
+          .select({ resourceId: resourceThemes.resourceId })
+          .from(resourceThemes)
+          .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
+          .where(or(...searchTerms.map((term) => like(themes.name, term)))),
+
+        db
+          .select({
+            resourceId: resourceCategoryNodes.resourceId,
+          })
+          .from(resourceCategoryNodes)
+          .innerJoin(
+            categoryNodes,
+            eq(resourceCategoryNodes.categoryNodeId, categoryNodes.id)
+          )
+          .where(
+            or(
+              ...searchTerms.flatMap((term) => [
+                like(categoryNodes.slug, term),
+                like(categoryNodes.title, term),
+              ])
+            )
+          ),
+
+        db
+          .select({
+            resourceId: resourceTags.resourceId,
+          })
+          .from(resourceTags)
+          .innerJoin(tags, eq(resourceTags.tagId, tags.id))
+          .where(
+            or(
+              ...searchTerms.flatMap((term) => [
+                like(tags.name, term),
+                like(tags.slug, term),
+              ])
+            )
+          ),
+
+        db
+          .select({
+            resourceId: resourceProfiles.resourceId,
+          })
+          .from(resourceProfiles)
+          .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
+          .where(
+            or(...searchTerms.map((term) => like(profileTypes.key, term)))
+          ),
+      ])
+    : [[], [], [], []];
+
+  const themeResourceIds = themeMatches.map((t) => Number(t.resourceId));
+  const categoryResourceIds = categoryNodeMatches.map((row) => Number(row.resourceId));
+  const tagResourceIds = tagMatches.map((row) => Number(row.resourceId));
+  const profileResourceIds = profileMatches.map((row) => Number(row.resourceId));
+
+  const allSearchResourceIds = Array.from(
+    new Set([
+      ...themeResourceIds,
+      ...categoryResourceIds,
+      ...tagResourceIds,
+      ...profileResourceIds,
+    ])
+  );
+
+  const searchConditions: any[] = [
+    ...searchTerms.map((term) => like(resources.title, term)),
+    ...searchTerms.map((term) => like(resources.summary, term)),
+    ...searchTerms.map((term) => like(resources.content, term)),
+  ];
+
+  if (allSearchResourceIds.length > 0) {
+    searchConditions.push(inArray(resources.id, allSearchResourceIds));
+  }
+
+  return searchConditions;
+}
+async function enrichResourcesWithMeta(
+  db: Awaited<ReturnType<typeof getDb>>,
+  resourcesMap: Map<number, any>
+) {
+  const resourceIds = Array.from(resourcesMap.keys());
+
+  const collectionsByResourceId = new Map<number, any[]>();
+  const themesByResourceId = new Map<number, any[]>();
+  const profilesByResourceId = new Map<number, string[]>();
+  const downloadCountByResourceId = new Map<number, number>();
+  const historyMetaByResourceId = new Map<
+    number,
+    {
+      historyCount: number;
+      lastAction: string | null;
+      lastActionAt: string | null;
+      lastActorName: string | null;
+    }
+  >();
+
+  const appendToMapArray = <T>(map: Map<number, T[]>, resourceId: number, value: T) => {
+    const existing = map.get(resourceId);
+    if (existing) {
+      existing.push(value);
+      return;
+    }
+    map.set(resourceId, [value]);
+  };
+
+  if (resourceIds.length > 0) {
+    const [
+      collectionRows,
+      themeRows,
+      profileRows,
+      downloadCountRows,
+      historyCountRows,
+      historyRows,
+    ] = await Promise.all([
+      db
+        .select({
+          resourceId: collectionResources.resourceId,
+          collection: collections,
+        })
+        .from(collectionResources)
+        .innerJoin(collections, eq(collectionResources.collectionId, collections.id))
+        .where(inArray(collectionResources.resourceId, resourceIds)),
+
+      db
+        .select({
+          resourceId: resourceThemes.resourceId,
+          theme: themes,
+        })
+        .from(resourceThemes)
+        .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
+        .where(inArray(resourceThemes.resourceId, resourceIds)),
+
+      db
+        .select({
+          resourceId: resourceProfiles.resourceId,
+          profileKey: profileTypes.key,
+        })
+        .from(resourceProfiles)
+        .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
+        .where(inArray(resourceProfiles.resourceId, resourceIds)),
+
+      db
+        .select({
+          resourceId: resourceHistory.resourceId,
+          count: sql<number>`count(*)`,
+        })
+        .from(resourceHistory)
+        .where(
+          and(
+            inArray(resourceHistory.resourceId, resourceIds),
+            eq(resourceHistory.action, "downloaded")
+          )
+        )
+        .groupBy(resourceHistory.resourceId),
+
+      db
+        .select({
+          resourceId: resourceHistory.resourceId,
+          count: sql<number>`count(*)`,
+        })
+        .from(resourceHistory)
+        .where(inArray(resourceHistory.resourceId, resourceIds))
+        .groupBy(resourceHistory.resourceId),
+
+      db
+        .select({
+          id: resourceHistory.id,
+          resourceId: resourceHistory.resourceId,
+          action: resourceHistory.action,
+          createdAt: resourceHistory.createdAt,
+          userId: resourceHistory.userId,
+          userName: users.name,
+        })
+        .from(resourceHistory)
+        .leftJoin(users, eq(resourceHistory.userId, users.id))
+        .where(inArray(resourceHistory.resourceId, resourceIds))
+        .orderBy(desc(resourceHistory.createdAt), desc(resourceHistory.id)),
+    ]);
+
+    for (const row of collectionRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      appendToMapArray(collectionsByResourceId, resourceId, row.collection);
+    }
+
+    for (const row of themeRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      appendToMapArray(themesByResourceId, resourceId, row.theme);
+    }
+
+    for (const row of profileRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      const key = String(row.profileKey ?? "").trim();
+
+      if (key) {
+        appendToMapArray(profilesByResourceId, resourceId, key);
+      }
+    }
+
+    for (const row of downloadCountRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      downloadCountByResourceId.set(resourceId, Number(row.count ?? 0));
+    }
+
+    for (const row of historyCountRows as any[]) {
+      const resourceId = Number(row.resourceId);
+      historyMetaByResourceId.set(resourceId, {
+        historyCount: Number(row.count ?? 0),
+        lastAction: null,
+        lastActionAt: null,
+        lastActorName: null,
+      });
+    }
+
+    for (const row of historyRows as any[]) {
+      const resourceId = Number(row.resourceId);
+
+      if (historyMetaByResourceId.get(resourceId)?.lastActionAt) {
+        continue;
+      }
+
+      const existing = historyMetaByResourceId.get(resourceId) ?? {
+        historyCount: 0,
+        lastAction: null,
+        lastActionAt: null,
+        lastActorName: null,
+      };
+
+      historyMetaByResourceId.set(resourceId, {
+        ...existing,
+        lastAction: row.action ? String(row.action) : null,
+        lastActionAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+        lastActorName:
+          row.userId == null
+            ? "Système"
+            : row.userName
+            ? String(row.userName)
+            : "Utilisateur",
+      });
+    }
+  }
+
+  return Array.from(resourcesMap.values()).map((resource: any) => {
+    const resourceId = Number(resource.id);
+    const historyMeta = historyMetaByResourceId.get(resourceId) ?? {
+      historyCount: 0,
+      lastAction: null,
+      lastActionAt: null,
+      lastActorName: null,
+    };
+
+    return {
+      ...resource,
+      collections: collectionsByResourceId.get(resourceId) ?? [],
+      themes: themesByResourceId.get(resourceId) ?? [],
+      profiles: profilesByResourceId.get(resourceId) ?? [],
+      downloadCount: downloadCountByResourceId.get(resourceId) ?? 0,
+      historyCount: historyMeta.historyCount,
+      lastAction: historyMeta.lastAction,
+      lastActionAt: historyMeta.lastActionAt,
+      lastActorName: historyMeta.lastActorName,
+    };
+  });
+}
 export async function getAllResources(filters?: {
   search?: string;
   themeIds?: number[];
@@ -656,151 +1204,23 @@ export async function getAllResources(filters?: {
   const conditions: any[] = [];
 
   if (filters?.search) {
-  const { tags, resourceTags } = await import("../drizzle/schema");
+    const searchConditions = await buildSearchConditions(db, filters.search);
 
-  const normalizeSearchValue = (value: string): string =>
-    value
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-
-  const rawSearch = filters.search.trim();
-  const normalizedRawSearch = normalizeSearchValue(rawSearch);
-
-  const words = normalizedRawSearch
-    .split(/\s+/)
-    .map((w) => w.trim())
-    .filter((w) => w.length >= 2)
-    .slice(0, 6);
-
-  const wordVariants = words.flatMap((w) => {
-    const variants = [w];
-
-    if (w.length >= 4) {
-      if (w.endsWith("s")) {
-        variants.push(w.slice(0, -1));
-      } else {
-        variants.push(`${w}s`);
-      }
+    if (searchConditions.length > 0) {
+      conditions.push(or(...searchConditions));
     }
-
-    return variants;
-  });
-
-  const searchVariants = Array.from(
-    new Set(
-      [normalizedRawSearch, ...wordVariants]
-        .map((v) => v.trim())
-        .filter((v) => v.length >= 2)
-        .slice(0, 12)
-    )
-  );
-
-  const searchTerms = searchVariants.map((v) => `%${v}%`);
-
-  const themeMatches =
-    searchTerms.length > 0
-      ? await db
-          .select({ resourceId: resourceThemes.resourceId })
-          .from(resourceThemes)
-          .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
-          .where(or(...searchTerms.map((term) => like(themes.name, term))))
-      : [];
-
-  const themeResourceIds = themeMatches.map((t) => Number(t.resourceId));
-
-  const categoryNodeMatches =
-    searchTerms.length > 0
-      ? await db
-          .select({
-            resourceId: resourceCategoryNodes.resourceId,
-          })
-          .from(resourceCategoryNodes)
-          .innerJoin(
-            categoryNodes,
-            eq(resourceCategoryNodes.categoryNodeId, categoryNodes.id)
-          )
-          .where(
-            or(
-              ...searchTerms.flatMap((term) => [
-                like(categoryNodes.slug, term),
-                like(categoryNodes.title, term),
-              ])
-            )
-          )
-      : [];
-
-  const categoryResourceIds = categoryNodeMatches.map((row) => Number(row.resourceId));
-
-  const tagMatches =
-    searchTerms.length > 0
-      ? await db
-          .select({
-            resourceId: resourceTags.resourceId,
-          })
-          .from(resourceTags)
-          .innerJoin(tags, eq(resourceTags.tagId, tags.id))
-          .where(
-            or(
-              ...searchTerms.flatMap((term) => [
-                like(tags.name, term),
-                like(tags.slug, term),
-              ])
-            )
-          )
-      : [];
-
-  const tagResourceIds = tagMatches.map((row) => Number(row.resourceId));
-
-  const profileMatches =
-    searchTerms.length > 0
-      ? await db
-          .select({
-            resourceId: resourceProfiles.resourceId,
-          })
-          .from(resourceProfiles)
-          .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
-          .where(
-            or(...searchTerms.map((term) => like(profileTypes.key, term)))
-          )
-      : [];
-
-  const profileResourceIds = profileMatches.map((row) => Number(row.resourceId));
-
-  const allSearchResourceIds = Array.from(
-    new Set([
-      ...themeResourceIds,
-      ...categoryResourceIds,
-      ...tagResourceIds,
-      ...profileResourceIds,
-    ])
-  );
-
-  const searchConditions: any[] = [
-    ...searchTerms.map((term) => like(resources.title, term)),
-    ...searchTerms.map((term) => like(resources.summary, term)),
-    ...searchTerms.map((term) => like(resources.content, term)),
-  ];
-
-  if (allSearchResourceIds.length > 0) {
-    searchConditions.push(inArray(resources.id, allSearchResourceIds));
   }
-
-  if (searchConditions.length > 0) {
-    conditions.push(or(...searchConditions));
-  }
-}
   if (filters?.type) conditions.push(eq(resources.type, filters.type));
   if (filters?.ageRange) conditions.push(eq(resources.ageRange, filters.ageRange));
   if (filters?.duration) conditions.push(eq(resources.duration, filters.duration));
 
   // ===== Visibility =====
-  if (filters?.visibility) {
-    conditions.push(eq(resources.visibility, filters.visibility));
-  } else if (!filters?.includeInternal) {
-    // public: uniquement PUBLIC
-    conditions.push(eq(resources.visibility, "PUBLIC"));
+  const visibilityCondition = buildStandardVisibilityCondition({
+    visibility: filters?.visibility,
+    includeInternal: filters?.includeInternal,
+  });
+  if (visibilityCondition) {
+    conditions.push(visibilityCondition);
   }
   // includeInternal = true : PUBLIC + INTERNAL_IFAC
 
@@ -821,50 +1241,7 @@ export async function getAllResources(filters?: {
     }
 
     const categoryKey = filters.category.trim();
-
-    const allCategoryNodesRows = await getCachedCategoryNodes();
-
-    const nodesById = new Map<number, any>();
-    for (const node of allCategoryNodesRows) {
-      nodesById.set(node.id, node);
-    }
-
-    const buildPath = (nodeId: number): string | null => {
-      const parts: string[] = [];
-      let current = nodesById.get(nodeId);
-
-      while (current) {
-        parts.unshift(current.slug);
-        if (current.parentId == null) break;
-        current = nodesById.get(current.parentId);
-      }
-
-      if (parts.length === 0) return null;
-      return parts.join("/");
-    };
-
-    const matchingCategoryNodeIds = allCategoryNodesRows
-      .filter((node) => node.isActive === 1)
-      .filter((node) => {
-        const path = buildPath(node.id);
-        return path === categoryKey;
-      })
-      .map((node) => node.id);
-
-    let taxonomyResourceIds: number[] = [];
-
-    if (matchingCategoryNodeIds.length > 0) {
-      const linkedRows = await db
-        .select({
-          resourceId: resourceCategoryNodes.resourceId,
-        })
-        .from(resourceCategoryNodes)
-        .where(inArray(resourceCategoryNodes.categoryNodeId, matchingCategoryNodeIds));
-
-      taxonomyResourceIds = Array.from(
-        new Set(linkedRows.map((row) => Number(row.resourceId)))
-      );
-    }
+    const taxonomyResourceIds = await resolveTaxonomyResourceIdsByCategoryKey(db, categoryKey);
 
     if (taxonomyResourceIds.length > 0) {
       conditions.push(
@@ -887,34 +1264,21 @@ export async function getAllResources(filters?: {
   // IMPORTANT : par défaut, on n'expose jamais PREMIUM via ce listing "standard".
   // Le listing PREMIUM doit être demandé explicitement (includePremium=true) après décision tRPC + entitlements.
   if (!isAdminView) {
-    // ✅ Compat legacy : AUTHENTICATED = ancien label de INTERNAL_IFAC
-    // On le traite comme INTERNAL_IFAC pour ne pas casser les vieux contenus / fixtures de tests.
-    const internalOrLegacyAuthenticated = or(
-      eq(resources.accessLevel, "INTERNAL_IFAC"),
-      eq(resources.accessLevel as any, "AUTHENTICATED" as any)
+    conditions.push(
+      buildStandardAccessLevelCondition({
+        includeInternal: filters?.includeInternal,
+        includePremium: filters?.includePremium,
+      })
     );
-
-    if (!filters?.includeInternal) {
-      conditions.push(eq(resources.accessLevel, "PUBLIC"));
-    } else if (filters?.includePremium) {
-      conditions.push(
-        or(
-          eq(resources.accessLevel, "PUBLIC"),
-          internalOrLegacyAuthenticated,
-          eq(resources.accessLevel, "PREMIUM")
-        )
-      );
-    } else {
-      conditions.push(or(eq(resources.accessLevel, "PUBLIC"), internalOrLegacyAuthenticated));
-    }
   }
 
   // ===== Status (GOUVERNANCE — PILIER 9) =====
   // Règle canonique :
   // - Non-admin (public ou connecté) : uniquement les ressources publiées
   // - Admin (adminView token) : tout (draft + approved)
-  if (!isAdminView) {
-    conditions.push(eq(resources.status, "approved"));
+  const statusCondition = buildStandardStatusCondition(isAdminView);
+  if (statusCondition) {
+    conditions.push(statusCondition);
   }
 
   if (debugSql) console.log("[DEBUG] Total conditions:", conditions.length);
@@ -976,313 +1340,17 @@ export async function getAllResources(filters?: {
   });
 
   // Enrichissement : collections + thèmes + historique synthétique
-  const resourceIds = Array.from(resourcesMap.keys());
   const shouldIncludeMeta = filters?.includeMeta !== false;
 
   if (!shouldIncludeMeta) {
     return Array.from(resourcesMap.values());
   }
 
-  const collectionsByResourceId = new Map<number, any[]>();
-  const themesByResourceId = new Map<number, any[]>();
-  const profilesByResourceId = new Map<number, string[]>();
-  const downloadCountByResourceId = new Map<number, number>();
-  const historyMetaByResourceId = new Map<
-    number,
-    {
-      historyCount: number;
-      lastAction: string | null;
-      lastActionAt: string | null;
-      lastActorName: string | null;
-    }
-  >();
-
-  if (resourceIds.length > 0) {
-    const collectionRows = await db
-      .select({
-        resourceId: collectionResources.resourceId,
-        collection: collections,
-      })
-      .from(collectionResources)
-      .innerJoin(collections, eq(collectionResources.collectionId, collections.id))
-      .where(inArray(collectionResources.resourceId, resourceIds));
-
-    for (const row of collectionRows as any[]) {
-      const resourceId = Number(row.resourceId);
-      const existing = collectionsByResourceId.get(resourceId) ?? [];
-      existing.push(row.collection);
-      collectionsByResourceId.set(resourceId, existing);
-    }
-
-    const themeRows = await db
-      .select({
-        resourceId: resourceThemes.resourceId,
-        theme: themes,
-      })
-      .from(resourceThemes)
-      .innerJoin(themes, eq(resourceThemes.themeId, themes.id))
-      .where(inArray(resourceThemes.resourceId, resourceIds));
-
-    for (const row of themeRows as any[]) {
-      const resourceId = Number(row.resourceId);
-      const existing = themesByResourceId.get(resourceId) ?? [];
-      existing.push(row.theme);
-      themesByResourceId.set(resourceId, existing);
-    }
-
-    const profileRows = await db
-      .select({
-        resourceId: resourceProfiles.resourceId,
-        profileKey: profileTypes.key,
-      })
-      .from(resourceProfiles)
-      .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
-      .where(inArray(resourceProfiles.resourceId, resourceIds));
-
-    for (const row of profileRows as any[]) {
-      const resourceId = Number(row.resourceId);
-      const existing = profilesByResourceId.get(resourceId) ?? [];
-      const key = String(row.profileKey ?? "").trim();
-
-      if (key) {
-        existing.push(key);
-        profilesByResourceId.set(resourceId, existing);
-      }
-    }
-
-    const downloadCountRows = await db
-      .select({
-        resourceId: resourceHistory.resourceId,
-        count: sql<number>`count(*)`,
-      })
-      .from(resourceHistory)
-      .where(
-        and(
-          inArray(resourceHistory.resourceId, resourceIds),
-          eq(resourceHistory.action, "downloaded")
-        )
-      )
-      .groupBy(resourceHistory.resourceId);
-
-    for (const row of downloadCountRows as any[]) {
-      const resourceId = Number(row.resourceId);
-      downloadCountByResourceId.set(resourceId, Number(row.count ?? 0));
-    }
-
-    const historyCountRows = await db
-      .select({
-        resourceId: resourceHistory.resourceId,
-        count: sql<number>`count(*)`,
-      })
-      .from(resourceHistory)
-      .where(inArray(resourceHistory.resourceId, resourceIds))
-      .groupBy(resourceHistory.resourceId);
-
-    for (const row of historyCountRows as any[]) {
-      const resourceId = Number(row.resourceId);
-      const existing = historyMetaByResourceId.get(resourceId) ?? {
-        historyCount: 0,
-        lastAction: null,
-        lastActionAt: null,
-        lastActorName: null,
-      };
-
-      historyMetaByResourceId.set(resourceId, {
-        ...existing,
-        historyCount: Number(row.count ?? 0),
-      });
-    }
-
-    const historyRows = await db
-      .select({
-        id: resourceHistory.id,
-        resourceId: resourceHistory.resourceId,
-        action: resourceHistory.action,
-        createdAt: resourceHistory.createdAt,
-        userId: resourceHistory.userId,
-        userName: users.name,
-      })
-      .from(resourceHistory)
-      .leftJoin(users, eq(resourceHistory.userId, users.id))
-      .where(inArray(resourceHistory.resourceId, resourceIds))
-      .orderBy(desc(resourceHistory.createdAt), desc(resourceHistory.id));
-
-    for (const row of historyRows as any[]) {
-      const resourceId = Number(row.resourceId);
-
-      if (historyMetaByResourceId.get(resourceId)?.lastActionAt) {
-        continue;
-      }
-
-      const existing = historyMetaByResourceId.get(resourceId) ?? {
-        historyCount: 0,
-        lastAction: null,
-        lastActionAt: null,
-        lastActorName: null,
-      };
-
-      historyMetaByResourceId.set(resourceId, {
-        ...existing,
-        lastAction: row.action ? String(row.action) : null,
-        lastActionAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-        lastActorName:
-          row.userId == null
-            ? "Système"
-            : row.userName
-            ? String(row.userName)
-            : "Utilisateur",
-      });
-    }
-  }
-
-  const resourcesWithMeta = Array.from(resourcesMap.values()).map((resource: any) => {
-    const resourceId = Number(resource.id);
-    const historyMeta = historyMetaByResourceId.get(resourceId) ?? {
-      historyCount: 0,
-      lastAction: null,
-      lastActionAt: null,
-      lastActorName: null,
-    };
-
-    return {
-      ...resource,
-      collections: collectionsByResourceId.get(resourceId) ?? [],
-      themes: themesByResourceId.get(resourceId) ?? [],
-      profiles: profilesByResourceId.get(resourceId) ?? [],
-      downloadCount: downloadCountByResourceId.get(resourceId) ?? 0,
-      historyCount: historyMeta.historyCount,
-      lastAction: historyMeta.lastAction,
-      lastActionAt: historyMeta.lastActionAt,
-      lastActorName: historyMeta.lastActorName,
-    };
-  });
+  const resourcesWithMeta = await enrichResourcesWithMeta(db, resourcesMap);
 
   // ✅ Tri de pertinence intelligent si recherche active
   if (filters?.search) {
-    const normalizeSearchText = (value: unknown): string =>
-      String(value ?? "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .trim();
-
-    const normalizedSearch = normalizeSearchText(filters.search);
-
-    const { tags, resourceTags } = await import("../drizzle/schema");
-
-      const scoredResourceIds = resourcesWithMeta.map((resource: any) => Number(resource.id));
-
-    const tagsByResourceId = new Map<number, string[]>();
-    const profilesByResourceId = new Map<number, string[]>();
-
-    if (scoredResourceIds.length > 0) {
-      const tagRows = await db
-        .select({
-          resourceId: resourceTags.resourceId,
-          name: tags.name,
-          slug: tags.slug,
-        })
-        .from(resourceTags)
-        .innerJoin(tags, eq(resourceTags.tagId, tags.id))
-        .where(inArray(resourceTags.resourceId, scoredResourceIds));
-
-      for (const row of tagRows as any[]) {
-        const resourceId = Number(row.resourceId);
-        const existing = tagsByResourceId.get(resourceId) ?? [];
-
-        if (row.name) {
-          existing.push(normalizeSearchText(row.name));
-        }
-
-        if (row.slug) {
-          existing.push(normalizeSearchText(row.slug));
-        }
-
-        tagsByResourceId.set(resourceId, existing);
-      }
-
-      const profileRows = await db
-        .select({
-          resourceId: resourceProfiles.resourceId,
-          key: profileTypes.key,
-        })
-        .from(resourceProfiles)
-        .innerJoin(profileTypes, eq(resourceProfiles.profileTypeId, profileTypes.id))
-        .where(inArray(resourceProfiles.resourceId, scoredResourceIds));
-
-      for (const row of profileRows as any[]) {
-        const resourceId = Number(row.resourceId);
-        const existing = profilesByResourceId.get(resourceId) ?? [];
-
-        if (row.key) {
-          existing.push(normalizeSearchText(row.key));
-        }
-
-        profilesByResourceId.set(resourceId, existing);
-      }
-    }
-
-    const scoredResources = resourcesWithMeta.map((resource: any) => {
-      const resourceId = Number(resource.id);
-
-      const titleText = normalizeSearchText(resource.title);
-      const summaryText = normalizeSearchText(resource.summary);
-      const contentText = normalizeSearchText(resource.content);
-      const categoryText = normalizeSearchText(resource.category);
-
-      const themeTexts = Array.isArray(resource.themes)
-        ? resource.themes.map((theme: any) => normalizeSearchText(theme?.name))
-        : [];
-
-      const tagTexts = tagsByResourceId.get(resourceId) ?? [];
-      const profileTexts = profilesByResourceId.get(resourceId) ?? [];
-
-      let score = 0;
-
-      // 🎯 priorité maximale : titre
-      if (titleText === normalizedSearch) score += 200;
-      else if (titleText.startsWith(normalizedSearch)) score += 140;
-      else if (titleText.includes(normalizedSearch)) score += 100;
-
-      // 🎯 tags très importants
-      if (tagTexts.some((tagText: string) => tagText === normalizedSearch)) score += 110;
-      else if (tagTexts.some((tagText: string) => tagText.includes(normalizedSearch))) score += 85;
-
-      // 🎯 thèmes très importants
-      if (themeTexts.some((themeText: string) => themeText === normalizedSearch)) score += 95;
-      else if (themeTexts.some((themeText: string) => themeText.includes(normalizedSearch))) score += 70;
-
-      // 🎯 profils
-      if (profileTexts.some((profileText: string) => profileText === normalizedSearch)) score += 80;
-      else if (profileTexts.some((profileText: string) => profileText.includes(normalizedSearch))) score += 60;
-
-      // 🎯 catégorie
-      if (categoryText === normalizedSearch) score += 70;
-      else if (categoryText.includes(normalizedSearch)) score += 50;
-
-      // 🎯 résumé
-      if (summaryText.includes(normalizedSearch)) score += 30;
-
-      // 🎯 contenu
-      if (contentText.includes(normalizedSearch)) score += 10;
-
-      return {
-        ...resource,
-        _searchScore: score,
-      };
-    });
-
-    scoredResources.sort((a: any, b: any) => {
-      if (b._searchScore !== a._searchScore) {
-        return b._searchScore - a._searchScore;
-      }
-
-      return (
-        new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      );
-    });
-
-    return scoredResources.map(({ _searchScore, ...resource }: any) => resource);
+    return await applySearchRelevanceSorting(db, resourcesWithMeta, filters.search);
   }
 
   return resourcesWithMeta;
@@ -1320,58 +1388,17 @@ async function buildPaginatedResourceBase(params: {
     conditions.push(eq(resources.duration, params.duration));
   }
 
-  if (params?.visibility) {
-    conditions.push(eq(resources.visibility, params.visibility));
-  } else if (!params?.includeInternal) {
-    conditions.push(eq(resources.visibility, "PUBLIC"));
+  const visibilityCondition = buildStandardVisibilityCondition({
+    visibility: params?.visibility,
+    includeInternal: params?.includeInternal,
+  });
+  if (visibilityCondition) {
+    conditions.push(visibilityCondition);
   }
 
   if (params?.category) {
     const categoryKey = params.category.trim();
-
-    const allCategoryNodesRows = await getCachedCategoryNodes();
-
-    const nodesById = new Map<number, any>();
-    for (const node of allCategoryNodesRows) {
-      nodesById.set(node.id, node);
-    }
-
-    const buildPath = (nodeId: number): string | null => {
-      const parts: string[] = [];
-      let current = nodesById.get(nodeId);
-
-      while (current) {
-        parts.unshift(current.slug);
-        if (current.parentId == null) break;
-        current = nodesById.get(current.parentId);
-      }
-
-      if (parts.length === 0) return null;
-      return parts.join("/");
-    };
-
-    const matchingCategoryNodeIds = allCategoryNodesRows
-      .filter((node) => node.isActive === 1)
-      .filter((node) => {
-        const path = buildPath(node.id);
-        return path === categoryKey;
-      })
-      .map((node) => node.id);
-
-    let taxonomyResourceIds: number[] = [];
-
-    if (matchingCategoryNodeIds.length > 0) {
-      const linkedRows = await db
-        .select({
-          resourceId: resourceCategoryNodes.resourceId,
-        })
-        .from(resourceCategoryNodes)
-        .where(inArray(resourceCategoryNodes.categoryNodeId, matchingCategoryNodeIds));
-
-      taxonomyResourceIds = Array.from(
-        new Set(linkedRows.map((row) => Number(row.resourceId)))
-      );
-    }
+    const taxonomyResourceIds = await resolveTaxonomyResourceIdsByCategoryKey(db, categoryKey);
 
     if (taxonomyResourceIds.length > 0) {
       conditions.push(
@@ -1386,30 +1413,17 @@ async function buildPaginatedResourceBase(params: {
   }
 
   if (!isAdminView) {
-    const internalOrLegacyAuthenticated = or(
-      eq(resources.accessLevel, "INTERNAL_IFAC"),
-      eq(resources.accessLevel as any, "AUTHENTICATED" as any)
+    conditions.push(
+      buildStandardAccessLevelCondition({
+        includeInternal: params?.includeInternal,
+        includePremium: params?.includePremium,
+      })
     );
-
-    if (!params?.includeInternal) {
-      conditions.push(eq(resources.accessLevel, "PUBLIC"));
-    } else if (params?.includePremium) {
-      conditions.push(
-        or(
-          eq(resources.accessLevel, "PUBLIC"),
-          internalOrLegacyAuthenticated,
-          eq(resources.accessLevel, "PREMIUM")
-        )
-      );
-    } else {
-      conditions.push(
-        or(eq(resources.accessLevel, "PUBLIC"), internalOrLegacyAuthenticated)
-      );
-    }
   }
 
-  if (!isAdminView) {
-    conditions.push(eq(resources.status, "approved"));
+  const statusCondition = buildStandardStatusCondition(isAdminView);
+  if (statusCondition) {
+    conditions.push(statusCondition);
   }
 
   let countQuery: any = db
@@ -1452,6 +1466,52 @@ async function buildPaginatedResourceBase(params: {
     isAdminView,
   };
 }
+
+async function buildSearchPaginatedResourcesResult(
+  filters: {
+    search?: string;
+    themeIds?: number[];
+    collectionIds?: number[];
+    type?: string;
+    ageRange?: string;
+    duration?: string;
+    visibility?: "PUBLIC" | "INTERNAL_IFAC";
+    includeInternal?: boolean;
+    includePremium?: boolean;
+    category?: string;
+    profileType?: "animateur" | "formateur" | "directeur" | "stagiaire_bafa";
+    page?: number;
+    limit?: number;
+    adminView?: symbol;
+  },
+  page: number,
+  limit: number
+) {
+  const SEARCH_PREFETCH_LIMIT = 300;
+
+  const allRows = await getAllResources({
+    ...filters,
+    page: 1,
+    limit: SEARCH_PREFETCH_LIMIT + 1,
+  });
+
+  const isSearchCapped = allRows.length > SEARCH_PREFETCH_LIMIT;
+  const cappedRows = isSearchCapped
+    ? allRows.slice(0, SEARCH_PREFETCH_LIMIT)
+    : allRows;
+
+  const total = cappedRows.length;
+  const start = (page - 1) * limit;
+  const items = cappedRows.slice(start, start + limit);
+
+  return {
+    items,
+    total,
+    isSearchCapped,
+    searchPrefetchLimit: SEARCH_PREFETCH_LIMIT,
+  };
+}
+
 export async function getPaginatedResources(filters?: {
   search?: string;
   themeIds?: number[];
@@ -1473,6 +1533,8 @@ export async function getPaginatedResources(filters?: {
     return {
       items: [],
       total: 0,
+      isSearchCapped: false,
+      searchPrefetchLimit: 0,
     };
   }
 
@@ -1481,29 +1543,7 @@ export async function getPaginatedResources(filters?: {
   const hasSearch = !!filters?.search?.trim();
 
   if (hasSearch) {
-    const SEARCH_PREFETCH_LIMIT = 300;
-
-    const allRows = await getAllResources({
-      ...filters,
-      page: 1,
-      limit: SEARCH_PREFETCH_LIMIT + 1,
-    });
-
-    const isSearchCapped = allRows.length > SEARCH_PREFETCH_LIMIT;
-    const cappedRows = isSearchCapped
-      ? allRows.slice(0, SEARCH_PREFETCH_LIMIT)
-      : allRows;
-
-    const total = cappedRows.length;
-    const start = (page - 1) * limit;
-    const items = cappedRows.slice(start, start + limit);
-
-    return {
-      items,
-      total,
-      isSearchCapped,
-      searchPrefetchLimit: SEARCH_PREFETCH_LIMIT,
-    };
+    return await buildSearchPaginatedResourcesResult(filters ?? {}, page, limit);
   }
 
   const debugSql = process.env.DEBUG_SQL === "true";
@@ -1561,6 +1601,8 @@ export async function getPaginatedResources(filters?: {
   return {
     items,
     total,
+    isSearchCapped: false,
+    searchPrefetchLimit: 0,
   };
 }
 
@@ -1570,17 +1612,24 @@ export async function getRecentResources(limit: number, includeInternal: boolean
 
   const conditions: any[] = [];
 
-  // 🔒 Gouvernance (audit-proof) : jamais de non-publié dans les listes "publiques"
-  conditions.push(eq(resources.status, "approved"));
-
-  if (!includeInternal) {
-    conditions.push(eq(resources.visibility, "PUBLIC"));
-    conditions.push(eq(resources.accessLevel, "PUBLIC"));
-  } else {
-    conditions.push(
-      or(eq(resources.accessLevel, "PUBLIC"), eq(resources.accessLevel, "INTERNAL_IFAC"))
-    );
+  const statusCondition = buildStandardStatusCondition(false);
+  if (statusCondition) {
+    conditions.push(statusCondition);
   }
+
+  const visibilityCondition = buildStandardVisibilityCondition({
+    includeInternal,
+  });
+  if (visibilityCondition) {
+    conditions.push(visibilityCondition);
+  }
+
+  conditions.push(
+    buildStandardAccessLevelCondition({
+      includeInternal,
+      includePremium: false,
+    })
+  );
 
   let query: any = db.select().from(resources);
   if (conditions.length > 0) {
@@ -1632,28 +1681,24 @@ export async function getPopularResources(
 
   const conditions: any[] = [];
 
-  // 🔒 Gouvernance (audit-proof) : jamais de non-publié dans les listes "publiques"
-  conditions.push(eq(resources.status, "approved"));
-
-  if (!includeInternal) {
-    conditions.push(eq(resources.visibility, "PUBLIC"));
-    conditions.push(eq(resources.accessLevel, "PUBLIC"));
-  } else if (includePremium) {
-    conditions.push(
-      or(
-        eq(resources.accessLevel, "PUBLIC"),
-        eq(resources.accessLevel, "INTERNAL_IFAC"),
-        eq(resources.accessLevel, "PREMIUM")
-      )
-    );
-  } else {
-    conditions.push(
-      or(
-        eq(resources.accessLevel, "PUBLIC"),
-        eq(resources.accessLevel, "INTERNAL_IFAC")
-      )
-    );
+  const statusCondition = buildStandardStatusCondition(false);
+  if (statusCondition) {
+    conditions.push(statusCondition);
   }
+
+  const visibilityCondition = buildStandardVisibilityCondition({
+    includeInternal,
+  });
+  if (visibilityCondition) {
+    conditions.push(visibilityCondition);
+  }
+
+  conditions.push(
+    buildStandardAccessLevelCondition({
+      includeInternal,
+      includePremium,
+    })
+  );
 
   let query: any = db.select().from(resources);
   if (conditions.length > 0) {
@@ -1679,28 +1724,25 @@ function buildHomeBaseConditions(params: {
 }) {
   const baseConditions: any[] = [];
 
+  const statusCondition = buildStandardStatusCondition(params.isAdmin);
+  if (statusCondition) {
+    baseConditions.push(statusCondition);
+  }
+
   if (!params.isAdmin) {
-    if (!params.includeInternal) {
-      baseConditions.push(eq(resources.visibility, "PUBLIC"));
-      baseConditions.push(eq(resources.accessLevel, "PUBLIC"));
-    } else if (params.includePremium) {
-      baseConditions.push(
-        or(
-          eq(resources.accessLevel, "PUBLIC"),
-          eq(resources.accessLevel, "INTERNAL_IFAC"),
-          eq(resources.accessLevel, "PREMIUM")
-        )
-      );
-    } else {
-      baseConditions.push(
-        or(
-          eq(resources.accessLevel, "PUBLIC"),
-          eq(resources.accessLevel, "INTERNAL_IFAC")
-        )
-      );
+    const visibilityCondition = buildStandardVisibilityCondition({
+      includeInternal: params.includeInternal,
+    });
+    if (visibilityCondition) {
+      baseConditions.push(visibilityCondition);
     }
 
-    baseConditions.push(eq(resources.status, "approved"));
+    baseConditions.push(
+      buildStandardAccessLevelCondition({
+        includeInternal: params.includeInternal,
+        includePremium: params.includePremium,
+      })
+    );
   }
 
   return baseConditions;

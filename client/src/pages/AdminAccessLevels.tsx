@@ -1070,9 +1070,9 @@ const raw = String(r.ageRange ?? "").trim();
                       variant="outline"
                       size="sm"
                     >
-                      <a href={`/admin/ressources/${id}`}>
+                      <Link href={`/admin/ressources/${id}`}>
                         Éditer
-                      </a>
+                      </Link>
                     </Button>
                   </td>
 

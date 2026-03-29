@@ -146,34 +146,39 @@ function getDownloadCount(r: AnyResource) {
   return Number((r as any)?.downloadCount ?? 0);
 }
 
-function isOptionBImport(r: AnyResource) {
-  const summary = String(r.summary ?? "").toLowerCase();
-  const title = String(r.title ?? "").toLowerCase();
-  const fileUrl = normalizeUrl(r.fileUrl ?? r.url ?? "").toLowerCase();
-  const thumbnailUrl = normalizeUrl(r.thumbnailUrl ?? "").toLowerCase();
-  const storageKey = String((r as any)?.storageKey ?? "").toLowerCase();
 
-  return (
-    summary.includes("import (option b)") ||
-    title.includes("import (option b)") ||
-    fileUrl.startsWith("/imported/") ||
-    thumbnailUrl.startsWith("/imported_thumbs/") ||
-    storageKey.startsWith("imported/") ||
-    storageKey.startsWith("imported_thumbs/")
-  );
-}
 
 export default function AdminResourcesManagement() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
   const [search, setSearch] = useState("");
-const [onlyUnused, setOnlyUnused] = useState(false);
-const [onlyImports, setOnlyImports] = useState(false);
-const [onlyDrafts, setOnlyDrafts] = useState(false);
+  const [onlyUnused, setOnlyUnused] = useState(false);
+  const [onlyDrafts, setOnlyDrafts] = useState(false);
+  const [onlyNeverViewed, setOnlyNeverViewed] = useState(false);
+  const [onlyTrulyUnused, setOnlyTrulyUnused] = useState(false);
 
   const [openId, setOpenId] = useState<number | null>(null);
 const openRowRef = React.useRef<HTMLTableRowElement | null>(null);
+  useEffect(() => {
+    const searchParams = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : ""
+    );
 
+    const filter = String(searchParams.get("filter") ?? "").trim().toLowerCase();
+
+    setOnlyDrafts(false);
+    setOnlyUnused(false);
+    setOnlyNeverViewed(false);
+    setOnlyTrulyUnused(false);
+
+    if (filter === "never-downloaded") {
+      setOnlyUnused(true);
+    } else if (filter === "never-viewed") {
+      setOnlyNeverViewed(true);
+    } else if (filter === "unused") {
+      setOnlyTrulyUnused(true);
+    }
+  }, [location]);
 useEffect(() => {
   if (openRowRef.current) {
     openRowRef.current.scrollIntoView({
@@ -259,13 +264,21 @@ useEffect(() => {
     const q = search.trim().toLowerCase();
 
     return resources.filter((r: AnyResource) => {
-      // ✅ filtre "Imports Option B"
-      if (onlyImports && !isOptionBImport(r)) {
+      const downloadCount = getDownloadCount(r);
+      const viewCount = Number((r as any)?.viewCount ?? 0);
+
+      // ✅ filtre "Jamais téléchargées"
+      if (onlyUnused && downloadCount !== 0) {
         return false;
       }
 
-      // ✅ filtre "Jamais téléchargées" (indépendant des brouillons)
-      if (onlyUnused && getDownloadCount(r) !== 0) {
+      // ✅ filtre "Jamais vues"
+      if (onlyNeverViewed && viewCount !== 0) {
+        return false;
+      }
+
+      // ✅ filtre "Totalement inutilisées" = ni vues ni téléchargements
+      if (onlyTrulyUnused && !(viewCount === 0 && downloadCount === 0)) {
         return false;
       }
 
@@ -308,7 +321,14 @@ useEffect(() => {
         profils.includes(q)
       );
     });
-  }, [resources, search, onlyDrafts, onlyImports, onlyUnused]);
+  }, [
+    resources,
+    search,
+    onlyDrafts,
+    onlyUnused,
+    onlyNeverViewed,
+    onlyTrulyUnused,
+  ]);
 
     const total = filtered.length;
 
@@ -420,25 +440,27 @@ function toJsonLine(obj: any) {
   }
 }
 
-function computeExportMeta() {
-  const now = new Date();
+  function computeExportMeta() {
+    const now = new Date();
 
-  return {
-    exportedAtIso: now.toISOString(),
-    exportedAtFr: now.toLocaleString("fr-FR"),
-    filters: {
-      search: search.trim(),
-      onlyDrafts,
-      onlyImports,
-      pageSize,
-      sort,
-    },
-    counts: {
-      totalAll: resources.length,
-      totalFiltered: filtered.length,
-    },
-  };
-}
+    return {
+      exportedAtIso: now.toISOString(),
+      exportedAtFr: now.toLocaleString("fr-FR"),
+      filters: {
+        search: search.trim(),
+        onlyDrafts,
+        onlyUnused,
+        onlyNeverViewed,
+        onlyTrulyUnused,
+        pageSize,
+        sort,
+      },
+      counts: {
+        totalAll: resources.length,
+        totalFiltered: filtered.length,
+      },
+    };
+  }
 
 // ✅ Export traçabilité (audit-proof)
 // - export simple en CSV
@@ -466,7 +488,9 @@ function onExportTrails() {
       "ExportedAt (ISO)",
       "Filtres (search)",
       "Filtres (onlyDrafts)",
-      "Filtres (onlyImports)",
+      "Filtres (onlyUnused)",
+      "Filtres (onlyNeverViewed)",
+      "Filtres (onlyTrulyUnused)",
     ];
 
     const lines: string[] = [header.map(toCsvValue).join(",")];
@@ -487,28 +511,29 @@ function onExportTrails() {
       const lastActionAtIso = safeIso((r as any)?.lastActionAt);
       const lastActionAtFr = formatFr((r as any)?.lastActionAt);
 
-      const line = [
-        r.id ?? "",
-        r.title ?? "",
-        r.type ?? "",
-        profils,
-        collections,
-        visibilityLabel(r.visibility),
-        accessLabel(r.accessLevel),
-        r.status ?? "",
-        yesNo(downloadable),
-        url,
-        isNaN(historyCount) ? 0 : historyCount,
-        historyActionLabel(lastAction || ""),
-        lastActorName || "",
-        lastActionAtIso,
-        lastActionAtFr,
-        meta.exportedAtIso,
-        meta.filters.search,
-        yesNo(meta.filters.onlyDrafts),
-        yesNo(meta.filters.onlyImports),
-      ];
-
+              const line = [
+          r.id ?? "",
+          r.title ?? "",
+          r.type ?? "",
+          profils,
+          collections,
+          visibilityLabel(r.visibility),
+          accessLabel(r.accessLevel),
+          r.status ?? "",
+          yesNo(downloadable),
+          url,
+          isNaN(historyCount) ? 0 : historyCount,
+          historyActionLabel(lastAction || ""),
+          lastActorName || "",
+          lastActionAtIso,
+          lastActionAtFr,
+          meta.exportedAtIso,
+          meta.filters.search,
+          yesNo(meta.filters.onlyDrafts),
+          yesNo(meta.filters.onlyUnused),
+          yesNo(meta.filters.onlyNeverViewed),
+          yesNo(meta.filters.onlyTrulyUnused),
+        ];
       lines.push(line.map(toCsvValue).join(","));
     });
 
@@ -926,6 +951,10 @@ function openEditModal(r: AnyResource) {
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 type="button"
                 onClick={() => {
+                  navigate("/admin/resources-management");
+                  setOnlyUnused(false);
+                  setOnlyNeverViewed(false);
+                  setOnlyTrulyUnused(false);
                   setSort({ key: "download", dir: "desc" });
                   setPage(1);
                 }}
@@ -949,17 +978,7 @@ function openEditModal(r: AnyResource) {
 
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={onlyImports}
-                  onChange={(e) => {
-                    setOnlyImports(e.target.checked);
-                    setPage(1);
-                  }}
-                />
-                <span>Imports Option B</span>
-              </label>
+
 
               <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
                 <input
@@ -979,10 +998,40 @@ function openEditModal(r: AnyResource) {
                   checked={onlyUnused}
                   onChange={(e) => {
                     setOnlyUnused(e.target.checked);
+                    setOnlyNeverViewed(false);
+                    setOnlyTrulyUnused(false);
                     setPage(1);
                   }}
                 />
                 <span>Jamais téléchargées</span>
+              </label>
+
+              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={onlyNeverViewed}
+                  onChange={(e) => {
+                    setOnlyNeverViewed(e.target.checked);
+                    setOnlyUnused(false);
+                    setOnlyTrulyUnused(false);
+                    setPage(1);
+                  }}
+                />
+                <span>Jamais vues</span>
+              </label>
+
+              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={onlyTrulyUnused}
+                  onChange={(e) => {
+                    setOnlyTrulyUnused(e.target.checked);
+                    setOnlyUnused(false);
+                    setOnlyNeverViewed(false);
+                    setPage(1);
+                  }}
+                />
+                <span>Totalement inutilisées</span>
               </label>
             </div>
 
@@ -1385,7 +1434,15 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
 
             <div className="mt-3 text-gray-600">Profils :</div>
             <div className="mt-1">
-              {Array.isArray(r.profiles) && r.profiles.length > 0 ? r.profiles.join(", ") : "—"}
+              {Array.isArray(r.profiles) && r.profiles.length > 0
+                ? r.profiles
+                    .map((p: string) =>
+                      p === "stagiaire_bafa"
+                        ? "Stagiaire BAFA"
+                        : p.charAt(0).toUpperCase() + p.slice(1)
+                    )
+                    .join(", ")
+                : "—"}
             </div>
 
             <div className="mt-3 text-gray-600">Fichier :</div>

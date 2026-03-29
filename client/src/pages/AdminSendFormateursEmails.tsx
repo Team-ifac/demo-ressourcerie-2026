@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,10 +11,9 @@ import { Redirect } from "wouter";
 export default function AdminSendFormateursEmails() {
   const { user, loading: authLoading } = useAuth();
   const [selectedFormateurs, setSelectedFormateurs] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [result, setResult] = useState<{ sent: number; failed: number; errors: string[] } | null>(null);
+  const [result, setResult] = useState<{ sent: number; failed: number; errors?: string[] } | null>(null);
 
   // Récupérer la liste des formateurs
   const { data: formateurs = [], isLoading: isLoadingFormateurs } = trpc.admin.getFormateurs.useQuery(undefined, {
@@ -22,6 +21,7 @@ export default function AdminSendFormateursEmails() {
   });
 
   const sendEmailsMutation = trpc.admin.sendFormateursEmails.useMutation();
+  const loading = sendEmailsMutation.isPending;
 
   const handleSelectAll = () => {
     if (selectedFormateurs.size === formateurs.length) {
@@ -48,7 +48,6 @@ export default function AdminSendFormateursEmails() {
     }
 
     setError("");
-    setLoading(true);
 
     try {
       const sendResult = await sendEmailsMutation.mutateAsync({
@@ -59,8 +58,6 @@ export default function AdminSendFormateursEmails() {
       setSelectedFormateurs(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'envoi des emails");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -102,11 +99,11 @@ export default function AdminSendFormateursEmails() {
                 </div>
               </div>
 
-              {result.errors.length > 0 && (
+              {(result.errors?.length ?? 0) > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <h4 className="font-semibold text-red-900 mb-2">Erreurs :</h4>
                   <ul className="space-y-1 text-sm text-red-800">
-                    {result.errors.map((error, idx) => (
+                    {(result.errors ?? []).map((error, idx) => (
                       <li key={idx}>• {error}</li>
                     ))}
                   </ul>
@@ -117,6 +114,7 @@ export default function AdminSendFormateursEmails() {
                 onClick={() => {
                   setSuccess(false);
                   setResult(null);
+                  setError("");
                 }}
                 className="w-full"
               >

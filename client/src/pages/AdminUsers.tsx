@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Shield, User } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Redirect } from "wouter";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -81,9 +81,14 @@ export default function AdminUsers() {
   });
 
   const setPremium = trpc.admin.users.setPremium.useMutation({
-    onSuccess: (_d, v) => {
+    onSuccess: async (_d, v) => {
       setPremiumPending((p) => ({ ...p, [v.userId]: false }));
-      utils.admin.users.list.invalidate();
+      setPremiumState((p) => {
+        const next = { ...p };
+        delete next[v.userId];
+        return next;
+      });
+      await utils.admin.users.list.invalidate();
       toast.success("Accès Premium mis à jour");
     },
     onError: (_e, v) => {

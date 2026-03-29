@@ -10,24 +10,64 @@ export default function Home() {
   // ✅ Source unique et fiable : état connecté côté serveur (cookie)
   const { data: me } = trpc.auth.me.useQuery();
 
-  const { data: popularResourcesRaw = [] } = trpc.resources.getHomePopularResources.useQuery({
-    autoLimit: 6,
-  });
+  const { data: popularResourcesRaw = [] } = trpc.resources.getHomePopularResources.useQuery(
+    {
+      autoLimit: 6,
+    },
+    {
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
-  const { data: editorialResources = [] } = trpc.resources.getHomeEditorialResources.useQuery({
-    limit: 6,
-  });
+  const { data: editorialResources = [] } = trpc.resources.getHomeEditorialResources.useQuery(
+    {
+      limit: 6,
+    },
+    {
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
-  const { data: recentResources = [] } = trpc.resources.getHomeRecentResources.useQuery({
-    limit: 6,
-  });
+  const { data: recentResources = [] } = trpc.resources.getHomeRecentResources.useQuery(
+    {
+      limit: 6,
+    },
+    {
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
-  const { data: homePlatformStats } = trpc.resources.getHomePlatformStats.useQuery();
+  const { data: homePlatformStats } = trpc.resources.getHomePlatformStats.useQuery(
+    undefined,
+    {
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
-  const { data: homeStats } = trpc.resources.listPaginated.useQuery({
-    page: 1,
-    limit: 1,
-  });
+  const { data: homeStats } = trpc.resources.listPaginated.useQuery(
+    {
+      page: 1,
+      limit: 1,
+    },
+    {
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
   // connecté réel
   const isReallyLogged = !!me;
@@ -181,7 +221,7 @@ export default function Home() {
               </span>
 
               <span className="text-xs text-muted-foreground">
-                {resource.viewCount ?? resource.views ?? 0} vues
+                {Number(resource.realViews ?? 0)} vue{Number(resource.realViews ?? 0) > 1 ? "s" : ""}
               </span>
             </div>
           </CardContent>
@@ -236,9 +276,9 @@ export default function Home() {
               </>
             ) : (
               <>
-                <Link href="/selection-profil">
+                <Link href="/categorie/profil/animateur">
                   <Button size="lg" className="gap-2">
-                    🎯 Choisir votre profil
+                    🎯 Explorer les profils
                   </Button>
                 </Link>
 
@@ -286,9 +326,9 @@ export default function Home() {
                 <div className="text-5xl font-bold text-primary">
                   {totalVisibleViews}
                 </div>
-                <p className="text-lg font-medium">Vues cumulées</p>
+                <p className="text-lg font-medium">Vues des ressources visibles</p>
                 <p className="text-sm text-muted-foreground">
-                  Consultations enregistrées sur les ressources visibles
+                  Consultations enregistrées uniquement sur les ressources actuellement visibles pour vous
                 </p>
               </CardContent>
             </Card>
@@ -338,7 +378,7 @@ export default function Home() {
             {profiles.map((profile) => {
               const href = !isReallyLogged
                 ? "/auth/choice"
-                : `/profil/${profile.id}`;
+                : `/categorie/profil/${profile.id}`;
               const label = !isReallyLogged ? "Découvrir" : "Explorer ce profil";
 
               const card = (

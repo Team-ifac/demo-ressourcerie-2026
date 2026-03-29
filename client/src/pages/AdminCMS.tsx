@@ -35,13 +35,15 @@ export default function AdminCMS() {
   const [localDescription, setLocalDescription] = useState("");
 
   // Récupérer la page CMS
+  const utils = trpc.useUtils();
+
   const { data: page, isLoading, refetch } = trpc.cms.getPage.useQuery({
     slug: selectedPage,
   });
 
   // Mutations
   const savePage = trpc.cms.savePage.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("✅ Page sauvegardée avec succès !");
       if (pageData) {
         setPageData({
@@ -51,7 +53,8 @@ export default function AdminCMS() {
         });
       }
       setEditingPageInfo(false);
-      setTimeout(() => refetch(), 500);
+      await utils.cms.getPage.invalidate({ slug: selectedPage });
+      await refetch();
     },
     onError: (error) => {
       toast.error("❌ Erreur : " + error.message);
@@ -82,6 +85,14 @@ export default function AdminCMS() {
   const pages = ["home", "about", "help", "parcours"];
 
   // Synchroniser les données quand la page change
+  useEffect(() => {
+    setPageData(null);
+    setLocalTitle("");
+    setLocalDescription("");
+    setEditingPageInfo(false);
+    setEditingSection(null);
+  }, [selectedPage]);
+
   useEffect(() => {
     if (page) {
       setPageData(page);
@@ -131,6 +142,8 @@ export default function AdminCMS() {
 
   const handleDeleteSection = (sectionId: string) => {
     if (!pageData) return;
+    if (!confirm("Êtes-vous sûr·e de vouloir supprimer cette section ?")) return;
+
     deleteSection.mutate({
       pageSlug: pageData.slug,
       sectionId,

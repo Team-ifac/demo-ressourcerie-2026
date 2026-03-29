@@ -9,12 +9,12 @@ import { AlertCircle, CheckCircle, Upload, Loader } from "lucide-react";
 
 export default function AdminImportFormateurs() {
   const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [result, setResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [result, setResult] = useState<{ success: number; failed: number; errors?: string[] } | null>(null);
 
   const importMutation = trpc.admin.importFormateurs.useMutation();
+  const loading = importMutation.isPending;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -28,37 +28,40 @@ export default function AdminImportFormateurs() {
     if (!isAllowed) {
       setError("Veuillez sélectionner un fichier .xlsx, .xls ou .csv");
       setFile(null);
+      setSuccess(false);
+      setResult(null);
       return;
     }
 
     setFile(selectedFile);
     setError("");
+    setSuccess(false);
+    setResult(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     if (!file) {
       setError("Veuillez sélectionner un fichier");
-      setLoading(false);
       return;
     }
 
     try {
       const buffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(buffer);
-      const binaryString = Array.from(uint8Array).map(byte => String.fromCharCode(byte)).join('');
+      const binaryString = Array.from(uint8Array)
+        .map((byte) => String.fromCharCode(byte))
+        .join("");
       const base64 = btoa(binaryString);
       const importResult = await importMutation.mutateAsync({ file: base64 });
+
       setResult(importResult);
       setSuccess(true);
       setFile(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'import");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -92,11 +95,11 @@ export default function AdminImportFormateurs() {
                 </div>
               </div>
 
-              {result.errors.length > 0 && (
+              {(result.errors?.length ?? 0) > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <h4 className="font-semibold text-red-900 mb-2">Erreurs :</h4>
                   <ul className="space-y-1 text-sm text-red-800">
-                    {result.errors.map((error, idx) => (
+                    {(result.errors ?? []).map((error, idx) => (
                       <li key={idx}>• {error}</li>
                     ))}
                   </ul>
@@ -174,15 +177,10 @@ export default function AdminImportFormateurs() {
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={!file || loading}
-                      onClick={() => {
-                        if (file) {
-                          alert(`Fichier sélectionné : ${file.name}`);
-                        }
-                      }}
+                      disabled
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      Vérifier
+                      Fichier prêt
                     </Button>
                   </div>
                   {file && (

@@ -24,6 +24,17 @@ export function PrintableVersion({
   resourceTitle,
   resourceContent,
 }: PrintableVersionProps) {
+  const escapeHtml = (value: string | undefined | null) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const escapeHtmlWithLineBreaks = (value: string | undefined | null) =>
+    escapeHtml(value).replace(/\n/g, "<br />");
+
   const handlePrint = () => {
     // Créer une nouvelle fenêtre avec le contenu imprimable
     const printWindow = window.open("", "_blank");
@@ -35,7 +46,7 @@ export function PrintableVersion({
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${resourceContent.title}</title>
+        <title>${escapeHtml(resourceContent.title)}</title>
         <style>
           * {
             margin: 0;
@@ -168,39 +179,39 @@ export function PrintableVersion({
       </head>
       <body>
         <div class="header">
-          <h1>${resourceContent.title}</h1>
-          <p>Ressourcerie IFAC - Ressource pédagogique</p>
+          <h1>${escapeHtml(resourceContent.title)}</h1>
+          <p>Ressourcerie ifac - Ressource pédagogique</p>
         </div>
         
         <div class="metadata">
           ${resourceContent.category ? `
             <div class="metadata-item">
               <label>Catégorie</label>
-              <value>${resourceContent.category}</value>
+              <value>${escapeHtml(resourceContent.category)}</value>
             </div>
           ` : ""}
           ${resourceContent.author ? `
             <div class="metadata-item">
               <label>Auteur</label>
-              <value>${resourceContent.author}</value>
+              <value>${escapeHtml(resourceContent.author)}</value>
             </div>
           ` : ""}
           ${resourceContent.difficulty ? `
             <div class="metadata-item">
               <label>Difficulté</label>
-              <value>${resourceContent.difficulty}</value>
+              <value>${escapeHtml(resourceContent.difficulty)}</value>
             </div>
           ` : ""}
           ${resourceContent.duration ? `
             <div class="metadata-item">
               <label>Durée</label>
-              <value>${resourceContent.duration}</value>
+              <value>${escapeHtml(resourceContent.duration)}</value>
             </div>
           ` : ""}
           ${resourceContent.ageGroup ? `
             <div class="metadata-item">
               <label>Public</label>
-              <value>${resourceContent.ageGroup}</value>
+              <value>${escapeHtml(resourceContent.ageGroup)}</value>
             </div>
           ` : ""}
           ${resourceContent.createdAt ? `
@@ -215,7 +226,7 @@ export function PrintableVersion({
           <div class="tags">
             <label>Tags</label>
             <div>
-              ${resourceContent.tags.map(tag => `<span class="tag">${tag}</span>`).join("")}
+              ${resourceContent.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
             </div>
           </div>
         ` : ""}
@@ -223,19 +234,19 @@ export function PrintableVersion({
         ${resourceContent.description ? `
           <div class="section">
             <h2>Description</h2>
-            <p>${resourceContent.description}</p>
+            <p>${escapeHtmlWithLineBreaks(resourceContent.description)}</p>
           </div>
         ` : ""}
         
         ${resourceContent.content ? `
           <div class="section">
             <h2>Contenu</h2>
-            <div>${resourceContent.content}</div>
+            <div>${escapeHtmlWithLineBreaks(resourceContent.content)}</div>
           </div>
         ` : ""}
         
         <div class="footer">
-          <p>Document téléchargé depuis la Ressourcerie IFAC</p>
+          <p>Document téléchargé depuis la Ressourcerie ifac</p>
           <p>Ressource ID: ${resourceId}</p>
         </div>
       </body>

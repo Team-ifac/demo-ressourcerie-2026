@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { AdvancedSearch } from "@/components/AdvancedSearch";
 import { Button } from "@/components/ui/button";
@@ -28,8 +28,19 @@ import { readingLabel } from "@/lib/resourcePolicy";
 import { AccessDeniedModal } from "@/components/AccessDeniedModal";
 
 export default function Resources() {
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get("q");
+    return value ? decodeURIComponent(value) : "";
+  });
+
+  const [debouncedSearch, setDebouncedSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get("q");
+    return value ? decodeURIComponent(value) : "";
+  });
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string>("");
   const [selectedType, setSelectedType] = useState<string>("");
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>("");
@@ -55,11 +66,14 @@ export default function Resources() {
 
   // Parse URL parameters directly from location
   const params = new URLSearchParams(location.split("?")[1] || "");
+
   const categoryFromUrl = params.get("categorie")
     ? decodeURIComponent(params.get("categorie")!)
     : undefined;
 
-  // Initialize category filter from URL and invalidate cache
+  // ✅ La recherche texte est initialisée UNE FOIS depuis l’URL au montage
+  // via useState(...). Ensuite, elle est pilotée uniquement par l’état local.
+  // On ne resynchronise depuis l’URL que la catégorie.
   useEffect(() => {
     if (categoryFromUrl) {
       setSelectedCategory(categoryFromUrl);
@@ -68,14 +82,13 @@ export default function Resources() {
       setSelectedCategory("");
       setSelectedCategoryKey("");
     }
+
     setCurrentPage(1);
-    utils.resources.listPaginated.invalidate();
-    utils.resources.listCategories.invalidate();
-  }, [location, utils, categoryFromUrl]);
+  }, [location, categoryFromUrl]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      setDebouncedSearch(search);
+      setDebouncedSearch(search.trim());
     }, 300);
 
     return () => {
