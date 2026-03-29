@@ -688,29 +688,56 @@ async function migrateAuthenticatedFileUrlIfNeeded(
   }
 }
 
-/** Compare 2 fichiers (simple et fiable) : on compare la taille, et si égal, on compare le contenu */
-function filesAreIdentical(a: string, b: string): boolean {
-  try {
-    if (!fs.existsSync(a) || !fs.existsSync(b)) return false;
-
-    const sa = fs.statSync(a);
-    const sb = fs.statSync(b);
-    if (sa.size !== sb.size) return false;
-
-    // taille identique => on compare le contenu (empreinte)
-    const ha = sha256File(a);
-    const hb = sha256File(b);
-    return ha === hb;
-  } catch {
-    return false;
-  }
-}
+type FileComparisonReason =
+  | "IDENTICAL"
+  | "SOURCE_MISSING"
+  | "DEST_MISSING"
+  | "SIZE_DIFFERS"
+  | "CONTENT_DIFFERS"
+  | "COMPARE_ERROR";
 
 function sha256File(p: string): string {
   const h = crypto.createHash("sha256");
   const data = fs.readFileSync(p);
   h.update(data);
   return h.digest("hex");
+}
+
+/** Compare 2 fichiers avec un diagnostic explicite */
+function compareFilesDetailed(
+  sourceAbs: string,
+  destAbs: string
+): {
+  identical: boolean;
+  reason: FileComparisonReason;
+} {
+  try {
+    if (!fs.existsSync(sourceAbs)) {
+      return { identical: false, reason: "SOURCE_MISSING" };
+    }
+
+    if (!fs.existsSync(destAbs)) {
+      return { identical: false, reason: "DEST_MISSING" };
+    }
+
+    const sourceStat = fs.statSync(sourceAbs);
+    const destStat = fs.statSync(destAbs);
+
+    if (sourceStat.size !== destStat.size) {
+      return { identical: false, reason: "SIZE_DIFFERS" };
+    }
+
+    const sourceHash = sha256File(sourceAbs);
+    const destHash = sha256File(destAbs);
+
+    if (sourceHash !== destHash) {
+      return { identical: false, reason: "CONTENT_DIFFERS" };
+    }
+
+    return { identical: true, reason: "IDENTICAL" };
+  } catch {
+    return { identical: false, reason: "COMPARE_ERROR" };
+  }
 }
 
 // =====================================================
@@ -1294,11 +1321,11 @@ async function main() {
           auditInDb++;
 
           // Si le fichier disque existe et diffère du ZIP => on "devrait" mettre à jour
-          const same = filesAreIdentical(absFile, destAbs);
-          if (!same) {
+          const comparison = compareFilesDetailed(absFile, destAbs);
+          if (!comparison.identical) {
             auditWouldUpdate++;
             if (auditDetails.length < auditLimit) {
-              auditDetails.push(`🔁 [UPDATE] ${fileUrl}`);
+              auditDetails.push(`🔁 [UPDATE] ${fileUrl} [${comparison.reason}]`);
             }
           }
         } else {
@@ -1315,11 +1342,13 @@ async function main() {
         if (alreadyInDb) {
           auditInDb++;
 
-          const same = filesAreIdentical(absFile, destAbs);
+          const comparison = compareFilesDetailed(absFile, destAbs);
 
-          if (!same) {
+          if (!comparison.identical) {
             auditWouldUpdate++;
-            console.log(`🔁 [UPDATE] ${title} -> fichier différent, serait remplacé`);
+            console.log(
+              `🔁 [UPDATE] ${title} -> fichier différent, serait remplacé [${comparison.reason}]`
+            );
           } else {
             skipped++;
             console.log(`⏭️  [SKIP] ${title} -> inchangé, serait ignoré`);
@@ -1346,12 +1375,14 @@ async function main() {
         // si le contenu du fichier a changé => on remplace le fichier sur disque
         ensureDir(destDir);
 
-        const identical = filesAreIdentical(absFile, destAbs);
-        if (!identical) {
+        const comparison = compareFilesDetailed(absFile, destAbs);
+        if (!comparison.identical) {
           auditWouldUpdate++;
           fs.copyFileSync(absFile, destAbs);
           updated++;
-          console.log(`🔁 [UPDATE] ${title} -> fichier remplacé (fileUrl identique)`);
+          console.log(
+            `🔁 [UPDATE] ${title} -> fichier remplacé (fileUrl identique) [${comparison.reason}]`
+          );
 
           // ✅ PILIER 2 béton : (re)génère la vignette canonique si possible
           if (isPdfFile(destAbs)) {
