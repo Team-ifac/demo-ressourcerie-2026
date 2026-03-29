@@ -266,7 +266,30 @@ function getImportFileFamily(filePath: string):
 
   return "other";
 }
+function mapImportFamilyToResourceType(
+  filePath: string
+):
+  | "document"
+  | "presentation"
+  | "spreadsheet"
+  | "audio"
+  | "video"
+  | "image"
+  | "archive"
+  | "other" {
+  const family = getImportFileFamily(filePath);
 
+  if (family === "pdf") return "document";
+  if (family === "presentation") return "presentation";
+  if (family === "spreadsheet") return "spreadsheet";
+  if (family === "document") return "document";
+  if (family === "archive") return "archive";
+  if (family === "audio") return "audio";
+  if (family === "video") return "video";
+  if (family === "image") return "image";
+
+  return "other";
+}
 function summarizeFilesByFamily(filePaths: string[]): Record<string, number> {
   const summary = {
     pdf: 0,
@@ -571,7 +594,54 @@ async function patchExistingResourceFileUrlIfMissing(args: {
     // non bloquant
   }
 }
+async function syncExistingImportedResourceMetadata(args: {
+  id: number;
+  fileUrl: string;
+  storageKey: string;
+  thumbnailUrl: string | null;
+  visibility: "PUBLIC" | "INTERNAL_IFAC";
+  accessLevel: "PUBLIC" | "INTERNAL_IFAC" | "PREMIUM";
+  status: "draft" | "approved" | "pending";
+  category: string;
+  type:
+    | "document"
+    | "presentation"
+    | "spreadsheet"
+    | "audio"
+    | "video"
+    | "image"
+    | "archive"
+    | "other";
+}): Promise<void> {
+  try {
+    const db2 = await (db as any).getDb?.();
+    if (!db2) return;
 
+    const schema = await import("../../drizzle/schema").catch(() =>
+      import("../drizzle/schema" as any)
+    );
+    const { eq } = await import("drizzle-orm");
+
+    const resourcesTable = (schema as any).resources;
+    if (!resourcesTable?.id) return;
+
+    await db2
+      .update(resourcesTable)
+      .set({
+        fileUrl: args.fileUrl as any,
+        storageKey: args.storageKey as any,
+        thumbnailUrl: args.thumbnailUrl as any,
+        visibility: args.visibility as any,
+        accessLevel: args.accessLevel as any,
+        status: args.status as any,
+        category: args.category as any,
+        type: args.type as any,
+      } as any)
+      .where(eq(resourcesTable.id, args.id as any));
+  } catch {
+    // non bloquant
+  }
+}
 /** Migration fileUrl : AUTHENTICATED -> INTERNAL_IFAC (anti-doublons historique) */
 async function migrateAuthenticatedFileUrlIfNeeded(
   fileUrl: string
@@ -1150,6 +1220,7 @@ async function main() {
       )}`;
 
       const title = buildTitleFromFilename(filename);
+      const resourceType = mapImportFamilyToResourceType(absFile);
       const summary = `Import (Option B) (${profile}) - ${fileExt.replace(".", "").toUpperCase()}`;
 
       // Anti-doublons historique : si une ressource existe déjà en /AUTHENTICATED/, on migre son fileUrl
@@ -1187,9 +1258,24 @@ async function main() {
       const canonicalVisibility =
         accessLevel === "PUBLIC" ? "PUBLIC" : "INTERNAL_IFAC";
 
-      // Si la ressource existe déjà via storageKey mais fileUrl est NULL => on “répare”
-      if (mode === "WRITE" && existing?.id && !existing.fileUrl) {
-        await patchExistingResourceFileUrlIfMissing({
+      // Si la ressource existe déjà :
+      // - si fileUrl est NULL => on répare
+      // - sinon on resynchronise les métadonnées import gérées par le script
+      if (mode === "WRITE" && existing?.id) {
+        if (!existing.fileUrl) {
+          await patchExistingResourceFileUrlIfMissing({
+            id: existing.id,
+            fileUrl,
+            storageKey,
+            thumbnailUrl,
+            visibility: canonicalVisibility,
+            accessLevel,
+            status,
+            category: categoryKey,
+          });
+        }
+
+        await syncExistingImportedResourceMetadata({
           id: existing.id,
           fileUrl,
           storageKey,
@@ -1198,6 +1284,7 @@ async function main() {
           accessLevel,
           status,
           category: categoryKey,
+          type: resourceType,
         });
       }
 
@@ -1249,6 +1336,11 @@ async function main() {
       // Mode WRITE
       if (alreadyInDb) {
         auditInDb++;
+
+        if (existing?.id) {
+          await db.setResourceProfiles(existing.id, [profile]);
+          await ensureTaxonomyLink(existing.id, profile, categoryPartsForTaxonomy);
+        }
 
         // NOUVEAUTÉ (Solution B) :
         // si le contenu du fichier a changé => on remplace le fichier sur disque
@@ -1342,7 +1434,7 @@ async function main() {
           title,
           summary,
           content: "",
-          type: "document",
+          type: resourceType,
           visibility: canonicalVisibility,
           accessLevel,
           status,
