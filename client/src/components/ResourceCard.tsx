@@ -75,28 +75,36 @@ export function ResourceCard({ resource, hasSubscription = false }: ResourceCard
 
   const cardContent = (
     <Card
-      className={`h-full hover:shadow-lg transition-shadow ${
-        isLocked ? 'opacity-95 cursor-default' : 'cursor-pointer'
+      className={`group h-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transition-all duration-300 ${
+        isLocked
+          ? "opacity-95 cursor-default"
+          : "cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:border-border"
       }`}
     >
-      <div className="relative h-48 bg-muted overflow-hidden rounded-t-lg">
+      <div className="relative h-52 overflow-hidden bg-muted/50">
         <img
           src={thumbnailSrc}
-          alt={resource.title || 'Ressource'}
-          className="w-full h-full object-cover"
+          alt={resource.title || "Ressource"}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           loading="lazy"
           onError={(e) => {
             const img = e.currentTarget;
-            if (img.src.endsWith('/thumbnails/default-document.png')) return;
-            img.src = '/thumbnails/default-document.png';
+            if (img.src.endsWith("/thumbnails/default-document.png")) return;
+            img.src = "/thumbnails/default-document.png";
           }}
         />
 
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between p-3">
+          <div className="flex flex-wrap gap-2">
+            {getAccessBadge(resource)}
+          </div>
+        </div>
+
         {isLocked && (
-          <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <Lock className="w-8 h-8 text-white" />
-              <span className="text-xs font-medium text-white bg-black/50 px-2 py-1 rounded">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[1px]">
+            <div className="flex flex-col items-center gap-2 rounded-xl bg-black/45 px-4 py-3 text-center">
+              <Lock className="h-8 w-8 text-white" />
+              <span className="text-xs font-medium text-white">
                 Ressource premium
               </span>
             </div>
@@ -104,47 +112,43 @@ export function ResourceCard({ resource, hasSubscription = false }: ResourceCard
         )}
       </div>
 
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg line-clamp-2">{resource.title}</CardTitle>
+      <CardHeader className="space-y-3 p-5 pb-3">
+        <CardTitle className="line-clamp-2 text-lg leading-snug text-foreground">
+          {resource.title}
+        </CardTitle>
 
-          <div className="flex gap-1 flex-shrink-0">
-            {getAccessBadge(resource)}
-          </div>
-        </div>
-
-        <CardDescription className="line-clamp-2">
-          {resource.summary || 'Aucun résumé disponible'}
+        <CardDescription className="line-clamp-3 text-sm leading-6 text-muted-foreground">
+          {resource.summary || "Aucun résumé disponible"}
         </CardDescription>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="p-5 pt-0">
         <div className="flex flex-wrap gap-2">
           {resource.type && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="rounded-full text-xs">
               {resource.type}
             </Badge>
           )}
 
           {resource.ageRange && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="rounded-full text-xs">
               {resource.ageRange}
             </Badge>
           )}
 
           {resource.duration && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="rounded-full text-xs">
               {resource.duration}
             </Badge>
           )}
         </div>
 
         {isLocked && (
-          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md space-y-3">
+          <div className="mt-5 space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm text-amber-900">
               <strong>Ressource réservée aux adhérents ifac.</strong>
             </p>
-            <p className="text-sm text-amber-800">
+            <p className="text-sm leading-6 text-amber-800">
               Adhérez pour débloquer l’accès aux contenus premium de la ressourcerie.
             </p>
 
@@ -155,17 +159,17 @@ export function ResourceCard({ resource, hasSubscription = false }: ResourceCard
               onClick={(e) => e.stopPropagation()}
               className="inline-flex"
             >
-              <Badge className="px-3 py-2 text-sm gap-2 cursor-pointer">
+              <Badge className="gap-2 px-3 py-2 text-sm cursor-pointer">
                 Adhérer à ifac
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="h-4 w-4" />
               </Badge>
             </a>
           </div>
         )}
 
         {!isLocked && requiresAuth && (
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-800">
+          <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p className="text-sm leading-6 text-blue-800">
               <strong>Connexion requise</strong> pour ouvrir cette ressource.
             </p>
           </div>

@@ -1,8 +1,15 @@
 import { useEffect, useMemo } from "react";
-import { useLocation, useParams, Link } from "wouter";
+import { useParams, Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  Globe,
+  Palette,
+  Shield,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 type CanonProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_bafa" | "decouvrir";
@@ -11,32 +18,37 @@ type CanonProfileType = "animateur" | "formateur" | "directeur" | "stagiaire_baf
 // mais on ne garde PLUS les catégories codées en dur.
 const PROFILE_INFO: Record<
   CanonProfileType,
-  { title: string; description: string; image: string }
+  { title: string; description: string; image: string; accent: string }
 > = {
   animateur: {
     title: "Animateur·rice",
     description: "Explorez les ressources par catégorie pour enrichir vos animations",
-    image: "/profil-animateur.png",
+    image: "/profiles/hero-animateur.jpg",
+    accent: "sky",
   },
   formateur: {
     title: "Formateur·rice",
     description: "Accédez aux supports de formation et approfondissements",
-    image: "/profil-formateur.png",
+    image: "/profiles/hero-formateur.jpg",
+    accent: "violet",
   },
   directeur: {
     title: "Directeur·rice",
     description: "Trouvez les outils de gestion et management adaptés",
-    image: "/profil-directeur.png",
+    image: "/profiles/hero-directeur.jpg",
+    accent: "emerald",
   },
   stagiaire_bafa: {
     title: "Stagiaire BAFA",
     description: "Découvrez les ressources pour réussir votre formation",
-    image: "/profil-stagiaire.png",
+    image: "/profiles/hero-stagiaire-bafa.jpg",
+    accent: "amber",
   },
   decouvrir: {
     title: "Découvrir",
     description: "Explorez l'univers de l'animation pédagogique",
     image: "/profil-decouvrir.png",
+    accent: "rose",
   },
 };
 
@@ -152,9 +164,73 @@ type GroupCard = {
   sampleSubs: string[];
 };
 
+const CARD_ICONS = [BookOpen, Shield, Users, Globe, Palette, Sparkles] as const;
+
+const ACCENT_STYLES = {
+  sky: {
+    soft: "bg-sky-50",
+    softBorder: "border-sky-200",
+    softText: "text-sky-700",
+    ring: "ring-sky-200",
+    accent: "from-sky-500 via-cyan-500 to-blue-500",
+    accentSoft: "from-sky-500/10 via-cyan-500/10 to-blue-500/10",
+    orb: "bg-sky-400/15",
+    button: "bg-sky-500/10 text-sky-700 ring-sky-500/15 group-hover:bg-sky-500 group-hover:text-white group-hover:ring-sky-500/30",
+    chip: "bg-sky-50 border-sky-200 text-sky-700",
+    featuredText: "group-hover:text-sky-700",
+  },
+  violet: {
+    soft: "bg-violet-50",
+    softBorder: "border-violet-200",
+    softText: "text-violet-700",
+    ring: "ring-violet-200",
+    accent: "from-violet-500 via-fuchsia-500 to-pink-500",
+    accentSoft: "from-violet-500/10 via-fuchsia-500/10 to-pink-500/10",
+    orb: "bg-violet-400/15",
+    button: "bg-violet-500/10 text-violet-700 ring-violet-500/15 group-hover:bg-violet-500 group-hover:text-white group-hover:ring-violet-500/30",
+    chip: "bg-violet-50 border-violet-200 text-violet-700",
+    featuredText: "group-hover:text-violet-700",
+  },
+  emerald: {
+    soft: "bg-emerald-50",
+    softBorder: "border-emerald-200",
+    softText: "text-emerald-700",
+    ring: "ring-emerald-200",
+    accent: "from-emerald-500 via-teal-500 to-cyan-500",
+    accentSoft: "from-emerald-500/10 via-teal-500/10 to-cyan-500/10",
+    orb: "bg-emerald-400/15",
+    button: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/15 group-hover:bg-emerald-500 group-hover:text-white group-hover:ring-emerald-500/30",
+    chip: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    featuredText: "group-hover:text-emerald-700",
+  },
+  amber: {
+    soft: "bg-amber-50",
+    softBorder: "border-amber-200",
+    softText: "text-amber-700",
+    ring: "ring-amber-200",
+    accent: "from-amber-500 via-orange-500 to-rose-500",
+    accentSoft: "from-amber-500/10 via-orange-500/10 to-rose-500/10",
+    orb: "bg-amber-400/15",
+    button: "bg-amber-500/10 text-amber-700 ring-amber-500/15 group-hover:bg-amber-500 group-hover:text-white group-hover:ring-amber-500/30",
+    chip: "bg-amber-50 border-amber-200 text-amber-700",
+    featuredText: "group-hover:text-amber-700",
+  },
+  rose: {
+    soft: "bg-rose-50",
+    softBorder: "border-rose-200",
+    softText: "text-rose-700",
+    ring: "ring-rose-200",
+    accent: "from-rose-500 via-pink-500 to-fuchsia-500",
+    accentSoft: "from-rose-500/10 via-pink-500/10 to-fuchsia-500/10",
+    orb: "bg-rose-400/15",
+    button: "bg-rose-500/10 text-rose-700 ring-rose-500/15 group-hover:bg-rose-500 group-hover:text-white group-hover:ring-rose-500/30",
+    chip: "bg-rose-50 border-rose-200 text-rose-700",
+    featuredText: "group-hover:text-rose-700",
+  },
+} as const;
+
 export default function ProfileCategories() {
   const params = useParams();
-  const [, navigate] = useLocation();
 
   type CategoryTreeNode = {
     id: number;
@@ -187,8 +263,8 @@ export default function ProfileCategories() {
     );
 
   useEffect(() => {
-    if (!meLoading && !me) navigate("/auth/choice");
-  }, [meLoading, me, navigate]);
+    return;
+  }, []);
 
     const groupCards: GroupCard[] = useMemo(() => {
     const nodes = Array.isArray(categoryTree) ? (categoryTree as CategoryTreeNode[]) : [];
@@ -213,10 +289,14 @@ export default function ProfileCategories() {
     const rootCandidates = allNodes.filter((node) => {
       const slug = String(node.slug ?? "").trim().toLowerCase();
       const title = String(node.title ?? "").trim().toLowerCase();
+      const parentIdKey = String(node.parentIdKey ?? "").trim();
+
+      const isRootLike =
+        node.parentId === null || parentIdKey === "__ROOT__";
 
       return (
         Number(node.isActive ?? 0) === 1 &&
-        node.parentId === null &&
+        isRootLike &&
         slug !== "document" &&
         title !== "document"
       );
@@ -224,26 +304,64 @@ export default function ProfileCategories() {
 
     const uniqueRoots = Array.from(
       rootCandidates.reduce((map, node) => {
-        const key = String(node.slug ?? "").trim().toLowerCase();
-        if (!key) return map;
+        const displayLabel = normalizeDisplayLabel(
+          String(node.title ?? "").trim(),
+          String(node.slug ?? "").trim()
+        );
 
-        const existing = map.get(key);
+        const displayKey = displayLabel
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[’']/g, "'")
+          .replace(/[_-]+/g, " ")
+          .replace(/\s+/g, " ")
+          .toLowerCase()
+          .trim();
+
+        if (!displayKey) return map;
+
+        const existing = map.get(displayKey);
+
+        const scoreNode = (candidate: CategoryTreeNode) => {
+          const title = String(candidate.title ?? "").trim();
+          const slug = String(candidate.slug ?? "").trim();
+
+          let score = 0;
+
+          if (title && !title.includes("-") && !title.includes("_")) score += 3;
+          if (title && /[A-ZÀ-ÿ]/.test(title)) score += 2;
+          if (title && title.includes("'")) score += 1;
+          if (title && title.includes("’")) score += 1;
+          if (slug && slug.includes("-")) score += 0.5;
+
+          return score;
+        };
 
         if (!existing) {
-          map.set(key, node);
+          map.set(displayKey, node);
           return map;
         }
 
-        const existingSort = Number(existing.sortOrder ?? 0);
-        const currentSort = Number(node.sortOrder ?? 0);
+        const existingScore = scoreNode(existing);
+        const currentScore = scoreNode(node);
 
-        if (currentSort < existingSort) {
-          map.set(key, node);
+        if (currentScore > existingScore) {
+          map.set(displayKey, node);
           return map;
         }
 
-        if (currentSort === existingSort && Number(node.id) < Number(existing.id)) {
-          map.set(key, node);
+        if (currentScore === existingScore) {
+          const existingSort = Number(existing.sortOrder ?? 0);
+          const currentSort = Number(node.sortOrder ?? 0);
+
+          if (currentSort < existingSort) {
+            map.set(displayKey, node);
+            return map;
+          }
+
+          if (currentSort === existingSort && Number(node.id) < Number(existing.id)) {
+            map.set(displayKey, node);
+          }
         }
 
         return map;
@@ -329,74 +447,146 @@ export default function ProfileCategories() {
 
   return (
     <div className="min-h-screen">
-      <Breadcrumb items={[{ label: "Accueil", href: "/" }, { label: profileInfo.title }]} />
+      <div />
 
-      {/* Hero */}
-      <section className="py-12 px-4 bg-muted/30">
-        <div className="container max-w-5xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="w-48 h-48 rounded-lg overflow-hidden shadow-elegant flex-shrink-0">
-              <img
-                src={profileInfo.image}
-                alt={profileInfo.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1 text-center md:text-left">
-              <h1 className="text-4xl font-bold mb-4">{profileInfo.title}</h1>
-              <p className="text-xl text-muted-foreground">{profileInfo.description}</p>
+       {/* Hero */}
+      <section className="relative w-full py-10 md:py-12">
+        <div className="relative w-full min-h-[320px] overflow-hidden md:min-h-[420px]">
+          <img
+            src={profileInfo.image}
+            alt={profileInfo.title}
+            className="absolute inset-0 h-full w-full object-cover scale-105"
+          />
+
+          <div className="absolute inset-0 bg-gradient-to-r from-black/42 via-black/18 to-black/8" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-transparent to-transparent" />
+          <div className="absolute -top-20 right-10 h-72 w-72 rounded-full bg-white/25 blur-3xl opacity-70" />
+
+          <div className="relative flex min-h-[320px] items-end md:min-h-[420px]">
+            <div className="container max-w-7xl mx-auto px-4 md:px-8 lg:px-10">
+              <div className="max-w-2xl rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur-lg md:p-8">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-white/70">
+                  Parcours par profil
+                </p>
+
+                <h1 className="text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
+                  {profileInfo.title}
+                </h1>
+
+                <p className="mt-4 max-w-xl text-sm leading-7 text-white/85 md:text-base">
+                  {profileInfo.description}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Grille catégories */}
-      <section className="py-12 px-4">
-        <div className="container max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center">Choisissez une catégorie</h2>
+      <section className="relative overflow-hidden px-4 pb-24 pt-14 md:px-6 md:pt-18">
+        <div className="absolute inset-0 overflow-hidden">
+          <img
+            src={profileInfo.image}
+            alt=""
+            className="h-full w-full object-cover scale-[1.12] opacity-[0.72]"
+          />
+
+          {/* voile principal pour lisibilité */}
+          <div className="absolute inset-0 bg-white/42" />
+
+          {/* gradient pour profondeur */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.20),rgba(248,250,252,0.68))]" />
+
+          {/* effets lumière */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_center,rgba(255,255,255,0.34),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.18),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.18),transparent_24%)]" />
+
+          {/* bords adoucis */}
+          <div className="absolute inset-y-0 left-0 w-[8%] bg-white/22" />
+          <div className="absolute inset-y-0 right-0 w-[8%] bg-white/22" />
+        </div>
+
+        <div className="relative w-full px-6 md:px-10 xl:px-16 2xl:px-24">
+          <div className="mb-16 text-center">
+            <div className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-600">
+              Navigation thématique
+            </div>
+
+            <h2 className="mt-5 text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">
+              Choisissez une catégorie
+            </h2>
+
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-8 text-slate-500">
+              Explorez les grandes thématiques de ce profil pour accéder plus rapidement
+              aux ressources les plus pertinentes.
+            </p>
+
+            <div className="mx-auto mt-6 h-1.5 w-1.5 rounded-full bg-sky-500" />
+          </div>
 
           {isLoading ? (
             <p className="text-center text-muted-foreground">Chargement…</p>
           ) : groupCards.length === 0 ? (
             <p className="text-center text-muted-foreground">Aucune catégorie trouvée pour ce profil.</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {groupCards.map((g) => (
-                <Link
-                  key={g.groupKey}
-                  href={`/categorie/profil/${encodeURIComponent(profileId)}/${encodeURIComponent(g.groupKey)}`}
-                >
-                  <Card className="h-full hover:shadow-elegant transition-all duration-300 hover:-translate-y-1 cursor-pointer group">
-                    <CardContent className="p-6 space-y-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <h3 className="font-semibold text-lg flex-1">{g.groupLabel}</h3>
-                        <ArrowRight className="h-5 w-5 text-primary group-hover:translate-x-1 transition-transform" />
-                      </div>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {groupCards.map((g, index) => {
+                const toneKeys = ["sky", "emerald", "violet", "amber", "rose"] as const;
+                const accent = ACCENT_STYLES[toneKeys[index % toneKeys.length]];
+                const Icon = CARD_ICONS[index % CARD_ICONS.length];
 
-                      {/* aperçu sous-catégories */}
-                      {g.sampleSubs.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {g.sampleSubs.map((s) => (
-                            <span
-                              key={s}
-                              className="text-xs px-2 py-1 rounded-full border bg-background text-muted-foreground"
-                            >
-                              {humanizeCategoryLabel(s)}
-                            </span>
-                          ))}
+                return (
+                  <a
+                    key={g.groupKey}
+                    href={`/categorie/profil/${encodeURIComponent(profileId)}/${encodeURIComponent(g.groupKey)}`}
+                    className="block h-full"
+                  >
+                    <Card className="group relative h-full min-h-[160px] overflow-hidden rounded-[26px] border border-slate-200/90 bg-white/88 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(15,23,42,0.10)]">
+                      <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${accent.accent}`} />
+                      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.78),rgba(248,250,252,0.92))]" />
+                      <div className={`absolute -left-8 -top-8 h-24 w-24 rounded-full ${accent.orb} blur-2xl`} />
+
+                      <CardContent className="relative flex h-full flex-col p-5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ring-1 ${accent.soft} ${accent.ring}`}>
+                              <Icon className={`h-4.5 w-4.5 ${accent.softText}`} />
+                            </div>
+
+                            <div className={`inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ring-1 ${accent.soft} ${accent.softBorder} ${accent.softText}`}>
+                              Catégorie
+                            </div>
+                          </div>
+
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-slate-700">
+                            <ArrowRight className="h-4 w-4" />
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+
+                        <div className="mt-6">
+                          <h3 className="text-[1.95rem] font-bold leading-tight text-slate-900">
+                            {normalizeDisplayLabel(g.groupLabel)}
+                          </h3>
+                        </div>
+
+                        <div className="mt-auto pt-4">
+                          <div className={`inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold ring-1 transition-all duration-300 ${accent.button}`}>
+                            Explorer la catégorie
+                            <ArrowRight className="h-4 w-4" />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </a>
+                );
+              })}
             </div>
           )}
 
-          <div className="mt-12 text-center">
+          <div className="mt-16 text-center">
             <Link href="/resources">
-              <button className="text-primary hover:underline">
-                Voir toutes les ressources sans filtre →
+              <button className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-6 py-3.5 text-sm font-semibold text-sky-600 transition-all duration-300 hover:-translate-y-0.5 hover:bg-sky-100">
+                Voir toutes les ressources sans filtre
+                <ArrowRight className="h-4 w-4" />
               </button>
             </Link>
           </div>

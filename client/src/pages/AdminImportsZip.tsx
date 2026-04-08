@@ -63,6 +63,20 @@ type ImportHistoryItem = {
   userEmail?: string | null;
 };
 
+type ParsedRunSummary = {
+  detectedFiles: number | null;
+  detectedPdfs: number | null;
+  inDb: number | null;
+  wouldImport: number | null;
+  wouldUpdate: number | null;
+  imported: number | null;
+  updated: number | null;
+  skipped: number | null;
+  failed: number | null;
+  thumbsWritten: number | null;
+  thumbsSkipped: number | null;
+};
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return "—";
 
@@ -73,6 +87,33 @@ function formatDateTime(value: string | null | undefined) {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function extractNumber(raw: string, label: string): number | null {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = raw.match(new RegExp(`${escaped}\\s*:\\s*(\\d+)`, "i"));
+  return match ? Number(match[1]) : null;
+}
+
+function parseRunSummary(rawOutput: string | undefined): ParsedRunSummary | null {
+  const raw = String(rawOutput ?? "").trim();
+  if (!raw) return null;
+
+  return {
+    detectedFiles: extractNumber(raw, "Fichiers importables détectés"),
+    detectedPdfs: extractNumber(raw, "Dont PDF"),
+    inDb: extractNumber(raw, "Déjà en base (fileUrl)"),
+    wouldImport: extractNumber(raw, "Nouveaux (seraient importés)") ?? extractNumber(raw, "Nouveaux (importés)"),
+    wouldUpdate:
+      extractNumber(raw, "Modifiés (seraient remplacés)") ??
+      extractNumber(raw, "Modifiés (remplacés)"),
+    imported: extractNumber(raw, "Importés (nouveaux)"),
+    updated: extractNumber(raw, "Mis à jour (fichiers remplacés)"),
+    skipped: extractNumber(raw, "Skippés (inchangés)"),
+    failed: extractNumber(raw, "Échecs"),
+    thumbsWritten: extractNumber(raw, "Thumbs écrits"),
+    thumbsSkipped: extractNumber(raw, "Thumbs non écrits"),
+  };
 }
 
 export default function AdminImportsZip() {
@@ -231,6 +272,8 @@ export default function AdminImportsZip() {
 
   const audit = result?.auditResult ?? null;
   const auditFamilies = audit?.detectedFilesByFamily ?? null;
+  const parsedRunSummary = parseRunSummary(result?.output);
+  const showStructuredRunSummary = !audit && !!result?.ok && !!parsedRunSummary;
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="flex-1 py-8">
@@ -444,6 +487,78 @@ export default function AdminImportsZip() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {showStructuredRunSummary ? (
+            <Card className="shadow-elegant border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Play className="h-4 w-4" />
+                  Résumé structuré
+                </CardTitle>
+                <CardDescription>
+                  Lecture simplifiée du résultat {mode === "dry-run" ? "dry-run" : "import réel"}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Fichiers détectés</div>
+                    <div className="text-2xl font-bold">{parsedRunSummary.detectedFiles ?? "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">PDF détectés</div>
+                    <div className="text-2xl font-bold">{parsedRunSummary.detectedPdfs ?? "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Déjà en base</div>
+                    <div className="text-2xl font-bold">{parsedRunSummary.inDb ?? "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Erreurs</div>
+                    <div className="text-2xl font-bold">{parsedRunSummary.failed ?? "—"}</div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Nouveaux</div>
+                    <div className="text-2xl font-bold">{parsedRunSummary.wouldImport ?? "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Modifiés</div>
+                    <div className="text-2xl font-bold">{parsedRunSummary.wouldUpdate ?? "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Skippés</div>
+                    <div className="text-2xl font-bold">{parsedRunSummary.skipped ?? "—"}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">
+                      {mode === "import" ? "Mis à jour" : "Importés"}
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {mode === "import"
+                        ? (parsedRunSummary.updated ?? "—")
+                        : (parsedRunSummary.imported ?? "—")}
+                    </div>
+                  </div>
+                </div>
+
+                {mode === "import" ? (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-2">
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Thumbs écrits</div>
+                      <div className="text-2xl font-bold">{parsedRunSummary.thumbsWritten ?? "—"}</div>
+                    </div>
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Thumbs non écrits</div>
+                      <div className="text-2xl font-bold">{parsedRunSummary.thumbsSkipped ?? "—"}</div>
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}

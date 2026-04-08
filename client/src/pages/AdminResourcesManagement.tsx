@@ -1,4 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  ArrowUpDown,
+  Download,
+  EyeOff,
+  FilePlus2,
+  FileSpreadsheet,
+  PackageSearch,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { trpc } from "../lib/trpc";
 import { Link, useLocation } from "wouter";
 
@@ -371,6 +383,76 @@ useEffect(() => {
     return `${start}–${end} sur ${total}`;
   }, [safePage, pageSize, total]);
 
+  const activeFilterCount = [
+    Boolean(search.trim()),
+    onlyDrafts,
+    onlyUnused,
+    onlyNeverViewed,
+    onlyTrulyUnused,
+  ].filter(Boolean).length;
+
+  const topStats = useMemo(() => {
+    const drafts = resources.filter(
+      (r: AnyResource) => normalizeStatus(r.status) === "draft"
+    ).length;
+
+    const neverDownloaded = resources.filter(
+      (r: AnyResource) => getDownloadCount(r) === 0
+    ).length;
+
+    const neverViewed = resources.filter(
+      (r: AnyResource) => Number((r as any)?.viewCount ?? 0) === 0
+    ).length;
+
+    const trulyUnused = resources.filter((r: AnyResource) => {
+      const dl = getDownloadCount(r);
+      const views = Number((r as any)?.viewCount ?? 0);
+      return dl === 0 && views === 0;
+    }).length;
+
+    return [
+      {
+        label: "Ressources",
+        value: resources.length,
+        hint: "volume total pilotable",
+        icon: PackageSearch,
+        wrapClassName:
+          "border-blue-200/70 bg-blue-50/80 text-blue-700",
+      },
+      {
+        label: "Brouillons",
+        value: drafts,
+        hint: "contenus à finaliser",
+        icon: FileSpreadsheet,
+        wrapClassName:
+          "border-orange-200/70 bg-orange-50/80 text-orange-700",
+      },
+      {
+        label: "Jamais vues",
+        value: neverViewed,
+        hint: "aucune consultation",
+        icon: EyeOff,
+        wrapClassName:
+          "border-violet-200/70 bg-violet-50/80 text-violet-700",
+      },
+      {
+        label: "Totalement inutilisées",
+        value: trulyUnused,
+        hint: "ni vues ni téléchargées",
+        icon: Download,
+        wrapClassName:
+          "border-emerald-200/70 bg-emerald-50/80 text-emerald-700",
+      },
+      {
+        label: "Jamais téléchargées",
+        value: neverDownloaded,
+        hint: "consultées sans téléchargement",
+        icon: ArrowUpDown,
+        wrapClassName:
+          "border-slate-200/70 bg-slate-50 text-slate-700",
+      },
+    ];
+  }, [resources]);
 
   async function refresh() {
     await utils.resources.getAllResourcesForAdmin.invalidate();
@@ -654,52 +736,120 @@ function openEditModal(r: AnyResource) {
   return (
     <div className="min-h-screen bg-slate-50/60 p-4 md:p-6">
       <div className="mx-auto max-w-[1600px] space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                Administration · Ressources
+        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.10),transparent_30%),radial-gradient(circle_at_top_right,rgba(249,115,22,0.08),transparent_26%),linear-gradient(to_bottom,rgba(248,250,252,0.9),rgba(255,255,255,0.98))]" />
+
+            <div className="relative grid gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:p-8">
+              <div className="space-y-5">
+                <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                  Administration · Ressources
+                </div>
+
+                <div className="space-y-3">
+                  <h1 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-5xl">
+                    Ressources · Vue d’ensemble
+                  </h1>
+
+                  <p className="max-w-4xl text-sm leading-7 text-slate-600 md:text-base">
+                    Interface centrale pour piloter <span className="font-semibold text-slate-900">une ressource à la fois</span> :
+                    consultation, modification rapide, contrôle de l’historique, vérification éditoriale
+                    et ouverture du fichier. Pour les changements collectifs, utilise l’espace dédié
+                    <span className="font-semibold text-slate-900"> Modifications en masse</span>.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-xs font-medium">
+                  <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-blue-700">
+                    Vue d’ensemble = 1 ressource à la fois
+                  </span>
+                  <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-orange-700">
+                    Modifications en masse = plusieurs ressources
+                  </span>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">
+                    Contrôle éditorial
+                  </span>
+                  <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-violet-700">
+                    Historique & traçabilité
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  {topStats.map((item) => {
+                    const Icon = item.icon;
+
+                    return (
+                      <div
+                        key={item.label}
+                        className={`rounded-2xl border p-4 shadow-sm ${item.wrapClassName}`}
+                      >
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              {item.label}
+                            </p>
+                            <div className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+                              {item.value}
+                            </div>
+                          </div>
+
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-current/10 bg-white/70">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                        </div>
+
+                        <p className="text-xs leading-5 text-slate-500">
+                          {item.hint}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                Ressources · Vue d’ensemble
-              </h1>
+              <div className="rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-lg font-semibold text-slate-900">
+                      Actions rapides
+                    </div>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Les deux entrées les plus utiles pour naviguer dans l’administration des ressources.
+                    </p>
+                  </div>
 
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Cette page sert à piloter <span className="font-semibold text-slate-800">une ressource à la fois</span> :
-                consultation, modification rapide, contrôle de l’historique et ouverture du fichier.
-                Pour les changements collectifs, utilise l’espace dédié <span className="font-semibold text-slate-800">Modifications en masse</span>.
-              </p>
+                  <div className="grid gap-3">
+                    <Link
+                      href="/admin/access-levels"
+                      className="inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-orange-700"
+                      title="Ouvrir l’outil de modifications en masse"
+                    >
+                      Modifications en masse
+                    </Link>
 
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 font-medium text-blue-700">
-                  Vue d’ensemble = 1 ressource à la fois
-                </span>
-                <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 font-medium text-orange-700">
-                  Modifications en masse = plusieurs ressources
-                </span>
+                    <Link
+                      href="/admin"
+                      className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      title="Retour au tableau de bord admin"
+                    >
+                      Retour admin
+                    </Link>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      Lecture immédiate
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Cette vue sert au <span className="font-medium text-slate-800">pilotage fin</span> :
+                      ouvrir une ressource, contrôler son statut, son accès, sa lecture, sa traçabilité et agir rapidement.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 xl:justify-end">
-              <Link
-                href="/admin/access-levels"
-                className="inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-orange-700"
-                title="Ouvrir l’outil de modifications en masse"
-              >
-                🟠 Modifications en masse
-              </Link>
-
-              <Link
-                href="/admin"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                title="Retour au tableau de bord admin"
-              >
-                Retour admin
-              </Link>
             </div>
           </div>
-        </div>
+        </section>
 
       {/* MODAL EDIT */}
       {editOpen && edit && (
@@ -917,129 +1067,166 @@ function openEditModal(r: AnyResource) {
         </div>
       )}
 
-          <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-                onClick={() => navigate("/admin/ressources/nouvelle")}
-                type="button"
-              >
-                + Ajouter
-              </button>
+          <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+                    onClick={() => navigate("/admin/ressources/nouvelle")}
+                    type="button"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ajouter
+                  </button>
 
-              <button
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                onClick={onCreateTest}
-                disabled={createTestMutation.isPending}
-                type="button"
-              >
-                Créer une ressource de test
-              </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                    onClick={onCreateTest}
+                    disabled={createTestMutation.isPending}
+                    type="button"
+                  >
+                    <FilePlus2 className="h-4 w-4" />
+                    Créer une ressource de test
+                  </button>
 
-              <button
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                onClick={() => {
-                  void onExportTrails();
-                }}
-                type="button"
-              >
-                Export traçabilité (CSV)
-              </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    onClick={() => {
+                      void onExportTrails();
+                    }}
+                    type="button"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Export traçabilité (CSV)
+                  </button>
 
-              <button
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                type="button"
-                onClick={() => {
-                  navigate("/admin/resources-management");
-                  setOnlyUnused(false);
-                  setOnlyNeverViewed(false);
-                  setOnlyTrulyUnused(false);
-                  setSort({ key: "download", dir: "desc" });
-                  setPage(1);
-                }}
-              >
-                Top téléchargements
-              </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    type="button"
+                    onClick={() => {
+                      navigate("/admin/resources-management");
+                      setSearch("");
+                      setOnlyDrafts(false);
+                      setOnlyUnused(false);
+                      setOnlyNeverViewed(false);
+                      setOnlyTrulyUnused(false);
+                      setSort({ key: "download", dir: "desc" });
+                      setPage(1);
+                    }}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    Top téléchargements
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition ${
+                      onlyDrafts
+                        ? "border-orange-200 bg-orange-50 text-orange-700"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+                    onClick={() => {
+                      setOnlyDrafts(!onlyDrafts);
+                      setPage(1);
+                    }}
+                  >
+                    Brouillons
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition ${
+                      onlyUnused
+                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+                    onClick={() => {
+                      setOnlyUnused(!onlyUnused);
+                      setOnlyNeverViewed(false);
+                      setOnlyTrulyUnused(false);
+                      setPage(1);
+                    }}
+                  >
+                    Jamais téléchargées
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition ${
+                      onlyNeverViewed
+                        ? "border-violet-200 bg-violet-50 text-violet-700"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+                    onClick={() => {
+                      setOnlyNeverViewed(!onlyNeverViewed);
+                      setOnlyUnused(false);
+                      setOnlyTrulyUnused(false);
+                      setPage(1);
+                    }}
+                  >
+                    Jamais vues
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition ${
+                      onlyTrulyUnused
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+                    onClick={() => {
+                      setOnlyTrulyUnused(!onlyTrulyUnused);
+                      setOnlyUnused(false);
+                      setOnlyNeverViewed(false);
+                      setPage(1);
+                    }}
+                  >
+                    Totalement inutilisées
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+                    {total} ressource{total > 1 ? "s" : ""} après filtrage
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+                    {activeFilterCount} filtre{activeFilterCount > 1 ? "s" : ""} actif{activeFilterCount > 1 ? "s" : ""}
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-600">
+                    Tri actuel : {sort.key === "download" ? "téléchargements" : sort.key === "title" ? "titre" : "ID"} · {sort.dir === "asc" ? "croissant" : "décroissant"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
+                    placeholder="Rechercher (titre, type, profil, collection...)"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Utilisation recommandée
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Utilise la recherche pour isoler une ressource précise, puis ouvre sa ligne pour
+                    consulter les détails, l’historique ou lancer une édition rapide.
+                  </p>
+                </div>
+              </div>
             </div>
-
-            <div className="w-full xl:w-[420px]">
-              <input
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
-                placeholder="Rechercher (titre, type, profil, collection...)"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-
-
-              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={onlyDrafts}
-                  onChange={(e) => {
-                    setOnlyDrafts(e.target.checked);
-                    setPage(1);
-                  }}
-                />
-                <span>Brouillons</span>
-              </label>
-
-              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={onlyUnused}
-                  onChange={(e) => {
-                    setOnlyUnused(e.target.checked);
-                    setOnlyNeverViewed(false);
-                    setOnlyTrulyUnused(false);
-                    setPage(1);
-                  }}
-                />
-                <span>Jamais téléchargées</span>
-              </label>
-
-              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={onlyNeverViewed}
-                  onChange={(e) => {
-                    setOnlyNeverViewed(e.target.checked);
-                    setOnlyUnused(false);
-                    setOnlyTrulyUnused(false);
-                    setPage(1);
-                  }}
-                />
-                <span>Jamais vues</span>
-              </label>
-
-              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={onlyTrulyUnused}
-                  onChange={(e) => {
-                    setOnlyTrulyUnused(e.target.checked);
-                    setOnlyUnused(false);
-                    setOnlyNeverViewed(false);
-                    setPage(1);
-                  }}
-                />
-                <span>Totalement inutilisées</span>
-              </label>
-            </div>
-
-            <div className="text-sm text-slate-500">
-              {total} ressource{total > 1 ? "s" : ""} après filtrage
-            </div>
-          </div>
-        </div>
+          </section>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -1096,7 +1283,7 @@ function openEditModal(r: AnyResource) {
         </div>
 
         <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
-          <table className="min-w-full border-separate border-spacing-0 text-sm">
+          <table className="min-w-full border-separate border-spacing-y-2 text-sm">
             <thead className="sticky top-0 z-10 bg-white text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
               <tr className="text-left text-sm text-slate-600">
                 <th className="px-3">
@@ -1181,7 +1368,7 @@ const hasFile =
                   <React.Fragment key={id}>
                     <tr
   ref={isOpen ? openRowRef : null}
-  className="border-b border-slate-200 bg-white align-top transition hover:bg-slate-50/70 even:bg-slate-50/40"
+  className="bg-white align-top transition hover:bg-slate-50/80 shadow-sm rounded-xl border border-slate-200"
 >
                       <td className="px-3 py-4">
   <button
@@ -1250,12 +1437,12 @@ const hasFile =
   })()}
 </div>
 
-  <div className="font-semibold text-slate-800 leading-tight hover:underline">
+  <div className="font-semibold text-slate-900 leading-tight hover:underline text-[15px]">
   {r.title ?? "Sans titre"}
 </div>
 </div>
 
-    <div className="text-xs text-slate-400 mt-0.5">ID {id}</div>
+    <div className="text-[11px] text-slate-400 mt-0.5">ID {id}</div>
   </button>
 </td>
 
@@ -1291,24 +1478,28 @@ const hasFile =
 </td>
 
                       <td className="px-3 py-3">
-                        <span
-  className={`rounded-md px-2 py-1 text-sm ${statusBadgeClass(normalizeStatus(r.status))}`}
->
-  {STATUS_LABELS[normalizeStatus(r.status)]}
-</span>
-                      </td>
+  <span
+    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(
+      normalizeStatus(r.status)
+    )}`}
+  >
+    {STATUS_LABELS[normalizeStatus(r.status)]}
+  </span>
+</td>
 
 <td className="px-3 py-3">
   {(() => {
     const count = (r as any)?.historyCount ?? 0;
 
     let cls = "bg-gray-100 text-gray-700";
-if (count >= 10) cls = "bg-red-100 text-red-800";
-else if (count >= 5) cls = "bg-orange-100 text-orange-800";
-else if (count >= 1) cls = "bg-blue-100 text-blue-800";
+    if (count >= 10) cls = "bg-red-100 text-red-800";
+    else if (count >= 5) cls = "bg-orange-100 text-orange-800";
+    else if (count >= 1) cls = "bg-blue-100 text-blue-800";
 
     return (
-      <span className={`rounded-md px-2 py-1 text-sm ${cls}`}>
+      <span
+        className={`inline-flex min-w-[32px] items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${cls}`}
+      >
         {count}
       </span>
     );
@@ -1325,14 +1516,20 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
     else if (dl >= 1) cls = "bg-orange-100 text-orange-800";
 
     return (
-      <span className={`rounded-md px-2 py-1 text-sm ${cls}`}>
+      <span
+        className={`inline-flex min-w-[32px] items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${cls}`}
+      >
         {dl}
       </span>
     );
   })()}
 </td>
 <td className="px-3 py-3">
-  <span className="rounded-md bg-gray-100 px-2 py-1 text-sm">
+  <span
+    className={`inline-flex min-w-[40px] items-center justify-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+      hasFile ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+    }`}
+  >
     {hasFile ? "oui" : "non"}
   </span>
 </td>
@@ -1357,22 +1554,22 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
 </td>
 
                       <td className="px-3 py-3">
-                        <div className="flex justify-end gap-2 opacity-80 group-hover:opacity-100 transition">
-                          <button
-                            className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
-                          onClick={() => {
-  const next = isOpen ? null : id;
-  setOpenId(next);
-  setOpenTab("details");
-}}
-                            type="button"
-                            title="Voir détails"
-                          >
-                            Voir
-                          </button>
+                        <div className="flex items-center justify-end gap-2">
+ <button
+  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition"
+  onClick={() => {
+    const next = isOpen ? null : id;
+    setOpenId(next);
+    setOpenTab("details");
+  }}
+  type="button"
+  title="Voir détails"
+>
+  Voir
+</button>
 
                           <button
-  className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
+  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition"
   onClick={() => {
   setOpenId(id);
   setOpenTab("details");
@@ -1395,293 +1592,137 @@ else if (count >= 1) cls = "bg-blue-100 text-blue-800";
                       </td>
                     </tr>
 
-                    {isOpen && (
-  <tr>
-    <td colSpan={13} className="px-4 pb-5">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 mb-3">
-          <div className="font-semibold text-slate-800">Ressource #{id}</div>
+ {isOpen && (
+  <>
+    <tr>
+      <td colSpan={13} className="px-4 pb-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-          {/* Onglets */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className={`rounded-md border px-3 py-1 text-sm ${
-                openTab === "details" ? "bg-white" : "bg-transparent hover:bg-white/60"
-              }`}
-              onClick={() => setOpenTab("details")}
-            >
-              Détails
-            </button>
-
-            <button
-              type="button"
-              className={`rounded-md border px-3 py-1 text-sm ${
-                openTab === "history" ? "bg-white" : "bg-transparent hover:bg-white/60"
-              }`}
-              onClick={() => setOpenTab("history")}
-            >
-              Historique
-            </button>
-          </div>
-        </div>
-
-        {/* CONTENU */}
-        {openTab === "details" ? (
-          <div className="mt-3 text-sm">
-            <div className="text-gray-600">Description :</div>
-            <div className="mt-1">{(r.summary ?? r.description ?? "—") as string}</div>
-
-            <div className="mt-3 text-gray-600">Profils :</div>
-            <div className="mt-1">
-              {Array.isArray(r.profiles) && r.profiles.length > 0
-                ? r.profiles
-                    .map((p: string) =>
-                      p === "stagiaire_bafa"
-                        ? "Stagiaire BAFA"
-                        : p.charAt(0).toUpperCase() + p.slice(1)
-                    )
-                    .join(", ")
-                : "—"}
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 mb-3">
+            <div className="font-semibold text-slate-800">
+              Ressource #{id}
             </div>
 
-            <div className="mt-3 text-gray-600">Fichier :</div>
-            <div className="mt-1">
-              {hasFile ? (
-                <a
-                  href={`/api/resources/download/${id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 text-sm"
-                >
-                  📄 Ouvrir le fichier
-                </a>
-              ) : (
-                <span className="text-gray-400 text-sm">Aucun fichier associé</span>
-              )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className={`rounded-md border px-3 py-1 text-sm ${
+                  openTab === "details" ? "bg-white" : "bg-transparent hover:bg-white/60"
+                }`}
+                onClick={() => setOpenTab("details")}
+              >
+                Détails
+              </button>
+
+              <button
+                type="button"
+                className={`rounded-md border px-3 py-1 text-sm ${
+                  openTab === "history" ? "bg-white" : "bg-transparent hover:bg-white/60"
+                }`}
+                onClick={() => setOpenTab("history")}
+              >
+                Historique
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="mt-3">
-  {(() => {
-    const raw = ([...(historyQuery.data ?? [])] as any[]).sort((a, b) => {
-      const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return tb - ta; // ✅ plus récent d’abord
-    });
 
-    const prettyChanges = (v: any) => {
-      if (v === null || v === undefined) return "";
-      if (typeof v === "string") {
-        // Si c’est déjà une string JSON, on tente de la “jolifier”
-        try {
-          const parsed = JSON.parse(v);
-          return JSON.stringify(parsed, null, 2);
-        } catch {
-          return v;
-        }
-      }
-      try {
-        return JSON.stringify(v, null, 2);
-      } catch {
-        return String(v);
-      }
-    };
+          {openTab === "details" ? (
+            <div className="mt-3 text-sm space-y-3">
+              <div>
+                <div className="text-gray-600">Description :</div>
+                <div>{(r.summary ?? r.description ?? "—") as string}</div>
+              </div>
 
-    const actionLabel = (a: string) => historyActionLabel(a);
+              <div>
+                <div className="text-gray-600">Profils :</div>
+                <div>
+                  {Array.isArray(r.profiles) && r.profiles.length > 0
+                    ? r.profiles
+                        .map((p: string) =>
+                          p === "stagiaire_bafa"
+                            ? "Stagiaire BAFA"
+                            : p.charAt(0).toUpperCase() + p.slice(1)
+                        )
+                        .join(", ")
+                    : "—"}
+                </div>
+              </div>
 
-    // ✅ Actions réellement présentes (auto)
-    const actionOptions = Array.from(
-      new Set(raw.map((h) => String(h?.action ?? "").trim()).filter(Boolean))
-    ).sort((a, b) => a.localeCompare(b, "fr"));
-
-    // ✅ Filtrage (action + texte)
-    const q = historyText.trim().toLowerCase();
-
-    const filteredHistory = raw.filter((h) => {
-      const action = String(h?.action ?? "").trim();
-      if (historyAction !== "ALL" && action !== historyAction) return false;
-
-      if (!q) return true;
-
-      const when = h?.createdAt ? new Date(h.createdAt).toLocaleString("fr-FR") : "";
-      const who = h?.userName ? String(h.userName) : h?.userId ? `User#${h.userId}` : "";
-      const changes = prettyChanges(h?.changes);
-
-      const hay = `${action} ${actionLabel(action)} ${who} ${when} ${changes}`.toLowerCase();
-      return hay.includes(q);
-    });
-
-    return (
-      <>
-        {/* ✅ Filtres Historique (audit-proof) */}
-        <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <label className="text-xs text-gray-600">Type d’action</label>
-            <select
-              className="rounded-md border px-2 py-1 text-sm"
-              value={historyAction}
-              onChange={(e) => setHistoryAction(e.target.value)}
-            >
-              <option value="ALL">Toutes</option>
-              {actionOptions.map((a) => (
-                <option key={a} value={a}>
-                  {actionLabel(a)} ({a})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <input
-            className="w-full rounded-md border px-3 py-2 text-sm md:w-[420px]"
-            placeholder="Rechercher (action, acteur, date, contenu)…"
-            value={historyText}
-            onChange={(e) => setHistoryText(e.target.value)}
-          />
-        </div>
-
-        {historyQuery.isLoading ? (
-          <div className="text-sm text-gray-600">Chargement de l’historique…</div>
-        ) : historyQuery.error ? (
-          <div className="text-sm text-red-600">Erreur historique : {historyQuery.error.message}</div>
-        ) : raw.length === 0 ? (
-          <div className="text-sm text-gray-600">Aucune entrée d’historique pour cette ressource.</div>
-        ) : filteredHistory.length === 0 ? (
-          <div className="text-sm text-gray-600">Aucun résultat avec ces filtres.</div>
-        ) : (
-          <div className="grid gap-2">
-            {filteredHistory.map((h: any) => {
-              const action = String(h?.action ?? "").trim();
-              const when = h?.createdAt ? new Date(h.createdAt).toLocaleString("fr-FR") : "—";
-              const who =
-              h?.userName ??
-              h?.actorName ??
-              h?.lastActorName ??
-              (h?.actor?.name ? String(h.actor.name) : null) ??
-              (h?.userId ? `User#${h.userId}` : "—");
-              const changes = prettyChanges(h?.changes);
-
-              // ✅ Interprétation "métier" (audit-proof)
-              const rawAction = String(h?.action ?? "").trim();
-              const label = actionLabel(rawAction);
-
-              const changesStrRaw = typeof h?.changes === "string" ? h.changes : "";
-              const changesStr = changesStrRaw.trim();
-
-              // On exploite changesJson si le backend l'a fourni (sinon null)
-              const cj = (h as any)?.changesJson ?? null;
-
-              // Helpers UI
-              const pillClass = (() => {
-                if (rawAction === "STATUS_CHANGE") return "bg-orange-50 text-orange-800";
-                if (rawAction === "DELETE_RESOURCE") return "bg-red-50 text-red-800";
-                if (/profil/i.test(changesStr)) return "bg-blue-50 text-blue-800";
-                if (/acc[eè]s|access/i.test(changesStr)) return "bg-purple-50 text-purple-800";
-                return "bg-gray-100 text-gray-800";
-              })();
-
-              // On construit une “headline” + une liste de points lisibles
-              let headline = label;
-              const bullets: string[] = [];
-
-              // 1) Changement de statut (log JSON canonique côté server/db.ts)
-              if (rawAction === "STATUS_CHANGE" && cj && typeof cj === "object") {
-                const from = String((cj as any)?.from ?? "").trim();
-                const to = String((cj as any)?.to ?? "").trim();
-
-                if (from && to) {
-                  headline = "Changement de statut";
-                  const fromLabel = STATUS_LABELS[normalizeStatus(from as any)];
-                  const toLabel = STATUS_LABELS[normalizeStatus(to as any)];
-                  bullets.push(`Statut : ${fromLabel} → ${toLabel}`);
-                }
-              }
-
-              // 2) Profils mis à jour (log setProfiles)
-              if (bullets.length === 0 && /profils\s+mis\s+à\s+jour/i.test(changesStr)) {
-                headline = "Profils mis à jour";
-                const afterColon = changesStr.split(":")[1]?.trim();
-                if (afterColon) bullets.push(`Profils : ${afterColon}`);
-                else bullets.push(changesStr);
-              }
-
-              // 3) Suppression ressource (log DELETE_RESOURCE avec snapshot JSON)
-              if (bullets.length === 0 && rawAction === "DELETE_RESOURCE") {
-                headline = "Suppression de la ressource";
-                if (cj && typeof cj === "object") {
-                  const t = (cj as any)?.title ? String((cj as any).title) : "";
-                  const al = (cj as any)?.accessLevel ? String((cj as any).accessLevel) : "";
-                  const st = (cj as any)?.status ? String((cj as any).status) : "";
-                  if (t) bullets.push(`Titre : ${t}`);
-                  if (al) bullets.push(`Accès : ${al}`);
-                  if (st) bullets.push(`Statut : ${st}`);
-                } else if (changesStr) {
-                  bullets.push(changesStr);
-                }
-              }
-
-              // 4) “updated” générique (ex: "titre modifié, résumé modifié, accès modifié...")
-              if (bullets.length === 0 && changesStr) {
-                // Cas connu : liste séparée par virgules
-                const parts = changesStr
-                  .split(",")
-                  .map((s: string) => s.trim())
-                  .filter(Boolean);
-
-                // Si ça ressemble à une liste, on la met en bullets
-                if (parts.length >= 2) {
-                  headline = "Modification";
-                  parts.forEach((p: string) => bullets.push(p));
-                } else {
-                  // Sinon, on laisse une seule ligne
-                  bullets.push(changesStr);
-                }
-              }
-
-              // 5) Fallback brut (si rien du tout)
-              const fallbackPretty = prettyChanges(h?.changes);
-
-              return (
-                <div key={h.id} className="rounded-lg border bg-white p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-md px-2 py-1 text-xs ${pillClass}`}>
-                        {headline}
-                      </span>
-                      <span className="text-xs text-gray-500">({rawAction || "—"})</span>
-                    </div>
-
-                    <div className="text-xs text-gray-500">{when}</div>
-                  </div>
-
-                  <div className="mt-1 text-xs text-gray-600">Par : {who}</div>
-
-                  {bullets.length > 0 ? (
-                    <ul className="mt-2 list-disc pl-5 text-xs text-gray-800 space-y-1">
-                      {bullets.map((b: string, idx: number) => (
-                        <li key={idx}>{b}</li>
-                      ))}
-                    </ul>
-                  ) : fallbackPretty ? (
-                    <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-gray-50 p-2 text-xs text-gray-800">
-{fallbackPretty}
-                    </pre>
+              <div>
+                <div className="text-gray-600">Fichier :</div>
+                <div>
+                  {hasFile ? (
+                    <a
+                      href={`/api/resources/download/${id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 text-sm"
+                    >
+                      📄 Ouvrir le fichier
+                    </a>
                   ) : (
-                    <div className="mt-2 text-xs text-gray-500">—</div>
+                    <span className="text-gray-400 text-sm">
+                      Aucun fichier associé
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </>
-    );
-  })()}
-</div>
-        )}
-      </div>
-    </td>
-  </tr>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 text-sm">
+              {historyQuery.isLoading ? (
+                <div className="text-gray-600">Chargement…</div>
+              ) : historyQuery.error ? (
+                <div className="text-red-600">
+                  Erreur : {historyQuery.error.message}
+                </div>
+              ) : (historyQuery.data ?? []).length === 0 ? (
+                <div className="text-gray-600">
+                  Aucun historique.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...(historyQuery.data ?? [])]
+                    .sort((a, b) => {
+                      const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+                      const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+                      return tb - ta;
+                    })
+                    .map((h: any) => {
+                      const when = h?.createdAt
+                        ? new Date(h.createdAt).toLocaleString("fr-FR")
+                        : "—";
+
+                      const who =
+                        h?.userName ??
+                        h?.actorName ??
+                        h?.lastActorName ??
+                        (h?.userId ? `User#${h.userId}` : "—");
+
+                      const label = historyActionLabel(String(h?.action ?? ""));
+
+                      return (
+                        <div key={h.id} className="rounded-md border p-2">
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>{label}</span>
+                            <span>{when}</span>
+                          </div>
+
+                          <div className="text-xs text-gray-600">
+                            Par : {who}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      </td>
+    </tr>
+  </>
 )}
 
                   </React.Fragment>

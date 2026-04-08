@@ -64,19 +64,34 @@ export default function Help() {
 
         <div className="space-y-12">
           {/* Header */}
-          <div className="space-y-4">
-            <h1 className="text-5xl font-bold">Centre d'aide</h1>
-            <p className="text-xl text-muted-foreground max-w-2xl">
-              Trouvez les réponses à vos questions sur la Ressourcerie IFAC
-            </p>
+          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-r from-primary/20 via-primary/10 to-background px-6 py-8 shadow-xl shadow-primary/10 md:px-8 md:py-10">
+            <div className="absolute inset-y-0 left-0 w-2 bg-primary/80" />
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+            <div className="absolute -bottom-12 right-24 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+
+            <div className="relative space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
+                Support & accompagnement
+              </p>
+              <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
+                Centre d'aide
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+                Trouvez rapidement les réponses aux questions les plus fréquentes, les
+                bons points de contact et les informations utiles pour utiliser la
+                ressourcerie ifac dans les meilleures conditions.
+              </p>
+            </div>
           </div>
 
           {/* Quick Links */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="hover:shadow-lg transition-all duration-300">
+            <Card className="group relative overflow-hidden border border-border/60 bg-gradient-to-b from-background to-muted/20 shadow-md transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <MessageSquare className="h-6 w-6 text-primary" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
+  <MessageSquare className="h-5 w-5" />
+</div>
                   <CardTitle>Contactez-nous</CardTitle>
                 </div>
               </CardHeader>
@@ -90,7 +105,7 @@ export default function Help() {
               </CardContent>
             </Card>
 
-            <Card className="hover:shadow-lg transition-all duration-300">
+            <Card className="group relative overflow-hidden border border-border/60 bg-gradient-to-b from-background to-muted/20 shadow-md transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Phone className="h-6 w-6 text-primary" />
@@ -105,7 +120,7 @@ export default function Help() {
               </CardContent>
             </Card>
 
-            <Card className="hover:shadow-lg transition-all duration-300">
+            <Card className="group relative overflow-hidden border border-border/60 bg-gradient-to-b from-background to-muted/20 shadow-md transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Mail className="h-6 w-6 text-primary" />
@@ -128,13 +143,13 @@ export default function Help() {
             <div>
               <h2 className="text-3xl font-bold mb-4">Questions fréquemment posées</h2>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground transition-colors" />
                 <input
                   type="text"
                   placeholder="Chercher dans les FAQ..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-2xl border border-border/60 bg-background/90 pl-12 pr-4 py-3.5 shadow-sm transition-all duration-300 placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:shadow-md"
                 />
               </div>
             </div>
@@ -143,19 +158,21 @@ export default function Help() {
             <div className="space-y-3">
               {filteredFaqs.length > 0 ? (
                 filteredFaqs.map((faq) => (
-                  <Card
-                    key={faq.id}
-                    className="cursor-pointer hover:shadow-md transition-all duration-300"
-                    onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
-                  >
+<Card
+  key={faq.id}
+  className="group cursor-pointer border border-border/60 bg-background/80 backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/40"
+  onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{faq.question}</CardTitle>
-                        <ChevronDown
-                          className={`h-5 w-5 text-muted-foreground transition-transform duration-300 ${
-                            expandedFaq === faq.id ? "rotate-180" : ""
-                          }`}
-                        />
+                        <CardTitle className="text-base font-semibold leading-snug transition-colors group-hover:text-primary">
+  {faq.question}
+</CardTitle>
+ <ChevronDown
+  className={`h-5 w-5 text-muted-foreground transition-all duration-300 ${
+    expandedFaq === faq.id ? "rotate-180 text-primary" : "group-hover:text-primary"
+  }`}
+/>
                       </div>
                     </CardHeader>
                     {expandedFaq === faq.id && (
@@ -176,33 +193,45 @@ export default function Help() {
           </div>
 
           {/* Contact Form */}
-          <Card className="border-2 border-primary/20">
-            <CardHeader>
-              <CardTitle>Vous n'avez pas trouvé la réponse ?</CardTitle>
-              <CardDescription>
+          <Card className="relative overflow-hidden border border-primary/20 bg-gradient-to-br from-background via-background to-primary/5 shadow-xl shadow-primary/10">
+            <div className="absolute inset-y-0 left-0 w-2 bg-primary/80" />
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+            <div className="absolute -bottom-12 right-24 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+
+            <CardHeader className="relative space-y-3 pb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">
+                Besoin d’un accompagnement
+              </p>
+              <CardTitle className="text-2xl font-bold tracking-tight md:text-3xl">
+                Vous n'avez pas trouvé la réponse ?
+              </CardTitle>
+              <CardDescription className="max-w-2xl text-base leading-7 text-muted-foreground">
                 Envoyez-nous votre question et notre équipe vous répondra au plus vite.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative">
               <form className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <input
                     type="text"
                     placeholder="Votre nom"
-                    className="px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full rounded-2xl border border-border/60 bg-background/90 px-4 py-3 shadow-sm transition-all duration-300 placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:shadow-md"
                   />
                   <input
                     type="email"
                     placeholder="Votre email"
-                    className="px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full rounded-2xl border border-border/60 bg-background/90 px-4 py-3 shadow-sm transition-all duration-300 placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:shadow-md"
                   />
                 </div>
                 <textarea
                   placeholder="Votre message..."
                   rows={5}
-                  className="w-full px-4 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-2xl border border-border/60 bg-background/90 px-4 py-3 shadow-sm transition-all duration-300 placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:shadow-md"
                 />
-                <Button size="lg" className="w-full">
+                <Button
+                  size="lg"
+                  className="h-12 w-full rounded-2xl text-base font-semibold shadow-lg shadow-primary/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30"
+                >
                   Envoyer le message
                 </Button>
               </form>

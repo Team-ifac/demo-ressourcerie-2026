@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, X, Tag, BookOpen, Layers } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -33,7 +33,10 @@ export function AdvancedSearch({
   const { data: categoryCounts = [] } =
     trpc.resources.listCategoriesWithCounts.useQuery();
 
-  const categories = categoryCounts.map((item) => item.key);
+  const categories = useMemo(
+    () => categoryCounts.map((item) => item.key),
+    [categoryCounts]
+  );
 
   useEffect(() => {
     const trimmedQuery = query.trim();

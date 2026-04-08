@@ -270,9 +270,11 @@ function App() {
       <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
-          <Header />
-          <Router />
-          <Footer />
+          <div className="min-h-screen bg-background text-foreground">
+            <Header />
+            <Router />
+            <Footer />
+          </div>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
