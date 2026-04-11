@@ -15,6 +15,7 @@ import {
   CircleHelp,
   Route,
   Info,
+  Wrench,
 } from "lucide-react";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { Link, useLocation } from "wouter";
@@ -56,6 +57,11 @@ export function Header() {
       href: "/resources",
       label: "Catalogue",
       icon: BookOpen,
+    },
+    {
+      href: "/tools",
+      label: "Outils",
+      icon: Wrench,
     },
     {
       href: "/aide",

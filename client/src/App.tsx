@@ -10,6 +10,9 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import Home from "./pages/Home";
+import AnimationTools from "./pages/AnimationTools";
+import ProgramGeneratorPage from "./pages/ProgramGeneratorPage";
+import ProgramResultPage from "@/pages/ProgramResultPage";
 import ResourcesReorganized from "./pages/ResourcesReorganized";
 import ResourceDetail from "./pages/ResourceDetail";
 import Library from "./pages/Library";
@@ -83,14 +86,20 @@ function Router() {
     <Switch>
       {/* Pages publiques */}
       <Route path="/" component={Home} />
-<Route path="/resources" component={ResourcesReorganized} />
-<Route path="/resources/:id" component={ResourceDetail} />
-<Route path="/ressources">
-  <Redirect to="/resources" />
-</Route>
-<Route path="/ressources/:id">
-  {(params) => <Redirect to={`/resources/${params.id}`} />}
-</Route>
+      <Route path="/tools" component={AnimationTools} />
+      <Route path="/tools/program-generator" component={ProgramGeneratorPage} />
+      <Route path="/programme/resultat" component={ProgramResultPage} />
+      <Route path="/outils">
+        <Redirect to="/tools" />
+      </Route>
+      <Route path="/resources" component={ResourcesReorganized} />
+      <Route path="/resources/:id" component={ResourceDetail} />
+      <Route path="/ressources">
+        <Redirect to="/resources" />
+      </Route>
+      <Route path="/ressources/:id">
+        {(params) => <Redirect to={`/resources/${params.id}`} />}
+      </Route>
       <Route path="/about" component={About} />
 
       {/* Auth */}

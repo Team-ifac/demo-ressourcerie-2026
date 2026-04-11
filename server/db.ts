@@ -644,6 +644,10 @@ function buildStandardStatusCondition(isAdminView: boolean) {
 
   return eq(resources.status, "approved");
 }
+
+function buildStandardCatalogueExclusionCondition() {
+  return sql`${resources.type} NOT IN ('activité calme', 'activité dynamique', 'activité')`;
+}
 function buildStandardAccessLevelCondition(params: {
   includeInternal?: boolean;
   includePremium?: boolean;
@@ -1281,6 +1285,10 @@ export async function getAllResources(filters?: {
     conditions.push(statusCondition);
   }
 
+  if (!isAdminView) {
+    conditions.push(buildStandardCatalogueExclusionCondition());
+  }
+
   if (debugSql) console.log("[DEBUG] Total conditions:", conditions.length);
 
   let query: any = db.select().from(resources);
@@ -1424,6 +1432,10 @@ async function buildPaginatedResourceBase(params: {
   const statusCondition = buildStandardStatusCondition(isAdminView);
   if (statusCondition) {
     conditions.push(statusCondition);
+  }
+
+  if (!isAdminView) {
+    conditions.push(buildStandardCatalogueExclusionCondition());
   }
 
   let countQuery: any = db
@@ -1631,6 +1643,8 @@ export async function getRecentResources(limit: number, includeInternal: boolean
     })
   );
 
+  conditions.push(buildStandardCatalogueExclusionCondition());
+
   let query: any = db.select().from(resources);
   if (conditions.length > 0) {
     query = query.where(and(...conditions));
@@ -1700,6 +1714,8 @@ export async function getPopularResources(
     })
   );
 
+  conditions.push(buildStandardCatalogueExclusionCondition());
+
   let query: any = db.select().from(resources);
   if (conditions.length > 0) {
     query = query.where(and(...conditions));
@@ -1743,6 +1759,10 @@ function buildHomeBaseConditions(params: {
         includePremium: params.includePremium,
       })
     );
+  }
+
+  if (!params.isAdmin) {
+    baseConditions.push(buildStandardCatalogueExclusionCondition());
   }
 
   return baseConditions;
@@ -2001,11 +2021,11 @@ export async function createResource(resource: any, themeIds: number[]) {
     );
   }
 
-  // ✅ Taxonomie relationnelle : branchement réel en base
+  // ✅ Taxonomie relationnelle : on ne synchronise que si des categoryNodeIds
+  // sont explicitement fournis. Sinon on conserve la category déjà présente
+  // dans le payload (cas des activités générées importées).
   if (rawCategoryNodeIds.length > 0) {
     await setResourceCategoryNodeIds(resourceId, rawCategoryNodeIds);
-  } else {
-    await setResourceCategoryNodeIds(resourceId, []);
   }
 
   return resourceId;
@@ -3654,6 +3674,7 @@ export async function getResourcesForUser(
   // ===== Status (GOUVERNANCE) =====
   // Le catalogue ne doit JAMAIS exposer des drafts/pending/rejected
   conditions.push(eq(resources.status, "approved"));
+  conditions.push(buildStandardCatalogueExclusionCondition());
 
   let query: any = db.select().from(resources);
 
@@ -3830,6 +3851,7 @@ export async function listCategoryKeys(filters?: {
   // ===== Status (gouvernance) =====
   if (!isAdminView) {
     conditions.push(eq(resources.status, "approved"));
+    conditions.push(buildStandardCatalogueExclusionCondition());
   }
 
   // =========================================================
@@ -3958,6 +3980,7 @@ export async function listCategoryKeysWithCounts(filters?: {
 
   if (!isAdminView) {
     conditions.push(eq(resources.status, "approved"));
+    conditions.push(buildStandardCatalogueExclusionCondition());
   }
 
   let query: any = db
@@ -4147,4 +4170,162 @@ export async function rebuildResourceCategoryNodesFromLegacyCategory() {
     inserted,
     skipped,
   };
+}
+// =====================================================
+// 🎯 GÉNÉRATEUR D’ACTIVITÉS (NOUVEAU PILIER)
+// =====================================================
+
+export async function getGeneratedActivities(filters?: {
+  type?: "activité calme" | "activité dynamique" | "activité";
+  ageRange?: string;
+  duration?: string;
+  limit?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions: any[] = [];
+
+  // ✅ On cible UNIQUEMENT les ressources générées
+  conditions.push(
+    sql`${resources.type} IN ('activité calme', 'activité dynamique', 'activité')`
+  );
+
+  // ✅ Filtres simples
+  if (filters?.type) {
+    conditions.push(eq(resources.type, filters.type));
+  }
+
+  if (filters?.ageRange) {
+    conditions.push(eq(resources.ageRange, filters.ageRange));
+  }
+
+  if (filters?.duration) {
+    conditions.push(eq(resources.duration, filters.duration));
+  }
+
+  // ✅ On ne filtre PAS par visibility / accessLevel / status
+  // car ces ressources sont internes au générateur uniquement
+
+  let query: any = db.select().from(resources);
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+
+  const limit = Math.max(1, Math.min(200, filters?.limit ?? 10));
+
+  const result = await query
+    .orderBy(sql`RAND()`)
+    .limit(limit);
+
+  const toText = (value: unknown): string => {
+    if (value == null) return "";
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => toText(item))
+        .filter(Boolean)
+        .join(", ");
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    return "";
+  };
+
+  const toList = (value: unknown): string[] => {
+    if (value == null) return [];
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => toText(item))
+        .filter(Boolean);
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+
+      return trimmed
+        .split(/\r?\n|;/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const parseJsonObject = (value: unknown): Record<string, any> | null => {
+    if (!value) return null;
+
+    if (typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, any>;
+    }
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, any>;
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  };
+
+  const buildDetailedRulesContent = (resource: any): string => {
+    const regles = parseJsonObject(resource?.regles);
+    if (!regles) {
+      return toText(resource?.content);
+    }
+
+    const sections: string[] = [];
+
+    const pushSection = (label: string, value: unknown, mode: "text" | "list" = "text") => {
+      if (mode === "list") {
+        const items = toList(value);
+        if (!items.length) return;
+
+        sections.push(
+          `${label} :\n${items.map((item, index) => `${index + 1}. ${item}`).join("\n")}`
+        );
+        return;
+      }
+
+      const text = toText(value);
+      if (!text) return;
+      sections.push(`${label} :\n${text}`);
+    };
+
+    pushSection("Objectif", regles.objectif);
+    pushSection("Matériel", regles.materiel);
+    pushSection("Préparation", regles.preparation);
+    pushSection("Mise en place", regles.miseEnPlace);
+    pushSection("Déroulement", regles.deroulement, "list");
+    pushSection("Consignes animateur", regles.consignesAnimateur);
+    pushSection("Variantes", regles.variantes);
+    pushSection("Points de vigilance", regles.pointsVigilance);
+    pushSection("Astuce ifac", regles.astuceIfac);
+
+    if (sections.length === 0) {
+      return toText(resource?.content);
+    }
+
+    return sections.join("\n\n").trim();
+  };
+
+  return (result as any[]).map((resource: any) => {
+    const regles = parseJsonObject(resource?.regles);
+
+    return {
+      ...resource,
+      summary: toText(resource?.summary),
+      content: buildDetailedRulesContent(resource),
+      regles: regles ?? resource?.regles ?? null,
+    };
+  });
 }

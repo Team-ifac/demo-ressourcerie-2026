@@ -3,6 +3,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { getGeneratedActivities } from "./db";
 import * as db from "./db";
 import { storagePut, storageGet } from "./storage";
 import { notifyOwner } from "./_core/notification";
@@ -1112,6 +1113,30 @@ if (!isEmailVerified) {
 
     // ============ RESOURCES ============
   resources: router({
+    getGeneratedActivities: publicProcedure
+      .input(
+        z
+          .object({
+            type: z
+              .enum(["activité calme", "activité dynamique", "activité"])
+              .optional(),
+            ageRange: z.string().optional(),
+            duration: z.string().optional(),
+            limit: z.number().int().min(1).max(200).optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input }) => {
+        const safeLimit = Math.min(Math.max(input?.limit ?? 10, 1), 200);
+
+        return await getGeneratedActivities({
+          type: input?.type,
+          ageRange: input?.ageRange,
+          duration: input?.duration,
+          limit: safeLimit,
+        });
+      }),
+
    list: publicProcedure
   .input(
     z

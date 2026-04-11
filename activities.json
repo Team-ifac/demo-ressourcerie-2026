@@ -1,0 +1,7002 @@
+{
+  "meta": {
+    "generatedAt": "2026-04-08",
+    "langue": "fr",
+    "structureVersion": 2,
+    "modeClassement": "Une activité est classée une seule fois dans un créneau principal et une catégorie principale, puis qualifiée avec des tags, une durée estimée, un format de durée et un niveau d’énergie.",
+    "schemaTags": {
+      "ages": [
+        "maternel",
+        "elementaire",
+        "ados"
+      ],
+      "type": [
+        "calme",
+        "dynamique"
+      ],
+      "lieu": [
+        "interieur",
+        "exterieur"
+      ],
+      "encadrement": [
+        "1",
+        "2",
+        "3+"
+      ],
+      "dureeFormat": [
+        "court",
+        "moyen",
+        "long"
+      ],
+      "energie": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "sources": {
+      "educatout_jeux_diriges": {
+        "titre": "Les jeux dirigés (100), activités pour enfants.",
+        "url": "https://www.educatout.com/activites/themes/les-jeux-diriges-100.htm"
+      },
+      "izeedor_veillees": {
+        "titre": "Jeux et activités pour soirées ou veillées",
+        "url": "https://izeedor.fr/jeux-activites/pour-soirees-ou-veillees/"
+      },
+      "explorador_exterieur": {
+        "titre": "Jeux d’animation extérieur sans matériel",
+        "url": "https://www.explorador.fr/blogs/activites-enfants/jeux-animation-exterieur-sans-materiel"
+      },
+      "educatout_creatifs": {
+        "titre": "Les ateliers créatifs",
+        "url": "https://www.educatout.com/activites/themes/les-ateliers-creatifs.htm"
+      },
+      "lemagloisirs_musicaux": {
+        "titre": "Jeux musicaux pour enfants : idées ludiques et éducatives",
+        "url": "https://www.lemagloisirs.fr/jeux-musicaux-pour-enfants/"
+      },
+      "accueildeloisirs_animations": {
+        "titre": "10 idées d’animations pour votre ALSH",
+        "url": "https://accueildeloisirs.com/idees-danimations-pour-accueil-de-loisirs"
+      },
+      "hoptoys_autonomie": {
+        "titre": "(Télé)travail et enfants : 13 ateliers autonomes !",
+        "url": "https://www.bloghoptoys.fr/teletravail-et-enfants-13-ateliers-autonomes"
+      },
+      "educatout_journees": {
+        "titre": "Journées thématiques (50), activités pour enfants.",
+        "url": "https://www.educatout.com/activites/themes/journees-thematiques-50.htm"
+      },
+      "ultimate_camp": {
+        "titre": "Summer Camp Activities for Kids of all Ages",
+        "url": "https://ultimatecampresource.com/camp-activities/"
+      },
+      "jesuisanimateur_grands_jeux": {
+        "titre": "Grands jeux",
+        "url": "https://www.jesuisanimateur.fr/grands-jeux"
+      },
+      "greatcampgames_more_tag": {
+        "titre": "More Tag Games - Great Camp Games",
+        "url": "https://greatcampgames.ca/more-tag-games/"
+      },
+      "greatcampgames_circle": {
+        "titre": "Circle Games - Great Camp Games",
+        "url": "https://greatcampgames.ca/circle-games/"
+      },
+      "teachbesideme_themes": {
+        "titre": "50+ Creative Summer Camp Theme Ideas for Kids",
+        "url": "https://teachbesideme.com/50-creative-summer-camp-theme-ideas-for-kids/"
+      }
+    },
+    "totauxParCreneau": {
+      "matin": 82,
+      "midi": 65,
+      "apresMidi": 105,
+      "veillee": 100
+    },
+    "totalActivites": 352,
+    "ajoutDernierePasse": 92
+  },
+  "base": {
+    "matin": {
+      "activitesCalmes": [
+        {
+          "id": "je-vais-dans-la-jungle-et-j-apporte",
+          "titre": "Je vais dans la jungle et j’apporte",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1,
+          "creneau": "matin",
+          "categorie": "activitesCalmes"
+        },
+        {
+          "id": "leger-comme-une-plume",
+          "titre": "Léger comme une plume",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "je-fonds",
+          "titre": "Je fonds",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "jeu-de-kim-visuel",
+          "titre": "Jeu de Kim visuel",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "je-suis-une-fleur",
+          "titre": "Je suis une fleur",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "de-la-chenille-au-papillon",
+          "titre": "De la chenille au papillon",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "les-oiseaux-volent",
+          "titre": "Les oiseaux volent",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "dans-mon-jardin",
+          "titre": "Dans mon jardin",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "mains-magiques",
+          "titre": "Mains magiques",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "lettres-rugueuses-montessori",
+          "titre": "Lettres rugueuses Montessori",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "ecriture-cursive-sur-cartes-de-mots",
+          "titre": "Écriture cursive sur cartes de mots",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "respiration-et-gratitude-guidees",
+          "titre": "Respiration et gratitude guidées",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "activitesReveil": [
+        {
+          "id": "chaise-musicale",
+          "titre": "Chaise musicale",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "les-singes-suivent-le-gorille",
+          "titre": "Les singes suivent le gorille",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "l-animal-musical",
+          "titre": "L’animal musical",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "les-feux-de-circulation",
+          "titre": "Les feux de circulation",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "statue-musicale",
+          "titre": "Statue musicale",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "popcorn-caramel",
+          "titre": "Popcorn caramel",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "suivez-l-elephant",
+          "titre": "Suivez l’éléphant",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "stand-up-sit-down",
+          "titre": "Stand up, Sit down",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "reflex-test",
+          "titre": "Reflex Test",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "les-fleurs-bougent",
+          "titre": "Les fleurs bougent",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "la-chenille-rythmee",
+          "titre": "La chenille rythmée",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "chat-glace-a-la-vanille",
+          "titre": "Chat glace à la vanille",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-statue",
+          "titre": "Chat statue",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "jeu-du-bop-rapide",
+          "titre": "Jeu du bop rapide",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "tape-du-pied",
+          "titre": "Tape du pied",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "guerre-des-gigotements",
+          "titre": "Guerre des gigotements",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ],
+      "activitesManuelles": [
+        {
+          "id": "atelier-peinture-sur-galets",
+          "titre": "Atelier peinture sur galets",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "fabrication-de-marionnettes-en-chaussettes",
+          "titre": "Fabrication de marionnettes en chaussettes",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "fabrique-ton-instrument-de-musique",
+          "titre": "Fabrique ton instrument de musique",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "apprendre-a-decouper",
+          "titre": "Apprendre à découper",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "decoupage-et-collage-de-formes",
+          "titre": "Découpage et collage de formes",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "mini-serre-en-bouteille",
+          "titre": "Mini-serre en bouteille",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "peinture-aux-doigts",
+          "titre": "Peinture aux doigts",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "peinture-texturee",
+          "titre": "Peinture texturée",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "peinture-avec-eponges-et-tampons",
+          "titre": "Peinture avec éponges et tampons",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "colliers-de-pates",
+          "titre": "Colliers de pâtes",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "sculpture-en-pate-a-modeler",
+          "titre": "Sculpture en pâte à modeler",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "mosaique-type-vitrail",
+          "titre": "Mosaïque type vitrail",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "atelier-arts-et-bricolages-libres",
+          "titre": "Atelier arts et bricolages libres",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "fabrication-d-instruments-maison",
+          "titre": "Fabrication d’instruments maison",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "activitesArtistiques": [
+        {
+          "id": "fresque-murale-collective",
+          "titre": "Fresque murale collective",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "dessin-musical",
+          "titre": "Dessin musical",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "danse-synchronisee-avec-cerceau",
+          "titre": "Danse synchronisée avec cerceau",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 3
+        },
+        {
+          "id": "rubans-rythmiques",
+          "titre": "Rubans rythmiques",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 3
+        },
+        {
+          "id": "danse-creative",
+          "titre": "Danse créative",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 3
+        },
+        {
+          "id": "peinture-au-mur",
+          "titre": "Peinture au mur",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "photomaton-creatif",
+          "titre": "Photomaton créatif",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "album-photo-souvenir",
+          "titre": "Album photo souvenir",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "danse-aux-foulards",
+          "titre": "Danse aux foulards",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 3
+        },
+        {
+          "id": "costume-de-danse",
+          "titre": "Costume de danse",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "defi-couleur-du-jour",
+          "titre": "Défi couleur du jour",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "peinture-eclaboussee-geante",
+          "titre": "Peinture éclaboussée géante",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 40,
+          "dureeFormat": "moyen",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "activitesExpression": [
+        {
+          "id": "a-ton-tour-de-deviner",
+          "titre": "À ton tour de deviner",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "gros-comme-petit-comme",
+          "titre": "Gros comme, petit comme",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "le-sculpteur",
+          "titre": "Le sculpteur",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "mime-moi",
+          "titre": "Mime-moi !",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "contes-animes-avec-deguisements",
+          "titre": "Contes animés avec déguisements",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "people-machine",
+          "titre": "People Machine",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 3
+        },
+        {
+          "id": "coin-scene",
+          "titre": "Coin scène",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "petit-spectacle-de-marionnettes",
+          "titre": "Petit spectacle de marionnettes",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "defile-de-haute-couture",
+          "titre": "Défilé de haute couture",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 3
+        },
+        {
+          "id": "toilet-paper-name-game",
+          "titre": "Toilet Paper Name Game",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "deux-verites-et-un-mensonge",
+          "titre": "Deux vérités et un mensonge",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "conte-feerique-en-jeu-dramatique",
+          "titre": "Conte féerique en jeu dramatique",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "cercle-des-gestes-solidaires",
+          "titre": "Cercle des gestes solidaires",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "petitsJeuxCollectifs": [
+        {
+          "id": "salade-de-fruits",
+          "titre": "Salade de fruits",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "le-facteur-n-est-pas-passe",
+          "titre": "Le facteur n’est pas passé",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "course-a-epingles-a-linge",
+          "titre": "Course à épingles à linge",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "chasse-aux-couleurs",
+          "titre": "Chasse aux couleurs",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "le-lapin-et-son-terrier",
+          "titre": "Le lapin et son terrier",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "attrape-baton",
+          "titre": "Attrape-bâton",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "cote-a-cote",
+          "titre": "Côte à côte",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "drop-it-catch-it",
+          "titre": "Drop it, Catch it",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "postman",
+          "titre": "Postman",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "le-coussin-musical-du-matin",
+          "titre": "Le coussin musical du matin",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "chat-pizza",
+          "titre": "Chat pizza",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "autour-du-monde-en-cercle",
+          "titre": "Autour du monde en cercle",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "mains-en-l-air",
+          "titre": "Mains en l’air",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "dans-l-etang",
+          "titre": "Dans l’étang",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "oiseau-sur-la-branche",
+          "titre": "Oiseau sur la branche",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ]
+    },
+    "midi": {
+      "tempsLibreEncadre": [
+        {
+          "id": "tournoi-de-jeux-de-societe-geants",
+          "titre": "Tournoi de jeux de société géants",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "chasse-a-n-importe-quoi",
+          "titre": "Chasse à n’importe quoi",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 3
+        },
+        {
+          "id": "coin-deguisements-libre",
+          "titre": "Coin déguisements libre",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "coin-cuisine-symbolique",
+          "titre": "Coin cuisine symbolique",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "coin-photographie",
+          "titre": "Coin photographie",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "coin-musique-avec-ustensiles",
+          "titre": "Coin musique avec ustensiles",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "coin-bibliotheque",
+          "titre": "Coin bibliothèque",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "coin-construction-en-briques",
+          "titre": "Coin construction en briques",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "jeu-du-sursaut",
+          "titre": "Jeu du sursaut",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ],
+      "jeuxCalmes": [
+        {
+          "id": "mon-chat-me-fait-rire",
+          "titre": "Mon chat me fait rire",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "tictac-boum",
+          "titre": "Tictac-Boum",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "qui-est-disparu",
+          "titre": "Qui est disparu ?",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "devine-qui-au-toucher",
+          "titre": "Devine qui ? au toucher",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "les-detectives",
+          "titre": "Les détectives",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "il-manque-quoi",
+          "titre": "Il manque quoi ?",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "rouge-ou-noire-en-groupe",
+          "titre": "Rouge ou noire en groupe",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "jeu-du-perroquet",
+          "titre": "Jeu du perroquet",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "jeu-de-kim-sonore",
+          "titre": "Jeu de Kim sonore",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "green-glass-doors",
+          "titre": "Green Glass Doors",
+          "ages": [
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "hoche-et-change",
+          "titre": "Hoche et change",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "qui-a-le-nez",
+          "titre": "Qui a le nez ?",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 15,
+          "dureeFormat": "court",
+          "energie": 1,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ],
+      "jeuxDeCour": [
+        {
+          "id": "1-2-3-soleil",
+          "titre": "1, 2, 3 Soleil",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "cache-cache",
+          "titre": "Cache-cache",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "chat-classique",
+          "titre": "Chat classique",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "chat-ombrageux",
+          "titre": "Chat ombrageux",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "le-moulin",
+          "titre": "Le moulin",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "patate-chaude",
+          "titre": "Patate chaude",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "le-petit-cochon",
+          "titre": "Le petit cochon",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "spaghetti-sauce-tomate",
+          "titre": "Spaghetti sauce tomate",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "chat-perche",
+          "titre": "Chat perché",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "la-traverse-des-couleurs",
+          "titre": "La traverse des couleurs",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "elbow-tag",
+          "titre": "Elbow Tag",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "everybody-s-it-tag",
+          "titre": "Everybody’s It Tag",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4
+        },
+        {
+          "id": "jeu-du-chat-touche",
+          "titre": "Jeu du chat touche",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-canadien",
+          "titre": "Chat canadien",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "jeu-des-groupes-de-trois",
+          "titre": "Jeu des groupes de trois",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-binome",
+          "titre": "Chat binôme",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-ombre",
+          "titre": "Chat ombre",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-des-cinq-contacts",
+          "titre": "Chat des cinq contacts",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "ninja-en-cercle",
+          "titre": "Ninja en cercle",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "canard-canard-oie",
+          "titre": "Canard canard oie",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "chat-de-cercle",
+          "titre": "Chat de cercle",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ],
+      "tempsCalme": [
+        {
+          "id": "dessin-sur-supports-varies",
+          "titre": "Dessin sur supports variés",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "lecture-silencieuse-a-la-bibliotheque",
+          "titre": "Lecture silencieuse à la bibliothèque",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "ecoute-musicale-douce",
+          "titre": "Écoute musicale douce",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "ecriture-cursive-sur-cartes-de-mots",
+          "titre": "Écriture cursive sur cartes de mots",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "jeu-de-kim-nature",
+          "titre": "Jeu de Kim nature",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "sac-devinettes",
+          "titre": "Sac-devinettes",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "leger-comme-une-plume-au-sol",
+          "titre": "Léger comme une plume au sol",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "temps-d-observation-sonore",
+          "titre": "Temps d’observation sonore",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "lecture-voyage-autour-du-monde",
+          "titre": "Lecture voyage autour du monde",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "coin-histoires-et-albums-thematiques",
+          "titre": "Coin histoires et albums thématiques",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "petitsAteliersAutonomes": [
+        {
+          "id": "busy-bag-de-comptage-avec-pompons",
+          "titre": "Busy-bag de comptage avec pompons",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "reglettes-des-nombres",
+          "titre": "Réglettes des nombres",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "associe-les-couleurs",
+          "titre": "Associe les couleurs",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "petit-panier-petites-balles-grand-panier-grandes-balles",
+          "titre": "Petit panier, petites balles, grand panier, grandes balles",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "jeu-des-paires-au-toucher",
+          "titre": "Jeu des paires au toucher",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "jeu-du-toucher-nature",
+          "titre": "Jeu du toucher nature",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "decoupage-de-bandelettes",
+          "titre": "Découpage de bandelettes",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "collage-de-formes-geometriques",
+          "titre": "Collage de formes géométriques",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "hoptoys_autonomie"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "bacs-sensoriels-aux-etoiles",
+          "titre": "Bacs sensoriels aux étoiles",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "atelier-transvasement",
+          "titre": "Atelier transvasement",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "rallye-des-nombres",
+          "titre": "Rallye des nombres",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "mini-boutique-et-monnaie",
+          "titre": "Mini-boutique et monnaie",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "mesures-et-recettes-express",
+          "titre": "Mesures et recettes express",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ]
+    },
+    "apresMidi": {
+      "activitesSportives": [
+        {
+          "id": "course-en-sac",
+          "titre": "Course en sac",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "mini-jeux-olympiques",
+          "titre": "Mini-jeux olympiques",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "jeux-d-eau",
+          "titre": "Jeux d’eau",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "defi-sportif-multi-activites",
+          "titre": "Défi sportif multi-activités",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "course-de-relais",
+          "titre": "Course de relais",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "parcours-d-obstacles",
+          "titre": "Parcours d’obstacles",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "porteurs-de-livres",
+          "titre": "Porteurs de livres",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "saute-grenouille",
+          "titre": "Saute-grenouille",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "attention-au-serpent",
+          "titre": "Attention au serpent",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "frappe-ou-attrape",
+          "titre": "Frappe ou attrape",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "ballon-prisonnier",
+          "titre": "Ballon prisonnier",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "gaga",
+          "titre": "GaGa",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "frisbee-golf",
+          "titre": "Frisbee Golf",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "sponge-relay-race",
+          "titre": "Sponge Relay Race",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5
+        },
+        {
+          "id": "relais-cerceaux-chat",
+          "titre": "Relais cerceaux chat",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "balle-au-cornichon",
+          "titre": "Balle au cornichon",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "defi-equilibre-du-chat",
+          "titre": "Défi équilibre du chat",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "olympiades-d-ete",
+          "titre": "Olympiades d’été",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "dureeMinutes": 45,
+          "dureeFormat": "moyen",
+          "energie": 5,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "jeuxExterieurs": [
+        {
+          "id": "gendarmes-et-voleurs",
+          "titre": "Gendarmes et voleurs",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chat-bougie",
+          "titre": "Chat bougie",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chat-ensorcele",
+          "titre": "Chat ensorcelé",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chat-blesse",
+          "titre": "Chat blessé",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chat-ballon",
+          "titre": "Chat ballon",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "les-crabes-et-la-mouette",
+          "titre": "Les crabes et la mouette",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "le-requin",
+          "titre": "Le requin",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "le-pecheur-et-les-poissons",
+          "titre": "Le pêcheur et les poissons",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "tague-sherif",
+          "titre": "Tague shérif",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "le-filet-du-pecheur",
+          "titre": "Le filet du pêcheur",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "le-microbe",
+          "titre": "Le microbe",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "tague-couleurs",
+          "titre": "Tague-couleurs",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "kick-the-can",
+          "titre": "Kick the Can",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "water-wars",
+          "titre": "Water Wars",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chat-lave",
+          "titre": "Chat lave",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-dragon",
+          "titre": "Chat dragon",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-elimination-progressive",
+          "titre": "Chat élimination progressive",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "serpent-venimeux",
+          "titre": "Serpent venimeux",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "renard-dans-le-poulailler",
+          "titre": "Renard dans le poulailler",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "parcours-jeux-d-eau-d-ete",
+          "titre": "Parcours jeux d’eau d’été",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 35,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "grandsJeux": [
+        {
+          "id": "chasse-au-tresor-thematique",
+          "titre": "Chasse au trésor thématique",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "escape-game-maison",
+          "titre": "Escape game maison",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "enquete-policiere",
+          "titre": "Enquête policière",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "jesuisanimateur_grands_jeux"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "olympiades",
+          "titre": "Olympiades",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "sources": [
+            "jesuisanimateur_grands_jeux"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "streets-and-alleys",
+          "titre": "Streets and Alleys",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "giants-elves-wizards",
+          "titre": "Giants, Elves, Wizards",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "cabin-vs-cabin-scavenger-hunt",
+          "titre": "Cabin vs Cabin Scavenger Hunt",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "poissons-requins-baleines",
+          "titre": "Poissons-Requins-Baleines",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "poule-renard-vipere",
+          "titre": "Poule-Renard-Vipère",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "un-loup-dans-la-bergerie",
+          "titre": "Un loup dans la bergerie",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "pas-dans-ma-cour",
+          "titre": "Pas dans ma cour",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "le-gardien-du-chateau",
+          "titre": "Le gardien du château",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "gold-rush-theme-day",
+          "titre": "Gold Rush Theme Day",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "grand-jeu-pirates",
+          "titre": "Grand jeu pirates",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "grand-jeu-safari",
+          "titre": "Grand jeu safari",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "grand-jeu-cowboys-et-indiens",
+          "titre": "Grand jeu cowboys et indiens",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5
+        },
+        {
+          "id": "jeu-des-espions-poursuivis",
+          "titre": "Jeu des espions poursuivis",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "gardiens-des-batons",
+          "titre": "Gardiens des bâtons",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "defi-cooperation-en-equipe",
+          "titre": "Défi coopération en équipe",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "mission-agents-secrets",
+          "titre": "Mission agents secrets",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 5,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "activitesCulturelles": [
+        {
+          "id": "atelier-land-art",
+          "titre": "Atelier land art",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "jeu-de-memoire-dans-la-nature",
+          "titre": "Jeu de mémoire dans la nature",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "bouquet-de-feuilles",
+          "titre": "Bouquet de feuilles",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "chasse-aux-dechets",
+          "titre": "Chasse aux déchets",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "rallye-photo",
+          "titre": "Rallye photo",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "atelier-potager",
+          "titre": "Atelier potager",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "journee-scientifique",
+          "titre": "Journée scientifique",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "journee-des-chefs",
+          "titre": "Journée des chefs",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "journee-des-metiers",
+          "titre": "Journée des métiers",
+          "ages": [
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "journee-a-la-bibliotheque",
+          "titre": "Journée à la bibliothèque",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "experience-scientifique-du-jour",
+          "titre": "Expérience scientifique du jour",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "jeux-traditionnels-du-monde",
+          "titre": "Jeux traditionnels du monde",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "atelier-cuisine-du-monde",
+          "titre": "Atelier cuisine du monde",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "volcan-au-citron",
+          "titre": "Volcan au citron",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "meteo-en-bocal-et-barometre",
+          "titre": "Météo en bocal et baromètre",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "bac-sensoriel-des-oceans",
+          "titre": "Bac sensoriel des océans",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "atelier-heros-de-la-securite",
+          "titre": "Atelier héros de la sécurité",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "jeux-d-autrefois-des-pionniers",
+          "titre": "Jeux d’autrefois des pionniers",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "sorties": [
+        {
+          "id": "chasse-aux-tresors-de-la-nature",
+          "titre": "Chasse aux trésors de la nature",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "sortie-bibliotheque",
+          "titre": "Sortie bibliothèque",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "sortie-cinema",
+          "titre": "Sortie cinéma",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "sortie-camping",
+          "titre": "Sortie camping",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "sortie-cabane-a-sucre",
+          "titre": "Sortie cabane à sucre",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "rallye-photo-urbain",
+          "titre": "Rallye photo urbain",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "safari-nature",
+          "titre": "Safari nature",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "trust-walk-nature",
+          "titre": "Trust Walk nature",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "balade-explorateurs-nature",
+          "titre": "Balade explorateurs nature",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "aventure-plein-air-et-boussole",
+          "titre": "Aventure plein air et boussole",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "observation-des-plantes-du-centre",
+          "titre": "Observation des plantes du centre",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "visite-ferme-et-alimentation",
+          "titre": "Visite ferme et alimentation",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "chasse-aux-insectes-et-relacher",
+          "titre": "Chasse aux insectes et relâcher",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 120,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "projets": [
+        {
+          "id": "construction-d-un-village-en-cartons",
+          "titre": "Construction d’un village en cartons",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "carre-potager-collectif",
+          "titre": "Carré potager collectif",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "cabane-en-foret",
+          "titre": "Cabane en forêt",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "explorador_exterieur"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "fresque-geante-du-centre",
+          "titre": "Fresque géante du centre",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "exposition-photo-du-groupe",
+          "titre": "Exposition photo du groupe",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "album-souvenir-collectif",
+          "titre": "Album souvenir collectif",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "decor-de-scene-en-carton",
+          "titre": "Décor de scène en carton",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "customisation-de-vetements",
+          "titre": "Customisation de vêtements",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "projet-instruments-recycles",
+          "titre": "Projet instruments recyclés",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "construction-cooperative",
+          "titre": "Construction coopérative",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "cuisine-facile-des-enfants",
+          "titre": "Cuisine facile des enfants",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "construction-de-rampes-et-leviers",
+          "titre": "Construction de rampes et leviers",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "hotel-a-insectes",
+          "titre": "Hôtel à insectes",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "defi-tour-en-guimauves",
+          "titre": "Défi tour en guimauves",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "initiation-noeuds-et-mini-abri",
+          "titre": "Initiation nœuds et mini-abri",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "grand-chantier-carton",
+          "titre": "Grand chantier carton",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "dureeMinutes": 60,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ]
+    },
+    "veillee": {
+      "jeuxCollectifs": [
+        {
+          "id": "chapi-chapeau",
+          "titre": "Chapi-chapeau",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "bonjour-monsieur-dupond",
+          "titre": "Bonjour Monsieur Dupond !",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "la-princesse-et-le-dragon",
+          "titre": "La princesse et le dragon",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "le-travail-a-la-chaine",
+          "titre": "Le travail à la chaîne",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "la-toile-d-araignee",
+          "titre": "La toile d’araignée",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "ships-ahoy",
+          "titre": "Ships Ahoy",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "ah-soh-gi",
+          "titre": "Ah Soh Gi",
+          "ages": [
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "screaming-toes",
+          "titre": "Screaming Toes",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "bataille-de-boules-de-neige-en-papier",
+          "titre": "Bataille de boules de neige en papier",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "postman-de-veillee",
+          "titre": "Postman de veillée",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chat-bouteille-tournante",
+          "titre": "Chat bouteille tournante",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "le-gardien-des-cles",
+          "titre": "Le gardien des clés",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "pistolet-a-eau-imaginaire",
+          "titre": "Pistolet à eau imaginaire",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "aimes-tu-tes-voisins",
+          "titre": "Aimes-tu tes voisins ?",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "echange-de-places",
+          "titre": "Échange de places",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "lache-le",
+          "titre": "Lâche-le",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ],
+      "jeuxAmbiance": [
+        {
+          "id": "le-marche-de-padi-pado",
+          "titre": "Le marché de Padi-Pado",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "le-jeu-des-radios",
+          "titre": "Le jeu des radios",
+          "ages": [
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "tictac-boum-de-veillee",
+          "titre": "Tictac-Boum de veillée",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "assassin-ou-wink",
+          "titre": "Assassin ou Wink",
+          "ages": [
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "psychiatrist-game",
+          "titre": "Psychiatrist Game",
+          "ages": [
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "green-glass-doors-de-veillee",
+          "titre": "Green Glass Doors de veillée",
+          "ages": [
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "ballon-peureux",
+          "titre": "Ballon peureux",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "mon-chat-me-fait-rire-de-veillee",
+          "titre": "Mon chat me fait rire de veillée",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "grandma-s-underpants",
+          "titre": "Grandma’s Underpants",
+          "ages": [
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "barnyard-nocturne",
+          "titre": "Barnyard nocturne",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chat-cri-surprise",
+          "titre": "Chat cri surprise",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "chat-mystere",
+          "titre": "Chat mystère",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_more_tag"
+          ]
+        },
+        {
+          "id": "grenouille-empoisonnee",
+          "titre": "Grenouille empoisonnée",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "qui-est-le-meneur",
+          "titre": "Qui est le meneur ?",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "poignee-de-main-alien",
+          "titre": "Poignée de main alien",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        },
+        {
+          "id": "meduse-regard",
+          "titre": "Méduse regard",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 25,
+          "dureeFormat": "moyen",
+          "energie": 2,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ],
+      "jeuxMusicaux": [
+        {
+          "id": "la-bataille-des-chants",
+          "titre": "La bataille des chants",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "radio-crochet",
+          "titre": "Radio crochet",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "chaise-musicale-cooperative",
+          "titre": "Chaise musicale coopérative",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "coussin-musical",
+          "titre": "Coussin musical",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "blind-test-musical",
+          "titre": "Blind test musical",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "blind-test-dessins-animes",
+          "titre": "Blind test dessins animés",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "chansons-a-gestes",
+          "titre": "Chansons à gestes",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "jeu-du-chef-d-orchestre",
+          "titre": "Jeu du chef d’orchestre",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "lemagloisirs_musicaux"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "chant-en-canon",
+          "titre": "Chant en canon",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 2
+        },
+        {
+          "id": "karaoke-et-battle-de-lip-sync",
+          "titre": "Karaoké et battle de lip-sync",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4
+        },
+        {
+          "id": "musique-et-mouvement",
+          "titre": "Musique et mouvement",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 30,
+          "dureeFormat": "moyen",
+          "energie": 4,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "spectaclesExpression": [
+        {
+          "id": "sketches-d-improvisation",
+          "titre": "Sketches d’improvisation",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "joutes-oratoires",
+          "titre": "Joutes oratoires",
+          "ages": [
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "izeedor_veillees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "camp-skits",
+          "titre": "Camp skits",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "quick-camp-skits",
+          "titre": "Quick camp skits",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "contes-animes-avec-deguisements-en-scene",
+          "titre": "Contes animés avec déguisements en scène",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "petit-spectacle-de-marionnettes",
+          "titre": "Petit spectacle de marionnettes",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "people-machine-show",
+          "titre": "People Machine show",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "defile-de-haute-couture",
+          "titre": "Défilé de haute couture",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_creatifs"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "show-coiffure-farfelue",
+          "titre": "Show coiffure farfelue",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "grand-bal",
+          "titre": "Grand bal",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "numero-de-cirque-des-enfants",
+          "titre": "Numéro de cirque des enfants",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "scene-poesie-et-performance",
+          "titre": "Scène poésie et performance",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 50,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ],
+      "jeuxCalmes": [
+        {
+          "id": "cinema-en-plein-air-ou-interieur",
+          "titre": "Cinéma en plein air ou intérieur",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "accueildeloisirs_animations"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "histoires-autour-du-feu",
+          "titre": "Histoires autour du feu",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "histoire-drole-de-camp",
+          "titre": "Histoire drôle de camp",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "histoire-a-frisson",
+          "titre": "Histoire à frisson",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "qui-est-disparu-version-veillee",
+          "titre": "Qui est disparu ? version veillée",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "jeu-de-kim-sonore-en-cercle",
+          "titre": "Jeu de Kim sonore en cercle",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_jeux_diriges"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "veillee-lecture-pyjama",
+          "titre": "Veillée lecture pyjama",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "observation-des-etoiles",
+          "titre": "Observation des étoiles",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "ultimate_camp"
+          ],
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1
+        },
+        {
+          "id": "anneau-sur-la-ficelle",
+          "titre": "Anneau sur la ficelle",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 20,
+          "dureeFormat": "court",
+          "energie": 1,
+          "sources": [
+            "greatcampgames_circle"
+          ]
+        }
+      ],
+      "veilleesThematiques": [
+        {
+          "id": "veillee-enfant-vedette",
+          "titre": "Veillée Enfant vedette",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-les-chefs",
+          "titre": "Veillée Les chefs",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-scientifique",
+          "titre": "Veillée Scientifique",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-chevaliers-et-princesses",
+          "titre": "Veillée Chevaliers et princesses",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-la-pouponniere",
+          "titre": "Veillée La pouponnière",
+          "ages": [
+            "maternel"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-au-cirque",
+          "titre": "Veillée Au cirque",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-pirates",
+          "titre": "Veillée Pirates",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-cowboys-et-indiens",
+          "titre": "Veillée Cowboys et indiens",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-oh-eau",
+          "titre": "Veillée Oh ! eau",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-safari",
+          "titre": "Veillée Safari",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-monde-polaire",
+          "titre": "Veillée Monde polaire",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-pyjama",
+          "titre": "Veillée Pyjama",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-hawaienne",
+          "titre": "Veillée Hawaïenne",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-a-l-envers",
+          "titre": "Veillée À l’envers",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-en-couleurs",
+          "titre": "Veillée En couleurs",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-chaussettes-en-folie",
+          "titre": "Veillée Chaussettes en folie",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-coiffure-farfelue",
+          "titre": "Veillée Coiffure farfelue",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-noel-du-campeur",
+          "titre": "Veillée Noël du campeur",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-le-partage",
+          "titre": "Veillée Le partage",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-musicale",
+          "titre": "Veillée Musicale",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-beach-party",
+          "titre": "Veillée Beach party",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-chapeaux",
+          "titre": "Veillée Chapeaux",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-les-olympiques",
+          "titre": "Veillée Les olympiques",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "3+",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3
+        },
+        {
+          "id": "veillee-camping",
+          "titre": "Veillée Camping",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-cinema",
+          "titre": "Veillée Cinéma",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-a-la-bibliotheque",
+          "titre": "Veillée À la bibliothèque",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-au-magasin",
+          "titre": "Veillée Au magasin",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-a-la-cabane-a-sucre",
+          "titre": "Veillée À la cabane à sucre",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "sources": [
+            "educatout_journees"
+          ],
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2
+        },
+        {
+          "id": "veillee-passeport-autour-du-monde",
+          "titre": "Veillée passeport autour du monde",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "veillee-explorateurs-de-l-espace",
+          "titre": "Veillée explorateurs de l’espace",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "veillee-aventure-en-foret-tropicale",
+          "titre": "Veillée aventure en forêt tropicale",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "veillee-dinosaures",
+          "titre": "Veillée dinosaures",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "veillee-de-la-gentillesse",
+          "titre": "Veillée de la gentillesse",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur"
+          ],
+          "encadrement": "1",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "mission-super-heros",
+          "titre": "Mission super-héros",
+          "ages": [
+            "maternel",
+            "elementaire"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "veillee-chateau-medieval",
+          "titre": "Veillée château médiéval",
+          "ages": [
+            "maternel",
+            "elementaire",
+            "ados"
+          ],
+          "type": "dynamique",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 3,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        },
+        {
+          "id": "soiree-voyage-dans-le-temps",
+          "titre": "Soirée voyage dans le temps",
+          "ages": [
+            "elementaire",
+            "ados"
+          ],
+          "type": "calme",
+          "lieu": [
+            "interieur",
+            "exterieur"
+          ],
+          "encadrement": "2",
+          "dureeMinutes": 75,
+          "dureeFormat": "long",
+          "energie": 2,
+          "sources": [
+            "teachbesideme_themes"
+          ]
+        }
+      ]
+    }
+  }
+}
