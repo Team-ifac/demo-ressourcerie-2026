@@ -13,6 +13,18 @@ import Home from "./pages/Home";
 import AnimationTools from "./pages/AnimationTools";
 import ProgramGeneratorPage from "./pages/ProgramGeneratorPage";
 import ProgramResultPage from "@/pages/ProgramResultPage";
+import TeamTool from "./components/tools/TeamTool";
+import BinomeTool from "./components/tools/BinomeTool";
+import ChallengeTool from "./components/tools/ChallengeTool";
+import ChecklistTool from "./components/tools/ChecklistTool";
+import TerrainModeTool from "./components/tools/TerrainModeTool";
+import DrawTool from "./components/tools/DrawTool";
+import RandomWheelTool from "./components/tools/RandomWheelTool";
+import DiceTool from "./components/tools/DiceTool";
+import TrafficLightTool from "./components/tools/TrafficLightTool";
+import HourglassTool from "./components/tools/HourglassTool";
+import CodeGeneratorTool from "./components/tools/CodeGeneratorTool";
+import CodePlayTool from "./components/tools/CodePlayTool";
 import ResourcesReorganized from "./pages/ResourcesReorganized";
 import ResourceDetail from "./pages/ResourceDetail";
 import Library from "./pages/Library";
@@ -88,6 +100,18 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/tools" component={AnimationTools} />
       <Route path="/tools/program-generator" component={ProgramGeneratorPage} />
+      <Route path="/tools/team-generator" component={TeamTool} />
+      <Route path="/tools/binome-generator" component={BinomeTool} />
+      <Route path="/tools/challenge-generator" component={ChallengeTool} />
+      <Route path="/tools/checklist" component={ChecklistTool} />
+      <Route path="/tools/terrain-mode" component={TerrainModeTool} />
+      <Route path="/tools/draw" component={DrawTool} />
+      <Route path="/tools/wheel" component={RandomWheelTool} />
+      <Route path="/tools/dice" component={DiceTool} />
+      <Route path="/tools/traffic-light" component={TrafficLightTool} />
+      <Route path="/tools/hourglass" component={HourglassTool} />
+      <Route path="/tools/code-generator" component={CodeGeneratorTool} />
+      <Route path="/tools/code-play/:id" component={CodePlayTool} />
       <Route path="/programme/resultat" component={ProgramResultPage} />
       <Route path="/outils">
         <Redirect to="/tools" />

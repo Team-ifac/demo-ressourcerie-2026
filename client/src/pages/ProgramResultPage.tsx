@@ -645,31 +645,78 @@ const handleDownloadRulesPdf = async () => {
       const safeSummary = sanitizePdfText(activity.summary);
       const safeContent = sanitizePdfText(activity.content);
 
-      const titleLines = doc.splitTextToSize(safeTitle, contentWidth - 8);
+      const extractField = (source: string, labels: string[]) => {
+        const escapedLabels = labels.map((label) =>
+          label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        );
 
-      const metaParts = [
-        safeCategory,
-        safeDuration ? `Durée : ${safeDuration}` : "",
-        safeAgeRange ? `Âge : ${safeAgeRange}` : "",
-      ].filter(Boolean);
+        const pattern = new RegExp(
+          `(?:^|\\n)\\s*(?:${escapedLabels.join("|")})\\s*:?\\s*([^\\n]+)`,
+          "i"
+        );
 
-      const metaText = metaParts.join(" · ");
-      const metaLines = metaText ? doc.splitTextToSize(metaText, contentWidth - 8) : [];
+        const match = source.match(pattern);
+        return match?.[1]?.trim() ?? "";
+      };
 
-      const summaryLines = safeSummary
-        ? doc.splitTextToSize(safeSummary, contentWidth - 8)
-        : [];
+      const objectiveText =
+        extractField(safeContent, ["Objectif", "Objectifs", "But"]) || safeSummary;
+
+      const energyText = extractField(safeContent, [
+        "Niveau d'énergie",
+        "Niveau d’energie",
+        "Énergie",
+        "Energie",
+      ]);
+
+      const placeText = extractField(safeContent, ["Lieu", "Endroit"]);
+      const supervisionText = extractField(safeContent, [
+        "Encadrement",
+        "Nombre d'animateurs",
+        "Nombre d’animateurs",
+        "Effectif",
+      ]);
 
       const rulesSource = safeContent || safeSummary || "Règles non renseignées.";
-      const ruleLines = doc.splitTextToSize(rulesSource, contentWidth - 8);
+
+      const titleLines = doc.splitTextToSize(safeTitle, contentWidth - 8);
+
+      const infoParts = [
+        safeCategory ? `Type : ${safeCategory}` : "",
+        safeDuration ? `Durée : ${safeDuration}` : "",
+        safeAgeRange ? `Âge : ${safeAgeRange}` : "",
+        energyText ? `Énergie : ${energyText}` : "",
+        placeText ? `Lieu : ${placeText}` : "",
+        supervisionText ? `Encadrement : ${supervisionText}` : "",
+      ].filter(Boolean);
+
+      const infoLines = infoParts.flatMap((part) =>
+        doc.splitTextToSize(part, contentWidth - 20)
+      );
+
+      const objectiveLines = objectiveText
+        ? doc.splitTextToSize(objectiveText, contentWidth - 14)
+        : [];
+
+      const summaryLines = safeSummary
+        ? doc.splitTextToSize(safeSummary, contentWidth - 14)
+        : [];
+
+      const ruleLines = doc.splitTextToSize(rulesSource, contentWidth - 14);
+
+      const infoBlockHeight = infoLines.length ? 8 + infoLines.length * 4 + 6 : 0;
+      const objectiveBlockHeight = objectiveLines.length ? 8 + objectiveLines.length * 4 + 6 : 0;
+      const summaryBlockHeight = summaryLines.length ? 8 + summaryLines.length * 4 + 6 : 0;
+      const rulesBlockHeight = 8 + ruleLines.length * 4 + 6;
 
       const blockHeight =
         10 +
         titleLines.length * 4.4 +
-        (metaLines.length ? metaLines.length * 3.8 + 2 : 0) +
-        (summaryLines.length ? summaryLines.length * 3.8 + 3 : 0) +
-        ruleLines.length * 4 +
-        10;
+        (infoLines.length ? infoBlockHeight + 4 : 0) +
+        (objectiveLines.length ? objectiveBlockHeight + 4 : 0) +
+        (summaryLines.length ? summaryBlockHeight + 4 : 0) +
+        rulesBlockHeight +
+        8;
 
       ensureSpace(blockHeight);
 
@@ -684,43 +731,73 @@ const handleDownloadRulesPdf = async () => {
       doc.setFontSize(12);
       doc.setTextColor(15, 23, 42);
       doc.text(titleLines, marginX + 4, innerY);
-      innerY += titleLines.length * 4.4;
+      innerY += titleLines.length * 4.4 + 3;
 
-      if (metaLines.length) {
-        innerY += 2;
+      if (infoLines.length) {
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(marginX + 4, innerY - 4, contentWidth - 8, infoBlockHeight, 2.5, 2.5, "F");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.text("INFOS CLÉS", marginX + 7, innerY);
+
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8.5);
-        doc.setTextColor(100, 116, 139);
-        doc.text(metaLines, marginX + 4, innerY);
-        innerY += metaLines.length * 3.8;
+        doc.setTextColor(15, 23, 42);
+        doc.text(infoLines, marginX + 7, innerY + 4.5);
+
+        innerY += infoBlockHeight + 4;
+      }
+
+      if (objectiveLines.length) {
+        doc.setFillColor(254, 249, 195);
+        doc.roundedRect(marginX + 4, innerY - 4, contentWidth - 8, 7, 2, 2, "F");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.2);
+        doc.setTextColor(30, 41, 59);
+        doc.text("Objectif", marginX + 7, innerY);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.2);
+        doc.setTextColor(15, 23, 42);
+        doc.text(objectiveLines, marginX + 7, innerY + 5);
+
+        innerY += objectiveBlockHeight + 4;
       }
 
       if (summaryLines.length) {
-        innerY += 4;
-        doc.setFont("helvetica", "italic");
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(marginX + 4, innerY - 4, contentWidth - 8, summaryBlockHeight, 2, 2, "F");
+
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(71, 85, 105);
-        doc.text(summaryLines, marginX + 4, innerY);
-        innerY += summaryLines.length * 3.8;
+        doc.text("Résumé rapide", marginX + 7, innerY);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(71, 85, 105);
+        doc.text(summaryLines, marginX + 7, innerY + 5);
+
+        innerY += summaryBlockHeight + 4;
       }
 
-      innerY += 5;
+      doc.setFillColor(239, 246, 255);
+      doc.roundedRect(marginX + 4, innerY - 4, contentWidth - 8, 7, 2, 2, "F");
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9.5);
       doc.setTextColor(30, 41, 59);
-      doc.text("Règles", marginX + 4, innerY);
+      doc.text("Règles / déroulement", marginX + 7, innerY);
 
-      innerY += 5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
       doc.setTextColor(15, 23, 42);
-      doc.text(ruleLines, marginX + 4, innerY);
+      doc.text(ruleLines, marginX + 7, innerY + 5);
 
       cursorY += blockHeight + 6;
-
-      if (index < selectedRuleActivities.length - 1) {
-        ensureSpace(12);
-      }
     });
 
     doc.save("regles-jeux-ifac.pdf");

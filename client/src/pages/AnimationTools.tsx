@@ -32,57 +32,100 @@ const TOOL_CARDS: ToolCard[] = [
     title: "Mode terrain",
     description:
       "Trouve rapidement une idée d’activité selon ton contexte, ton groupe et ton niveau d’énergie.",
-    badge: "Bientôt disponible",
+    href: "/tools/terrain-mode",
+    badge: "Disponible",
     icon: Compass,
-    isAvailable: false,
+    isAvailable: true,
+  },
+  {
+    title: "Feu tricolore",
+    description:
+      "Lance un départ visuel rouge → orange → vert avec compte à rebours et signal final.",
+    href: "/tools/traffic-light",
+    badge: "Disponible",
+    icon: Target,
+    isAvailable: true,
+  },
+  {
+    title: "Sablier",
+    description:
+      "Affiche un sablier animé pour rythmer un défi, une transition ou un temps court en animation.",
+    href: "/tools/hourglass",
+    badge: "Disponible",
+    icon: Target,
+    isAvailable: true,
   },
   {
     title: "Créateur d’équipes",
     description:
       "Constitue des équipes équilibrées en quelques secondes pour lancer une activité sans perdre de temps.",
-    badge: "Bientôt disponible",
+    href: "/tools/team-generator",
+    badge: "Disponible",
     icon: Users,
-    isAvailable: false,
+    isAvailable: true,
   },
   {
     title: "Générateur de binômes",
     description:
       "Crée des binômes rapidement pour les temps en duo, les échanges ou les mises en activité.",
-    badge: "Bientôt disponible",
+    href: "/tools/binome-generator",
+    badge: "Disponible",
     icon: Sparkles,
-    isAvailable: false,
+    isAvailable: true,
   },
   {
     title: "Défis / brise-glace",
     description:
       "Pioche des idées pour lancer un groupe, dynamiser un temps ou créer une ambiance conviviale.",
-    badge: "Bientôt disponible",
+    href: "/tools/challenge-generator",
+    badge: "Disponible",
     icon: Target,
-    isAvailable: false,
+    isAvailable: true,
   },
   {
     title: "Checklist intelligente",
     description:
       "Prépare ton matériel et sécurise ton organisation avec une checklist adaptée à la situation.",
-    badge: "Bientôt disponible",
+    href: "/tools/checklist",
+    badge: "Disponible",
     icon: ClipboardList,
-    isAvailable: false,
+    isAvailable: true,
+  },
+  {
+    title: "Tirage dessin",
+    description:
+      "Lance rapidement une consigne ou un thème de dessin pour animer un temps créatif, un défi ou une mise en activité.",
+    href: "/tools/draw",
+    badge: "Disponible",
+    icon: Wand2,
+    isAvailable: true,
   },
   {
     title: "Lanceur de dés",
     description:
       "Utilise un lanceur de dés rapide pour des mécaniques de jeu, des choix ou des mini-défis.",
-    badge: "Bientôt disponible",
+    href: "/tools/dice",
+    badge: "Disponible",
     icon: Dices,
-    isAvailable: false,
+    isAvailable: true,
   },
   {
     title: "Roue aléatoire",
     description:
       "Fais tourner une roue de choix pour animer un tirage, répartir ou introduire une consigne.",
-    badge: "Bientôt disponible",
+    href: "/tools/wheel",
+    badge: "Disponible",
     icon: Wand2,
-    isAvailable: false,
+    isAvailable: true,
+  },
+  {
+    title: "Générateur de code",
+    description:
+      "Crée des codes et des indices pour tes jeux, enquêtes et chasses au trésor avec un système de cadenas interactif.",
+    href: "/tools/code-generator",
+    badge: "Nouveau",
+    icon: Sparkles,
+    isAvailable: true,
   },
 ];
 
@@ -158,13 +201,11 @@ export default function AnimationTools() {
 
             if (tool.isAvailable && tool.href) {
               return (
-                <a
-                  key={tool.title}
-                  href={tool.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
+            <a
+            key={tool.title}
+            href={tool.href}
+            className="block"
+            >
                   {cardContent}
                 </a>
               );
