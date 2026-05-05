@@ -883,7 +883,7 @@ export const appRouter = router({
     me: publicProcedure.query(async (opts) => {
       const u: any = opts.ctx.user;
       if (!u) return null;
-      if (u.emailVerified === 0 || u.emailVerified === false) return null;
+      // MODE DÉMO : on autorise auth.me même si l'email n'est pas encore vérifié
 
       const isPremium = await resolveIsPremium(u.id);
       const profileType = await resolveProfileType(u.id);
