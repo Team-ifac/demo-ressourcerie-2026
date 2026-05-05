@@ -14,7 +14,7 @@ import * as stripeService from "./stripe";
 import { cmsRouter } from "./cmsRouter";
 import * as authService from "./auth";
 import { sendVerificationEmail } from "./emailService";
-import { COOKIE_NAME } from "../shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
 import { sdk } from "./_core/sdk";
 import { canViewResource, canOpenResource } from "../shared/resourceAccessPolicy";
 import {
@@ -1059,7 +1059,10 @@ if (!isEmailVerified) {
 
         // 4) Poser la cookie
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, cookieOptions);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, {
+          ...cookieOptions,
+          maxAge: ONE_YEAR_MS,
+        });
 
         return { userId: user.id, name: `${user.firstName} ${user.lastName}`, success: true };
       }),
