@@ -53,6 +53,7 @@ import AdminImportsZip from "./pages/AdminImportsZip";
 import AdminThumbnails from "./pages/AdminThumbnails";
 import AdminCMS from "./pages/AdminCMS";
 import { AuthCheckEmail } from "./pages/AuthCheckEmail";
+import { AuthForgotPassword } from "./pages/AuthForgotPassword";
 import AuthSetPassword from "./pages/AuthSetPassword";
 import AdminImportFormateurs from "./pages/AdminImportFormateurs";
 import AdminSendFormateursEmails from "./pages/AdminSendFormateursEmails";
@@ -130,6 +131,7 @@ function Router() {
       <Route path="/auth/choice" component={AuthChoice} />
       <Route path="/auth/signup" component={AuthSignup} />
       <Route path="/auth/login" component={AuthLogin} />
+      <Route path="/auth/forgot-password" component={AuthForgotPassword} />
       <Route path="/auth/verify-email" component={AuthVerifyEmail} />
       <Route path="/auth/check-email" component={AuthCheckEmail} />
       <Route path="/auth/set-password/:token" component={AuthSetPassword} />
