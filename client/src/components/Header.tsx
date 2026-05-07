@@ -121,17 +121,6 @@ export function Header() {
 
           {/* Zone droite */}
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <a
-              href="https://adhesion.ifac.asso.fr/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden lg:block"
-            >
-              <Button className="h-12 rounded-full px-5 text-[15px] font-semibold shadow-sm shadow-primary/20">
-                Adhérer à ifac
-                <ExternalLink className="ml-2 h-4 w-4" />
-              </Button>
-            </a>
 
             {toggleTheme && (
               <Button
